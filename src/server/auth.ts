@@ -4,11 +4,28 @@ import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
+import { getEmailTransport, passwordResetEmail } from "./email";
+
+const RESET_TOKEN_MINUTES = 60;
+
+/**
+ * Send outside the request so response time doesn't reveal whether an account
+ * exists for the address (Better Auth answers unknown emails immediately).
+ */
+function sendLater(task: () => Promise<void>) {
+  const run = () => task().catch((error) => console.error("[email] send failed:", error instanceof Error ? error.message : error));
+  try {
+    after(run);
+  } catch {
+    void run();
+  }
+}
 
 /**
  * Accounts, powered by Better Auth.
@@ -40,6 +57,11 @@ export function authConfigurationProblem(): string | null {
   return null;
 }
 
+function list(value: string | undefined): string[] | undefined {
+  const items = value?.split(",").map((s) => s.trim()).filter(Boolean);
+  return items?.length ? items : undefined;
+}
+
 function createDatabase(): BetterAuthOptions["database"] {
   const url = process.env.DATABASE_URL;
   if (url && /^postgres(ql)?:\/\//.test(url)) {
@@ -53,6 +75,7 @@ function createDatabase(): BetterAuthOptions["database"] {
 }
 
 function createOptions(): BetterAuthOptions {
+  const email = getEmailTransport();
   const google =
     process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
       ? { google: { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET } }
@@ -70,6 +93,15 @@ function createOptions(): BetterAuthOptions {
       minPasswordLength: 8,
       maxPasswordLength: 128,
       autoSignIn: true,
+      resetPasswordTokenExpiresIn: RESET_TOKEN_MINUTES * 60,
+      revokeSessionsOnPasswordReset: true,
+      // Only offered when an email transport is configured (see ./email.ts).
+      sendResetPassword: email
+        ? async ({ user, url }) => {
+            const message = passwordResetEmail({ name: user.name, url, minutes: RESET_TOKEN_MINUTES });
+            sendLater(() => email.send({ to: user.email, ...message }));
+          }
+        : undefined,
     },
     socialProviders: { ...google, ...github },
     account: {
@@ -84,9 +116,25 @@ function createOptions(): BetterAuthOptions {
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
     },
-    rateLimit: { enabled: process.env.NODE_ENV === "production", window: 60, max: 60 },
-    advanced: { cookiePrefix: "isola" },
-    trustedOrigins: process.env.ISOLA_TRUSTED_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean),
+    rateLimit: {
+      enabled: process.env.NODE_ENV === "production",
+      window: 60,
+      max: 100,
+      // Better Auth's built-in stricter limits still apply to sign-in, sign-up,
+      // password changes and reset requests. Reading the current session is
+      // cheap and happens on every page, so it isn't throttled.
+      customRules: { "/get-session": false },
+    },
+    advanced: {
+      cookiePrefix: "isola",
+      // Rate limits are keyed by client IP. Name the header your proxy sets
+      // (e.g. cf-connecting-ip on Cloudflare); without one, limits are shared.
+      ipAddress: {
+        ipAddressHeaders: list(process.env.ISOLA_CLIENT_IP_HEADERS) ?? ["x-forwarded-for"],
+        trustedProxies: list(process.env.ISOLA_TRUSTED_PROXIES),
+      },
+    },
+    trustedOrigins: list(process.env.ISOLA_TRUSTED_ORIGINS),
     plugins: [nextCookies()],
   };
 }

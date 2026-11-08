@@ -44,6 +44,13 @@ export default function PrivacyPage() {
         and sessions.
       </p>
 
+      <h2>Email</h2>
+      <p>
+        If you ask to reset your password, ISOLA sends an email to the address on your account through the email service
+        this deployment uses. That service receives your email address and the message, which contains a single-use link
+        that expires after 60 minutes. ISOLA doesn&apos;t send marketing email.
+      </p>
+
       <h2>Cookies and analytics</h2>
       <p>
         ISOLA sets cookies only when you sign in: a session cookie that keeps you signed in, plus short-lived cookies used

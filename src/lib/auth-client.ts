@@ -22,6 +22,8 @@ const messages: Record<string, string> = {
   CREDENTIAL_ACCOUNT_NOT_FOUND: "This account signs in with Google or GitHub, so it has no password.",
   SESSION_EXPIRED: "For your security, sign in again to do this.",
   AUTH_UNAVAILABLE: "Accounts aren't available on this deployment right now.",
+  RESET_PASSWORD_DISABLED: "Password reset by email isn't set up on this deployment.",
+  INVALID_TOKEN: "This reset link is invalid or has expired. Request a new one.",
   account_not_linked:
     "An account with this email already exists and uses a password. Sign in with your password instead.",
   email_doesn_t_match: "That account uses a different email address.",

@@ -45,6 +45,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling |
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`) |
 | `npm run test:auth` | Account journey (sign up, sign in/out, profile, password, delete) against a running server |
+| `npm run test:reset` | Password reset through a real SMTP hop (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 
 `node e2e/a11y.mjs` runs an axe-core audit (install with `npm i --no-save axe-core`).
 
@@ -78,8 +79,13 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `ISOLA_SQLITE_PATH` | `.data/isola.db` | SQLite file location |
 | `ISOLA_AUTH_AUTO_MIGRATE` | `true` | Create/upgrade auth tables on first use |
 | `ISOLA_TRUSTED_ORIGINS` | — | Extra origins allowed to call `/api/auth` |
+| `ISOLA_CLIENT_IP_HEADERS` | `x-forwarded-for` | Header(s) your proxy sets with the client IP, for auth rate limits (e.g. `cf-connecting-ip`) |
+| `ISOLA_TRUSTED_PROXIES` | — | Proxy IPs/CIDRs to skip when reading a multi-hop forwarded chain |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | Enables "Continue with Google" |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | — | Enables "Continue with GitHub" |
+| `EMAIL_FROM` | `ISOLA <no-reply@localhost>` | Sender for account emails |
+| `SMTP_URL` *or* `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_SECURE` | — | Send email over SMTP |
+| `RESEND_API_KEY` | — | Send email with Resend's API (used if SMTP isn't set) |
 | `NEXT_PUBLIC_ISOLA_SOCIAL_GITHUB` / `_X` / `_INSTAGRAM` / `_LINKEDIN` / `_YOUTUBE` | GitHub: this repo | Footer social links; unset ones aren't shown |
 | `NEXT_PUBLIC_ISOLA_SUPPORT_EMAIL` | — | Shows a contact link in the footer and help pages |
 | `NEXT_PUBLIC_ISOLA_LEGAL_ENTITY` | `ISOLA` | Copyright line |
@@ -136,18 +142,30 @@ Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
   with a clear message instead of being linked.
 - **Account page:** edit name, change password (optionally signing out other
   devices), sign out everywhere, delete the account.
+- **Password reset by email:** "Forgot password?" on the sign-in page sends a
+  single-use link that expires after 60 minutes; using it signs the account out
+  everywhere. The response is identical whether or not the email has an
+  account, and the email is sent after the response so timing doesn't reveal it
+  either. Email goes out over SMTP (`SMTP_URL` or `SMTP_HOST`…) or Resend
+  (`RESEND_API_KEY`). In development with neither set, the link is printed in
+  the server terminal; in production the page says reset isn't available.
 - **Storage:** Postgres when `DATABASE_URL` is set; otherwise a local SQLite
   file using Node's built-in `node:sqlite` (development and single-server use;
   Node prints an "experimental" warning for it). Better Auth's tables (`user`,
   `session`, `account`, `verification`) are created or extended on first use;
   this only adds what's missing. Set `ISOLA_AUTH_AUTO_MIGRATE=false` if you'd
   rather create them with your own migration tooling.
-- **Server rate limits** follow the signed-in account rather than the IP address.
+- **Rate limits:** in production Better Auth allows 3 sign-in, sign-up or
+  password-change attempts per 10 seconds and 3 reset emails per minute per
+  client IP (in memory, per instance). Session reads aren't throttled. Limits
+  are keyed by the IP header your proxy sets (`ISOLA_CLIENT_IP_HEADERS`); with
+  no such header every visitor shares one bucket, so set it for your host.
+- **Server engine rate limits** follow the signed-in account rather than the IP address.
 - Pages read the session behind `<Suspense>` (Cache Components), so the rest
   of each page still prerenders.
 
-Not built yet: email verification, password reset and email change (they need
-an email provider), and saving projects to an account.
+Not built yet: email verification and email change, and saving projects to an
+account.
 
 ## Editing model
 
@@ -234,8 +252,17 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 - Crop with aspect presets and fit-to-subject; resize on export.
 - Export to transparent PNG, PNG with background, or JPEG at the chosen
   resolution, with dimensions shown before download.
-- Batch studio with per-item states, retry, cancel, remove, controlled
-  concurrency, open-in-editor and ZIP download.
+- Batch studio: selectable grid/list with adjustable thumbnails, per-item
+  states (queued, processing, ready, needs review, failed), "Remove
+  background" and "Retry failed" on a selection, and batch settings applied to
+  selected images: background (transparent, white, soft grey, custom colour or
+  uploaded image), canvas (original framing, original size, square, portrait,
+  landscape, custom), fit, padding, 3×3 alignment, soft shadow, PNG/JPEG and
+  original or suffixed file names. Export all or only the selection as a ZIP,
+  rendered at full resolution one image at a time.
+- "Needs review" is a real check of the mask, not a guess: no clear subject,
+  almost everything kept, or large partly transparent areas (thresholds
+  calibrated on real model output). "Refine" opens the image in the editor.
 - Responsive layouts (bottom toolbar and sheets on phones), keyboard shortcuts,
   focus management, reduced-motion support.
 
@@ -243,8 +270,8 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 
 - **Billing:** `src/server/billing.ts` is a boundary only; there are no plans or
   prices, and the Pricing page says so.
-- **Account email flows:** verification, password reset and email change need
-  an email provider. Projects aren't saved to accounts.
+- **Account email flows:** password reset is done; email verification and email
+  change aren't built yet. Projects aren't saved to accounts.
 - **Public API:** no hosted API or API keys. The developer page documents only the
   two routes that exist.
 - **Server rate limiting** is in memory per instance; use a shared store for

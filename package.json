@@ -12,13 +12,15 @@
     "test:e2e": "node e2e/run.mjs",
     "postinstall": "node scripts/copy-ort.mjs",
     "models:fetch": "node scripts/fetch-models.mjs",
-    "test:auth": "node e2e/auth.mjs"
+    "test:auth": "node e2e/auth.mjs",
+    "test:reset": "node e2e/password-reset.mjs"
   },
   "dependencies": {
     "better-auth": "^1.7.18",
     "fflate": "^0.8.3",
     "lucide-react": "^1.70.0",
     "next": "16.4.5",
+    "nodemailer": "^10.4.0",
     "onnxruntime-web": "^1.31.1",
     "pg": "^8.23.1",
     "radix-ui": "^1.8.1",
@@ -31,11 +33,15 @@
     "@playwright/test": "^1.63.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^22.20.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/smtp-server": "^3.5.13",
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
+    "mailparser": "^3.14.2",
+    "smtp-server": "^3.21.3",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.1.0"

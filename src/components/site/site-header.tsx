@@ -80,15 +80,17 @@ export function SiteHeader() {
                   </DropdownMenu.Item>
                 ))}
               </DropdownMenu.Content>
-                      </DropdownMenu.Root>
+          </DropdownMenu.Root>
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               aria-current={pathname === link.href ? "page" : undefined}
               className={cn(
-                "inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-ink hover:bg-ink/5",
-                pathname === link.href && "bg-ink/5",
+                "relative inline-flex h-16 items-center px-3 text-sm font-medium transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors",
+                pathname === link.href
+                  ? "text-blue-700 after:bg-blue"
+                  : "text-ink after:bg-transparent hover:text-blue-700",
               )}
             >
               {link.label}

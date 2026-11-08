@@ -33,7 +33,10 @@ export default function SupportPage() {
           Up to {formatBytes(uploadLimits.maxFileBytes)} per file, {uploadLimits.maxDimension.toLocaleString("en-US")}px on the
           longest side and {uploadLimits.maxMegapixels} megapixels.
         </li>
-        <li>Batch studio holds up to {uploadLimits.maxBatchFiles} images at a time.</li>
+        <li>
+          Batch studio holds up to {uploadLimits.maxBatchFiles} images at a time. Select images and use Batch settings to
+          change their background, canvas size, padding, alignment, shadow and export format, then export them as a ZIP.
+        </li>
         <li>
           Export as a transparent PNG, a PNG with a background, or a JPEG (always opaque). Exports can be up to{" "}
           {exportLimits.maxMegapixels} megapixels; some phones allow less.
@@ -79,8 +82,9 @@ export default function SupportPage() {
         account. Projects aren&apos;t saved to accounts yet, so export your work before closing the tab.
       </p>
       <p>
-        Password reset by email isn&apos;t available yet. If you can&apos;t sign in, create a new account or contact
-        support{site.supportEmail ? "" : " through the site operator"}.
+        Forgot your password? Use <a href="/forgot-password">Reset your password</a> on the sign-in page. We&apos;ll email
+        a link that works once and expires after 60 minutes; using it signs you out of every device. If the email
+        doesn&apos;t arrive, check your spam folder.
       </p>
 
       <h2 id="troubleshooting">Troubleshooting</h2>

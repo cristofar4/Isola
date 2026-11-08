@@ -20,6 +20,22 @@ function check(name, ok, detail = "") {
   console.log(`${ok ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
+/** Production rate limits allow only a few sign-ins per 10 s per IP; wait it out once if hit. */
+async function submitSignIn(page) {
+  await page.getByRole("button", { name: "Sign in" }).click();
+  const limited = page.getByRole("alert").filter({ hasText: "Too many attempts" });
+  const outcome = await Promise.race([
+    limited.waitFor({ timeout: 4000 }).then(() => "limited").catch(() => "ok"),
+    page.waitForURL((u) => u.pathname === "/account", { timeout: 4000 }).then(() => "ok").catch(() => "ok"),
+  ]);
+  if (outcome === "limited") {
+    console.log("  (rate limited as expected in production; retrying after 11 s)");
+    await page.waitForTimeout(11_000);
+    await page.getByRole("button", { name: "Sign in" }).click();
+  }
+}
+const atPath = (path) => (u) => u.pathname === path;
+
 const email = `e2e-${Date.now()}@example.com`;
 const password = "first-password-1";
 const browser = await chromium.launch();
@@ -35,7 +51,7 @@ await page.screenshot({ path: join(OUT, "auth-sign-in.png") });
 
 // Sign up.
 await page.getByRole("link", { name: "Create an account" }).click();
-await page.waitForURL("**/sign-up");
+await page.waitForURL(atPath("/sign-up"));
 await page.getByLabel("Name").filter({ visible: true }).fill("Ada Lovelace");
 await page.getByLabel("Email").filter({ visible: true }).fill(email);
 await page.getByLabel("Password", { exact: true }).filter({ visible: true }).fill("short");
@@ -43,7 +59,7 @@ await page.getByRole("button", { name: "Create account" }).click();
 check("Short passwords are rejected before submitting", await page.getByText("Use at least 8 characters.").filter({ visible: true }).isVisible());
 await page.getByLabel("Password", { exact: true }).filter({ visible: true }).fill(password);
 await page.getByRole("button", { name: "Create account" }).click();
-await page.waitForURL("**/account");
+await page.waitForURL(atPath("/account"));
 await page.getByText("Signed in as").filter({ visible: true }).waitFor();
 check("Sign-up creates the account and opens it", (await page.getByText("Signed in as").filter({ visible: true }).innerText()).includes("Ada Lovelace"));
 check("Header shows the account menu", await page.getByRole("button", { name: /Account menu for Ada Lovelace/ }).isVisible());
@@ -85,8 +101,8 @@ const wrong = page.getByRole("alert").filter({ hasText: "don't match" });
 await wrong.waitFor({ timeout: 10_000 });
 check("Wrong password shows a clear error", true);
 await page.getByLabel("Password", { exact: true }).filter({ visible: true }).fill(password);
-await page.getByRole("button", { name: "Sign in" }).click();
-await page.waitForURL("**/account");
+await submitSignIn(page);
+await page.waitForURL(atPath("/account"));
 check("Sign-in returns to the requested page", true);
 
 // Change password.

@@ -36,16 +36,21 @@ export function TextField({
   );
 }
 
-export function PasswordField(props: InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string; error?: string | null }) {
-  const { label, hint, error, className, ...rest } = props;
+export function PasswordField(
+  props: InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string; error?: string | null; labelAction?: React.ReactNode },
+) {
+  const { label, hint, error, className, labelAction, ...rest } = props;
   const id = useId();
   const [visible, setVisible] = useState(false);
   const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
   return (
     <div className={cn("grid gap-1.5", className)}>
-      <label htmlFor={id} className="text-[13px] font-medium text-ink">
-        {label}
-      </label>
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor={id} className="text-[13px] font-medium text-ink">
+          {label}
+        </label>
+        {labelAction}
+      </div>
       <div className="relative">
         <input
           id={id}

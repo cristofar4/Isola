@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
@@ -52,6 +53,11 @@ export function SignInForm() {
         name="password"
         autoComplete="current-password"
         required
+        labelAction={
+          <Link href="/forgot-password" className="text-[13px] font-medium text-blue-700 underline-offset-2 hover:underline">
+            Forgot password?
+          </Link>
+        }
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
