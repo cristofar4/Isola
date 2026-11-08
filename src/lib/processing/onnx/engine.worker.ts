@@ -99,19 +99,33 @@ async function fetchModel(url: string, model: ModelSpec): Promise<Uint8Array> {
 
   let response: Response;
   try {
+    // Same-origin requests carry the session cookie the model route checks.
     response = await fetch(url, { credentials: "same-origin" });
   } catch (error) {
     throw new WorkerFailure("model-download-failed", "The model couldn't be downloaded. Check your connection.", String(error));
   }
-  if (response.status === 404) {
-    throw new WorkerFailure(
-      "model-missing",
-      "The background removal model isn't installed on this deployment.",
-      `GET ${url} returned 404. Run "npm run models:fetch" or set NEXT_PUBLIC_ISOLA_MODEL_BASE_URL.`,
-    );
-  }
   if (!response.ok || !response.body) {
-    throw new WorkerFailure("model-download-failed", "The model couldn't be downloaded.", `GET ${url} returned ${response.status}.`);
+    let serverMessage = "";
+    try {
+      serverMessage = ((await response.json()) as { message?: string }).message ?? "";
+    } catch {
+      /* not JSON */
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw new WorkerFailure("auth-required", serverMessage || "Sign in to remove backgrounds.");
+    }
+    if (response.status === 404) {
+      throw new WorkerFailure(
+        "model-missing",
+        "The background removal model isn't installed on this deployment.",
+        `GET ${url} returned 404. Run "npm run models:fetch" or set NEXT_PUBLIC_ISOLA_MODEL_BASE_URL.`,
+      );
+    }
+    throw new WorkerFailure(
+      "model-download-failed",
+      serverMessage || "The model couldn't be downloaded.",
+      `GET ${url} returned ${response.status}.`,
+    );
   }
 
   const total = model.bytes;

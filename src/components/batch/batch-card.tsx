@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
-import { AlertTriangle, Ban, Check, Clock, Download, Ellipsis, Loader2, RotateCcw, Scissors, Trash2, Wand2, X } from "lucide-react";
+import { AlertTriangle, Ban, Check, Clock, Download, Ellipsis, Loader2, Lock, RotateCcw, Scissors, Trash2, Wand2, X } from "lucide-react";
 import { useState } from "react";
 import { phaseText } from "@/components/editor/engine-text";
 import { ActivityBar, ProgressBar, Spinner } from "@/components/ui/progress";
@@ -23,6 +23,8 @@ export function statusOf(item: BatchItem): { label: string; tone: "ready" | "pro
       return { label: "Processing", tone: "processing", icon: Loader2 };
     case "queued":
       return { label: "Queued", tone: "idle", icon: Clock };
+    case "needs-auth":
+      return { label: "Sign in required", tone: "idle", icon: Lock };
     case "error":
       return { label: "Failed", tone: "error", icon: AlertTriangle };
     case "cancelled":

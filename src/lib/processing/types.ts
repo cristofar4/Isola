@@ -16,6 +16,7 @@ export type EngineState =
   | { kind: "error"; reason: EngineErrorCode; message: string; detail?: string };
 
 export type EngineErrorCode =
+  | "auth-required"
   | "model-missing"
   | "model-download-failed"
   | "model-integrity"

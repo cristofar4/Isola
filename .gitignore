@@ -43,6 +43,8 @@ next-env.d.ts
 # ISOLA: large binaries fetched/copied at install time
 /public/models/*.onnx
 /public/models/*.partial
+/models/*.onnx
+/models/*.partial
 /public/ort/
 /test-results/
 /e2e/output/

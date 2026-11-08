@@ -1,6 +1,8 @@
 // Accessibility audit with axe-core (install with: npm i --no-save axe-core).
 import { chromium } from "playwright";
 import { readFileSync } from "node:fs";
+import { createConfirmedAccount, signInContext } from "./lib/accounts.mjs";
+import { startMailbox } from "./lib/mail.mjs";
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const axe = readFileSync("node_modules/axe-core/axe.min.js", "utf8");
 const browser = await chromium.launch();
@@ -16,33 +18,29 @@ async function audit(label) {
   console.log(`${label}: ${result.length} violation(s)`);
   for (const v of result) console.log(`  [${v.impact}] ${v.id}: ${v.help}\n     ${v.nodes.join("\n     ")}`);
 }
-for (const route of ["/", "/batch", "/developers", "/support", "/privacy", "/pricing", "/sign-in", "/sign-up", "/editor"]) {
+for (const route of ["/", "/batch", "/developers", "/support", "/privacy", "/pricing", "/sign-in", "/sign-up", "/forgot-password", "/verify-email?error=INVALID_TOKEN", "/editor"]) {
   await page.goto(BASE + route, { waitUntil: "networkidle" });
   await page.waitForTimeout(600);
   await audit(route);
 }
+// Background removal and the account page need a signed-in, confirmed account.
+const mailbox = await startMailbox();
+const account = await createConfirmedAccount(browser, BASE, mailbox, { name: "Audit User" });
+await signInContext(page.context(), BASE, account);
+await page.reload({ waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Try the sneaker example" }).click();
 await page.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Export image" && !b.disabled), null, { timeout: 120000 });
 await audit("/editor (image ready)");
 await page.getByRole("button", { name: "Export image" }).click();
 await page.waitForTimeout(500);
 await audit("/editor (export dialog)");
-// Signed-in pages: create a throwaway account through the auth API.
-const signUp = await page.request.post(`${BASE}/api/auth/sign-up/email`, {
-  data: { name: "Audit User", email: `audit-${Date.now()}@example.com`, password: "audit-password-1" },
-  headers: { origin: BASE },
-});
-if (signUp.ok()) {
-  await page.goto(`${BASE}/account`, { waitUntil: "networkidle" });
-  await page.getByText("Signed in as").waitFor();
-  await audit("/account (signed in)");
-  await page.goto(BASE, { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: /Account menu/ }).click();
-  await page.waitForTimeout(300);
-  await audit("/ (account menu open)");
-} else {
-  console.log("Skipped signed-in audit: sign-up failed", signUp.status());
-  total++;
-}
+await page.goto(`${BASE}/account`, { waitUntil: "networkidle" });
+await page.getByText("Signed in as").filter({ visible: true }).waitFor();
+await audit("/account (signed in)");
+await page.goto(BASE, { waitUntil: "networkidle" });
+await page.getByRole("button", { name: /Account menu/ }).click();
+await page.waitForTimeout(300);
+await audit("/ (account menu open)");
+await mailbox.close();
 await browser.close();
 process.exit(total ? 1 : 0);

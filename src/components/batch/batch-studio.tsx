@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowDown, Download, Image as ImageIcon, LayoutGrid, List, Pencil, Plus, RotateCw, Scissors, SlidersHorizontal, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowDown, Download, Image as ImageIcon, LayoutGrid, List, Lock, Pencil, Plus, RotateCw, Scissors, SlidersHorizontal, Upload } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
 import { EngineChip } from "@/components/editor/engine-chip";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/progress";
 import { useFileDrop } from "@/components/upload/use-file-drop";
@@ -14,6 +15,7 @@ import { downloadBlob } from "@/lib/editor/export";
 import { isReady, useBatch, zipItems, type BatchItem } from "@/lib/batch/batch-store";
 import { useEngineState } from "@/lib/processing/registry";
 import { useProject } from "@/lib/project/store";
+import { signInHref, useOnSignIn } from "@/lib/session-gate";
 import { BatchCard, BatchRow } from "./batch-card";
 import { BatchSettingsPanel } from "./batch-settings-panel";
 
@@ -22,17 +24,17 @@ function slug(name: string) {
 }
 
 function counts(items: BatchItem[]) {
-  let ready = 0, processing = 0, queued = 0, review = 0, failed = 0;
+  let ready = 0, processing = 0, queued = 0, review = 0, failed = 0, waiting = 0;
   for (const i of items) {
     if (i.status === "done") {
       if (i.review) review++;
       else ready++;
-    }
-    else if (i.status === "processing") processing++;
+    } else if (i.status === "processing") processing++;
     else if (i.status === "queued") queued++;
+    else if (i.status === "needs-auth") waiting++;
     else failed++;
   }
-  return { ready, processing, queued, review, failed };
+  return { ready, processing, queued, review, failed, waiting };
 }
 
 function useAddFiles() {
@@ -96,6 +98,10 @@ export function BatchStudio() {
   const setCardSize = useBatch((s) => s.setCardSize);
   const process = useBatch((s) => s.process);
   const retryFailed = useBatch((s) => s.retryFailed);
+  const resumeAfterSignIn = useBatch((s) => s.resumeAfterSignIn);
+  const router = useRouter();
+  // Images added while signed out start as soon as the visitor signs in.
+  const { signedIn, isPending: sessionPending } = useOnSignIn(resumeAfterSignIn);
   const engineId = useProject((s) => s.engineId);
   const engine = useEngineState(engineId);
   const files = useAddFiles();
@@ -115,6 +121,7 @@ export function BatchStudio() {
     c.processing && `${c.processing} processing`,
     c.queued && `${c.queued} queued`,
     c.review && `${c.review} need${c.review === 1 ? "s" : ""} review`,
+    c.waiting && `${c.waiting} waiting for sign-in`,
     c.failed && `${c.failed} failed or cancelled`,
   ]
     .filter(Boolean)
@@ -201,6 +208,26 @@ export function BatchStudio() {
         <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
           {/* Images */}
           <section aria-label="Images in this batch" className="rounded-[18px] border border-line bg-surface p-4 shadow-[var(--shadow-card)] sm:p-5">
+            {!sessionPending && !signedIn && (
+              <div className="mb-4 flex flex-col gap-3 rounded-[14px] border border-blue-100 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center">
+                <Lock className="hidden size-5 shrink-0 text-blue sm:block" aria-hidden="true" />
+                <div className="flex-1 text-[13px] leading-relaxed text-ink-3">
+                  <p className="font-semibold text-ink">Sign in to remove backgrounds</p>
+                  <p>
+                    It&apos;s free. Images you add now wait here and start processing as soon as you sign in. Processing
+                    still happens on this device.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <ButtonLink href={signInHref("/batch")} size="sm">
+                    Sign in
+                  </ButtonLink>
+                  <ButtonLink href={signInHref("/batch", "sign-up")} size="sm" variant="secondary">
+                    Create account
+                  </ButtonLink>
+                </div>
+              </div>
+            )}
             <div role="toolbar" aria-label="Batch actions" className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-line pb-4">
               <SelectAll />
               <span className="text-sm text-muted" aria-live="polite">
@@ -209,7 +236,7 @@ export function BatchStudio() {
               <button
                 type="button"
                 disabled={selected.length === 0}
-                onClick={() => process(selected)}
+                onClick={() => (signedIn ? process(selected) : router.push(signInHref("/batch")))}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:underline disabled:cursor-not-allowed disabled:text-subtle disabled:no-underline"
               >
                 <Scissors className="size-4" aria-hidden="true" /> Remove background

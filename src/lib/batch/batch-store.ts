@@ -13,11 +13,12 @@ import { getEngine } from "@/lib/processing/registry";
 import { EngineError, isCancellation, type JobPhase } from "@/lib/processing/types";
 import { backgroundAssets } from "@/lib/project/assets";
 import { useProject } from "@/lib/project/store";
+import { isSignedIn } from "@/lib/session-gate";
 import { renderBatchBlob, renderBatchPreview, type BatchSources } from "./render";
 import { reviewMask } from "./review";
 import { DEFAULT_BATCH_SETTINGS, exportName, type BatchSettings } from "./settings";
 
-export type BatchStatus = "queued" | "processing" | "done" | "error" | "cancelled";
+export type BatchStatus = "queued" | "needs-auth" | "processing" | "done" | "error" | "cancelled";
 
 export interface BatchItem {
   id: string;
@@ -63,6 +64,7 @@ interface BatchState {
   add: (files: File[]) => Promise<Array<{ name: string; error: ValidationError }>>;
   process: (ids: string[]) => void;
   retryFailed: () => void;
+  resumeAfterSignIn: () => void;
   cancel: (id: string) => void;
   remove: (id: string) => void;
   clear: () => void;
@@ -70,6 +72,8 @@ interface BatchState {
 }
 
 const controllers = new Map<string, AbortController>();
+/** Items handed to run() but not finished yet (claimed synchronously to avoid double starts). */
+const claimed = new Set<string>();
 /** Low-resolution cutouts used to redraw previews when settings change. */
 const smallCutouts = new Map<string, ImageBitmap>();
 let running = 0;
@@ -86,10 +90,12 @@ function swapUrl(id: string, key: "thumbUrl" | "previewUrl", blob: Blob) {
 
 function pump() {
   while (running < batchConfig.concurrency) {
-    const next = useBatch.getState().items.find((i) => i.status === "queued" && !controllers.has(i.id));
+    const next = useBatch.getState().items.find((i) => i.status === "queued" && !claimed.has(i.id));
     if (!next) return;
     running++;
+    claimed.add(next.id);
     void run(next.id).finally(() => {
+      claimed.delete(next.id);
       running--;
       pump();
     });
@@ -137,6 +143,11 @@ async function refreshPreview(id: string) {
 async function run(id: string) {
   const item = get(id);
   if (!item) return;
+  // Removing backgrounds needs an account: park the item until the visitor signs in.
+  if (!(await isSignedIn())) {
+    patch(id, { status: "needs-auth", phase: null });
+    return;
+  }
   const controller = new AbortController();
   controllers.set(id, controller);
   patch(id, { status: "processing", phase: { kind: "waiting" }, error: null });
@@ -171,6 +182,7 @@ async function run(id: string) {
   } catch (error) {
     if (!get(id)) return;
     if (isCancellation(error)) patch(id, { status: "cancelled", phase: null });
+    else if (error instanceof EngineError && error.code === "auth-required") patch(id, { status: "needs-auth", phase: null });
     else
       patch(id, {
         status: "error",
@@ -321,6 +333,9 @@ export const useBatch = create<BatchState>((set, getState) => ({
       ),
     }));
     pump();
+  },
+  resumeAfterSignIn() {
+    getState().process(getState().items.filter((i) => i.status === "needs-auth").map((i) => i.id));
   },
   retryFailed() {
     getState().process(getState().items.filter((i) => i.status === "error" || i.status === "cancelled").map((i) => i.id));

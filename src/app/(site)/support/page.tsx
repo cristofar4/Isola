@@ -77,8 +77,10 @@ export default function SupportPage() {
 
       <h2 id="accounts">Accounts</h2>
       <p>
-        An account is optional. Create one with your email and a password, or with Google or GitHub where this site offers
-        them. From the Account page you can change your name and password, sign out of other devices and delete the
+        Removing backgrounds needs a free account. Create one with your email and a password, or with Google or GitHub
+        where this site offers them. With email sign-up we send a link to confirm your address; open it within 24 hours
+        and you&apos;ll be signed in. If you uploaded images before signing in, go back to that tab and they&apos;ll start
+        processing. From the Account page you can change your name and password, sign out of other devices and delete the
         account. Projects aren&apos;t saved to accounts yet, so export your work before closing the tab.
       </p>
       <p>
@@ -91,8 +93,13 @@ export default function SupportPage() {
       <h3>The first image takes a while</h3>
       <p>
         The first time, your browser downloads the model (about 170 MB for Standard). The editor shows real download
-        progress. After that it&apos;s cached and processing starts much sooner.
+        progress. After that it&apos;s cached and processing starts much sooner. On a brand-new installation the server
+        may need to fetch the model itself first, which adds a short wait before the download starts.
       </p>
+      <h3>&quot;Sign in to remove the background&quot;</h3>
+      <p>Background removal needs an account. Sign in or create one; images you&apos;ve added stay in the tab and start automatically.</p>
+      <h3>The confirmation email didn&apos;t arrive</h3>
+      <p>Check your spam folder. Signing in with your email and password sends a fresh link, and links last 24 hours.</p>
       <h3>High detail is greyed out</h3>
       <p>
         The High detail model needs WebGPU. Recent desktop versions of Chrome and Edge provide it; other browsers may not yet.

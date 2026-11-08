@@ -15,14 +15,22 @@ ONNX Runtime Web and Better Auth.
 
 ```bash
 npm install              # also copies ONNX Runtime Web into public/ort
-npm run models:fetch     # downloads + verifies the Standard model (~179 MB)
 npm run dev              # http://localhost:3000
 ```
 
-For the optional High detail model (WebGPU only) run `npm run models:fetch -- --all`.
+That's all you need locally:
 
-Accounts work out of the box in development: a SQLite database is created at
-`.data/isola.db` on first use. For production, see [Accounts](#accounts).
+- **Accounts** use a SQLite database created at `.data/isola.db` on first use.
+- **Removing a background requires a free account.** Create one at `/sign-up`.
+  Without an email service configured, development prints the confirmation
+  link in the terminal running `npm run dev`; open it to confirm and sign in.
+- **The model** (~179 MB) is downloaded by the server the first time someone
+  signs in and removes a background, checked against its SHA-256 checksum and
+  cached in `./models`. To download it ahead of time (recommended for
+  production) run `npm run models:fetch`, or `npm run models:fetch -- --all`
+  to include the optional High detail model (WebGPU only).
+
+For production settings see [Accounts](#accounts).
 
 Production:
 
@@ -39,12 +47,12 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | Script | What it does |
 | --- | --- |
 | `npm run dev` / `build` / `start` | Next.js development, production build, production server |
-| `npm run models:fetch` | Download model weights into `public/models` and check SHA-256 |
+| `npm run models:fetch` | Download model weights into `./models` ahead of time and check SHA-256 |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint (Next.js core-web-vitals + TypeScript rules) |
 | `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling |
-| `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`) |
-| `npm run test:auth` | Account journey (sign up, sign in/out, profile, password, delete) against a running server |
+| `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`; start it with `SMTP_URL=smtp://127.0.0.1:2525`) |
+| `npm run test:auth` | Account journey including email confirmation (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:reset` | Password reset through a real SMTP hop (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 
 `node e2e/a11y.mjs` runs an axe-core audit (install with `npm i --no-save axe-core`).
@@ -63,7 +71,10 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `NEXT_PUBLIC_ISOLA_BATCH_CONCURRENCY` | `1` | Batch items processed at once (1–4) |
 | `NEXT_PUBLIC_ISOLA_MAX_EXPORT_MEGAPIXELS` | `64` | Largest export |
 | `NEXT_PUBLIC_ISOLA_MAX_EXPORT_DIMENSION` | `12000` | Longest export side |
-| `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` | `/models/` | Where `.onnx` files are served |
+| `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` | `/api/models/` | Where the browser fetches models. The default route serves them only to signed-in users |
+| `ISOLA_MODEL_DIR` | `./models` | Where the server keeps model files (outside `public/` on purpose) |
+| `ISOLA_MODEL_AUTO_DOWNLOAD` | `true` | Download a missing model from the mirror on first use |
+| `ISOLA_MODEL_MIRROR` | rembg GitHub release | Where models are downloaded from |
 | `NEXT_PUBLIC_ISOLA_ORT_BASE_URL` | `/ort/` | Where ONNX Runtime `.mjs`/`.wasm` files are served |
 | `NEXT_PUBLIC_ISOLA_DEFAULT_MODEL` | `isnet-general-use` | Or `birefnet-lite` |
 | `NEXT_PUBLIC_ISOLA_DISABLE_WEBGPU` | `false` | Force WebAssembly |
@@ -135,20 +146,35 @@ Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
   secret are set. Register these callback URLs with each provider:
   `{BETTER_AUTH_URL}/api/auth/callback/google` and
   `{BETTER_AUTH_URL}/api/auth/callback/github`.
-- An OAuth sign-in is never attached automatically to an existing account
-  whose email hasn't been verified, which prevents someone pre-registering
-  another person's email. Because email verification isn't set up yet, a
-  Google/GitHub login that matches an existing password account is refused
-  with a clear message instead of being linked.
+- **Email confirmation:** with an email service configured, new accounts must
+  confirm their address before they can sign in. Sign-up shows "Check your
+  email"; the link (valid 24 hours) confirms the address and signs you in. The
+  tab you signed up in carries on to where you were going (with any images you
+  had open) once you return to it. Signing in before confirming sends a fresh
+  link. Signing up with an email that already has an account gives the same
+  answer as a new sign-up, so the form can't reveal who has an account, and the
+  real owner gets a "you already have an account" email instead.
+- An OAuth sign-in is only attached to an existing account whose email has been
+  confirmed; otherwise it's refused with a clear message. This stops someone
+  pre-registering another person's email.
+- **Background removal requires an account.** This is enforced on the server:
+  the model is only served to signed-in users (`/api/models/:file` returns 401
+  otherwise), and the optional server engine requires a session too. Signed-out
+  visitors can still upload; their images wait with a sign-in prompt and start
+  processing as soon as they sign in (after an email/password sign-in in the
+  same tab; a Google/GitHub redirect reloads the page). Once a browser has the
+  model cached, the requirement there is enforced by the app. If you point
+  `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` at a public CDN, it's enforced by the app only.
 - **Account page:** edit name, change password (optionally signing out other
   devices), sign out everywhere, delete the account.
 - **Password reset by email:** "Forgot password?" on the sign-in page sends a
   single-use link that expires after 60 minutes; using it signs the account out
-  everywhere. The response is identical whether or not the email has an
+  everywhere and also confirms the email address (it proves the mailbox). The response is identical whether or not the email has an
   account, and the email is sent after the response so timing doesn't reveal it
   either. Email goes out over SMTP (`SMTP_URL` or `SMTP_HOST`…) or Resend
-  (`RESEND_API_KEY`). In development with neither set, the link is printed in
-  the server terminal; in production the page says reset isn't available.
+  (`RESEND_API_KEY`). In development with neither set, links are printed in the
+  server terminal; in production without email, reset is shown as unavailable
+  and email confirmation is switched off.
 - **Storage:** Postgres when `DATABASE_URL` is set; otherwise a local SQLite
   file using Node's built-in `node:sqlite` (development and single-server use;
   Node prints an "experimental" warning for it). Better Auth's tables (`user`,
@@ -164,8 +190,7 @@ Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
 - Pages read the session behind `<Suspense>` (Cache Components), so the rest
   of each page still prerenders.
 
-Not built yet: email verification and email change, and saving projects to an
-account.
+Not built yet: changing the email address, and saving projects to an account.
 
 ## Editing model
 
@@ -215,23 +240,37 @@ e2e/                      Playwright end-to-end + a11y scripts
 
 ## Verification
 
-Run against a production build in this repository's sandbox:
+Run against a production build in this repository's sandbox, starting from an
+empty model folder (so the automatic download is exercised) and with
+`SMTP_URL=smtp://127.0.0.1:2525` so emails land in the tests' local mailbox:
 
-- **Unit tests:** 15/15 passing.
-- **End-to-end (`npm run test:e2e`): 32/32 checks passing**, including: landing
-  upload opens the editor; real on-device removal; exported PNGs are RGBA with
-  fully transparent background pixels and original dimensions; erase clears the
-  mask; restore returns the exact original RGB; undo/redo; comparison divider
-  keyboard control; colour backgrounds in PNG and JPEG; shadows; crop and resize
-  dimensions; invalid and oversized files rejected before decoding; transparent
-  input; a 24 MP image; retry after a missing-model failure; batch failure → retry,
-  concurrency limit, ZIP contents, open-in-editor; mobile toolbar and bottom sheet.
-- **Accessibility:** axe-core reports 0 violations on every page, the editor with
-  an image, and the export dialog.
+- **Unit tests:** 24/24 passing.
+- **End-to-end (`npm run test:e2e`): 40/40 checks passing**, including: the
+  model is refused to signed-out requests; a signed-out upload waits with a
+  sign-in prompt and is processed after signing in; real on-device removal;
+  exported PNGs are RGBA with fully transparent background pixels and original
+  dimensions; erase clears the mask; restore returns the exact original RGB;
+  undo/redo; comparison divider keyboard control; colour backgrounds in PNG and
+  JPEG; shadows; crop and resize dimensions; invalid and oversized files rejected
+  before decoding; transparent input; a 24 MP image; retry after a missing-model
+  failure; batch sign-in prompt, failure → retry, concurrency limit, needs-review
+  flag, ZIPs of all and of the selection, applied canvas/background/format/name
+  settings, refine in editor; mobile toolbar and bottom sheet.
+- **Accounts (`npm run test:auth`): 20/20**, including confirmation email, no
+  session before confirming, blocked sign-in with a fresh link, bad links, the
+  original tab carrying on, duplicate sign-up revealing nothing while emailing
+  the owner, profile, sign out, password change and account deletion.
+- **Password reset (`npm run test:reset`): 13/13**, through a real SMTP hop.
+- **Google/GitHub (`node e2e/oauth.mjs`):** both buttons start a real OAuth
+  redirect with the right callback URL (completing it needs real credentials).
+- **Accessibility:** axe-core reports 0 violations on 15 pages and states,
+  including the editor with an image, the export dialog, the account page and
+  the auth screens.
 
 Not verified here: WebGPU (unavailable in the headless sandbox, so the High detail
 model has only been validated with native ONNX Runtime), Safari and Firefox,
-real touch devices, and live calls to remove.bg (its API is unreachable from the
+real touch devices, completing Google/GitHub sign-in, delivery through a real
+email provider, and live calls to remove.bg (its API is unreachable from the
 sandbox; the route's validation, rate limiting and error paths were tested).
 
 ## Feature status
@@ -270,8 +309,8 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 
 - **Billing:** `src/server/billing.ts` is a boundary only; there are no plans or
   prices, and the Pricing page says so.
-- **Account email flows:** password reset is done; email verification and email
-  change aren't built yet. Projects aren't saved to accounts.
+- **Account email flows:** confirmation and password reset are done; changing
+  the email address isn't built yet. Projects aren't saved to accounts.
 - **Public API:** no hosted API or API keys. The developer page documents only the
   two routes that exist.
 - **Server rate limiting** is in memory per instance; use a shared store for

@@ -83,10 +83,12 @@ export default function DevelopersPage() {
         </tbody>
       </table>
       <p>
-        Model files aren&apos;t committed to the repository. Install them into <code>public/models</code> with{" "}
-        <code>npm run models:fetch</code> (add <code>-- --all</code> for every model), or host them elsewhere and set{" "}
-        <code>NEXT_PUBLIC_ISOLA_MODEL_BASE_URL</code>. Each download is checked against a SHA-256 checksum in the browser and
-        cached in Cache Storage. If a model is missing, the editor says so instead of pretending to work.
+        Model files aren&apos;t committed to the repository and aren&apos;t public. The browser fetches them from{" "}
+        <code>GET /api/models/:file</code>, which only answers signed-in users; that&apos;s how the account requirement
+        for background removal is enforced. The server keeps them in <code>./models</code> and, if one is missing,
+        downloads it once from the mirror and checks its SHA-256 checksum (or run <code>npm run models:fetch</code> ahead
+        of time). The browser verifies the checksum again and caches the file in Cache Storage. If a model can&apos;t be
+        served, the editor says so instead of pretending to work.
       </p>
       <p>
         The High detail model needs more memory than WebAssembly&apos;s 4 GB limit allows, so it is only offered when the
@@ -123,6 +125,12 @@ export default function DevelopersPage() {
 }`}</code>
       </pre>
 
+      <h3>GET /api/models/:file</h3>
+      <p>
+        Streams a model file to a signed-in user (401 otherwise). Used by the on-device engine; not an API for other
+        clients.
+      </p>
+
       <h3>POST /api/remove-background</h3>
       <p>
         Multipart form data with one <code>image</code> field (PNG, JPEG or WebP). Responds with a greyscale PNG alpha mask
@@ -142,6 +150,7 @@ export default function DevelopersPage() {
         <tbody>
           <tr><td>200</td><td>PNG mask in the body.</td></tr>
           <tr><td>400 / 415</td><td>Missing <code>image</code> field, or not a PNG, JPEG or WebP file.</td></tr>
+          <tr><td>401</td><td>Not signed in. Background removal requires an account.</td></tr>
           <tr><td>403</td><td>Cross-origin browser request (unless explicitly allowed).</td></tr>
           <tr><td>413</td><td>Larger than <code>ISOLA_REMOTE_MAX_UPLOAD_MB</code> (default 12 MB).</td></tr>
           <tr><td>422</td><td>The provider found no subject.</td></tr>

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, Info, RotateCcw, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { AlertTriangle, Info, Lock, RotateCcw, X } from "lucide-react";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { signInHref } from "@/lib/session-gate";
 import { ActivityBar, ProgressBar, Spinner } from "@/components/ui/progress";
 import { cancelProcessing, processImage } from "@/lib/project/actions";
 import { useProject, type ProjectImage } from "@/lib/project/store";
@@ -21,6 +22,30 @@ export function CanvasStatus({ image }: { image: ProjectImage }) {
         <p className="flex items-center gap-2 text-sm font-medium" role="status">
           <Spinner /> Preparing image…
         </p>
+      </StatusCard>
+    );
+  }
+
+  if (image.status === "needs-auth") {
+    return (
+      <StatusCard>
+        <div role="status">
+          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <Lock className="size-4 text-blue" aria-hidden="true" /> Sign in to remove the background
+          </p>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
+            Background removal needs a free account. Your image stays here while you sign in, and it&apos;s still processed
+            on this device.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <ButtonLink href={signInHref("/editor")} size="sm">
+              Sign in
+            </ButtonLink>
+            <ButtonLink href={signInHref("/editor", "sign-up")} size="sm" variant="secondary">
+              Create account
+            </ButtonLink>
+          </div>
+        </div>
       </StatusCard>
     );
   }

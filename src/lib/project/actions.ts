@@ -10,6 +10,7 @@ import type { EditSettings } from "@/lib/editor/types";
 import { getEngine } from "@/lib/processing/registry";
 import { EngineError, isCancellation, looksEmpty } from "@/lib/processing/types";
 import { uploadLimits } from "@/lib/config";
+import { isSignedIn } from "@/lib/session-gate";
 import {
   backgroundAssets,
   createImageAssets,
@@ -109,6 +110,11 @@ async function decodeInto(id: string): Promise<boolean> {
   }
 }
 
+/** Start every image that was waiting for the visitor to sign in. */
+export function resumeAfterSignIn() {
+  for (const image of store().images) if (image.status === "needs-auth") void processImage(image.id);
+}
+
 /** Run (or re-run) background removal. The original stays untouched for retries. */
 export async function processImage(id: string): Promise<void> {
   const assets = imageAssets.get(id);
@@ -119,6 +125,11 @@ export async function processImage(id: string): Promise<void> {
     if (!ok) return;
   }
   const decoded = assets.decoded!;
+  // Removing backgrounds needs an account; wait here until the visitor signs in.
+  if (!(await isSignedIn())) {
+    store().patchImage(id, { status: assets.mask ? "ready" : "needs-auth", phase: null });
+    return;
+  }
   assets.abort?.abort();
   const controller = new AbortController();
   assets.abort = controller;
@@ -165,6 +176,10 @@ export async function processImage(id: string): Promise<void> {
     if (!imageAssets.has(id)) return;
     if (isCancellation(error)) {
       store().patchImage(id, { status: assets.mask ? "ready" : "cancelled", phase: null });
+      return;
+    }
+    if (error instanceof EngineError && error.code === "auth-required") {
+      store().patchImage(id, { status: assets.mask ? "ready" : "needs-auth", phase: null });
       return;
     }
     const e =

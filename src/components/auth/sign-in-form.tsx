@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
-import { authClient, authErrorMessage, oauthErrorMessage, safeNext } from "@/lib/auth-client";
+import { authClient, authErrorMessage, oauthErrorMessage, safeNext, verifyCallback } from "@/lib/auth-client";
+import { CheckEmail } from "./check-email";
 import { FormAlert, PasswordField, TextField } from "./fields";
 import { SignedInNotice } from "./signed-in-notice";
 
@@ -18,14 +19,25 @@ export function SignInForm() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(oauthErrorMessage(params.get("error")));
+  const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
 
+  if (verifyEmail) return <CheckEmail email={verifyEmail} next={next} reason="sign-in" />;
   if (!isPending && session) return <SignedInNotice name={session.user.name} email={session.user.email} />;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
+    // No callbackURL here: Better Auth would turn it into a full-page redirect,
+    // which would lose any images open in this tab.
     const { error } = await authClient.signIn.email({ email: email.trim(), password, rememberMe: true });
+    if (error?.code === "EMAIL_NOT_VERIFIED") {
+      // Only reported after the password checks out. Send a fresh link back to where they were.
+      await authClient.sendVerificationEmail({ email: email.trim(), callbackURL: verifyCallback(next) });
+      setVerifyEmail(email.trim());
+      setSubmitting(false);
+      return;
+    }
     if (error) {
       setError(authErrorMessage(error));
       setSubmitting(false);

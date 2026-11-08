@@ -102,6 +102,7 @@ export class RemoteEngine implements BackgroundRemovalEngine {
         const json = (await response.json()) as { error?: string; message?: string };
         if (json.message) message = json.message;
         if (json.error === "not-configured") code = "not-configured";
+        if (json.error === "auth-required") code = "auth-required";
       } catch {
         /* ignore */
       }

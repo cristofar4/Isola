@@ -121,3 +121,68 @@ The link works once and expires in ${minutes} minutes. If you didn't ask for thi
 </body></html>`;
   return { subject: "Reset your ISOLA password", text, html };
 }
+
+export function verificationEmail({ name, url, hours }: { name: string; url: string; hours: number }): Omit<EmailMessage, "to"> {
+  const greeting = name ? `Hi ${name},` : "Hi,";
+  const text = `${greeting}
+
+Confirm your email address to finish setting up your ISOLA account:
+
+${url}
+
+The link expires in ${hours} hours. If you didn't create an ISOLA account, ignore this email and don't open the link.
+
+— ISOLA`;
+  const html = `<!doctype html>
+<html><body style="margin:0;background:#F5F6F3;font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif;color:#20292D">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #DFE2DC;border-radius:16px;padding:32px">
+        <tr><td>
+          <p style="margin:0 0 24px;font-size:18px;font-weight:800;letter-spacing:.06em">ISOLA</p>
+          <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25">Confirm your email</h1>
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3A4549">${escapeHtml(greeting)}</p>
+          <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#3A4549">Confirm this address to finish setting up your ISOLA account. You'll be signed in when you do.</p>
+          <p style="margin:0 0 24px"><a href="${escapeHtml(url)}" style="display:inline-block;background:#4163F4;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:10px">Confirm email</a></p>
+          <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#586266">The link expires in ${hours} hours. If you didn't create an ISOLA account, ignore this email and don't open the link.</p>
+          <p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:#848D91;word-break:break-all">If the button doesn't work, paste this link into your browser:<br>${escapeHtml(url)}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  return { subject: "Confirm your email for ISOLA", text, html };
+}
+
+export function accountExistsEmail({ name, signInUrl, resetUrl }: { name: string; signInUrl: string; resetUrl: string }): Omit<EmailMessage, "to"> {
+  const greeting = name ? `Hi ${name},` : "Hi,";
+  const text = `${greeting}
+
+Someone tried to create an ISOLA account with this email address, but you already have one.
+
+If it was you, sign in here: ${signInUrl}
+Forgot your password? Reset it here: ${resetUrl}
+
+If it wasn't you, you can ignore this email. Nothing has changed on your account.
+
+— ISOLA`;
+  const html = `<!doctype html>
+<html><body style="margin:0;background:#F5F6F3;font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif;color:#20292D">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #DFE2DC;border-radius:16px;padding:32px">
+        <tr><td>
+          <p style="margin:0 0 24px;font-size:18px;font-weight:800;letter-spacing:.06em">ISOLA</p>
+          <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25">You already have an account</h1>
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3A4549">${escapeHtml(greeting)}</p>
+          <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#3A4549">Someone tried to create an ISOLA account with this email address, but you already have one.</p>
+          <p style="margin:0 0 12px"><a href="${escapeHtml(signInUrl)}" style="display:inline-block;background:#4163F4;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:10px">Sign in</a></p>
+          <p style="margin:0 0 24px;font-size:14px"><a href="${escapeHtml(resetUrl)}" style="color:#2742BD">Forgot your password?</a></p>
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#586266">If it wasn't you, ignore this email. Nothing has changed on your account.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+  return { subject: "You already have an ISOLA account", text, html };
+}

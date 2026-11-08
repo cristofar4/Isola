@@ -89,7 +89,7 @@ export function UploadPanel({ className }: { className?: string }) {
         </ul>
         <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-muted">
           <Lock className="size-3.5" aria-hidden="true" />
-          Processed in your browser. Your image isn&apos;t uploaded.
+          Free account required. Processed in your browser; your image isn&apos;t uploaded.
         </p>
       </div>
     </section>

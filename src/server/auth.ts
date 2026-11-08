@@ -10,9 +10,10 @@ import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
-import { getEmailTransport, passwordResetEmail } from "./email";
+import { accountExistsEmail, getEmailTransport, passwordResetEmail, verificationEmail } from "./email";
 
 const RESET_TOKEN_MINUTES = 60;
+const VERIFY_TOKEN_HOURS = 24;
 
 /**
  * Send outside the request so response time doesn't reveal whether an account
@@ -93,8 +94,26 @@ function createOptions(): BetterAuthOptions {
       minPasswordLength: 8,
       maxPasswordLength: 128,
       autoSignIn: true,
+      // With an email service, new accounts must confirm their address before signing in.
+      requireEmailVerification: Boolean(email),
       resetPasswordTokenExpiresIn: RESET_TOKEN_MINUTES * 60,
       revokeSessionsOnPasswordReset: true,
+      // Sign-up answers the same way for taken emails (so it can't be used to find
+      // accounts); the real owner gets a heads-up instead.
+      onExistingUserSignUp: email
+        ? async ({ user }, request) => {
+            const origin = process.env.BETTER_AUTH_URL || (request ? new URL(request.url).origin : "");
+            const message = accountExistsEmail({ name: user.name, signInUrl: `${origin}/sign-in`, resetUrl: `${origin}/forgot-password` });
+            sendLater(() => email.send({ to: user.email, ...message }));
+          }
+        : undefined,
+      // Completing a reset proves control of the mailbox, so the address counts as verified.
+      onPasswordReset: async ({ user }) => {
+        if (user.emailVerified) return;
+        const auth = await getAuth();
+        const context = await auth.$context;
+        await context.internalAdapter.updateUser(user.id, { emailVerified: true });
+      },
       // Only offered when an email transport is configured (see ./email.ts).
       sendResetPassword: email
         ? async ({ user, url }) => {
@@ -103,6 +122,19 @@ function createOptions(): BetterAuthOptions {
           }
         : undefined,
     },
+    emailVerification: email
+      ? {
+          sendOnSignUp: true,
+          // The sign-in form requests a fresh link itself, so it can point back to the page the person was on.
+          sendOnSignIn: false,
+          autoSignInAfterVerification: true,
+          expiresIn: VERIFY_TOKEN_HOURS * 60 * 60,
+          sendVerificationEmail: async ({ user, url }) => {
+            const message = verificationEmail({ name: user.name, url, hours: VERIFY_TOKEN_HOURS });
+            sendLater(() => email.send({ to: user.email, ...message }));
+          },
+        }
+      : undefined,
     socialProviders: { ...google, ...github },
     account: {
       accountLinking: {

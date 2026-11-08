@@ -23,7 +23,10 @@ const messages: Record<string, string> = {
   SESSION_EXPIRED: "For your security, sign in again to do this.",
   AUTH_UNAVAILABLE: "Accounts aren't available on this deployment right now.",
   RESET_PASSWORD_DISABLED: "Password reset by email isn't set up on this deployment.",
-  INVALID_TOKEN: "This reset link is invalid or has expired. Request a new one.",
+  INVALID_TOKEN: "This link is invalid or has expired. Request a new one.",
+  TOKEN_EXPIRED: "This link has expired. Request a new one.",
+  EMAIL_NOT_VERIFIED: "Confirm your email address first. We've sent you a new link.",
+  USER_NOT_FOUND: "We couldn't find an account for that link.",
   account_not_linked:
     "An account with this email already exists and uses a password. Sign in with your password instead.",
   email_doesn_t_match: "That account uses a different email address.",
@@ -40,4 +43,17 @@ export function authErrorMessage(error: { code?: string; message?: string; statu
 export function oauthErrorMessage(code: string | null): string | null {
   if (!code) return null;
   return messages[code] ?? "Sign-in with that provider didn't complete. Please try again.";
+}
+
+/** Where verification links send people after confirming. */
+export function verifyCallback(next: string) {
+  return `/verify-email?next=${encodeURIComponent(next)}`;
+}
+
+/**
+ * Make every useSession() consumer (header, gates) refetch. Needed when the
+ * session was created elsewhere, e.g. by confirming an email in another tab.
+ */
+export function refreshSession() {
+  authClient.$store.notify("$sessionSignal");
 }

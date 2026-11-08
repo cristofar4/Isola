@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, type EditSettings } from "@/lib/editor/types";
 import { DEFAULT_ENGINE_ID, type EngineId } from "@/lib/processing/registry";
 import type { EngineErrorCode, JobPhase } from "@/lib/processing/types";
 
-export type ImageStatus = "decoding" | "queued" | "processing" | "ready" | "error" | "cancelled";
+export type ImageStatus = "decoding" | "queued" | "needs-auth" | "processing" | "ready" | "error" | "cancelled";
 
 export interface ImageError {
   code: EngineErrorCode | string;

@@ -37,10 +37,6 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: [...isolationHeaders, ...securityHeaders] },
       {
-        source: "/models/:file*",
-        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
-      },
-      {
         source: "/ort/:file*",
         headers: [{ key: "Cache-Control", value: "public, max-age=604800" }],
       },

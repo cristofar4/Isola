@@ -235,12 +235,12 @@ export class OnnxEngine implements BackgroundRemovalEngine {
       case "load-error": {
         const error = new EngineError(message.code, message.message, message.detail);
         const permanent = message.code === "model-missing" || message.code === "unsupported-browser";
-        this.setState({
-          kind: permanent ? "unavailable" : "error",
-          reason: message.code,
-          message: message.message,
-          detail: message.detail,
-        });
+        // Signing in fixes auth errors, so leave the engine ready to try again.
+        this.setState(
+          message.code === "auth-required"
+            ? { kind: "idle" }
+            : { kind: permanent ? "unavailable" : "error", reason: message.code, message: message.message, detail: message.detail },
+        );
         this.worker?.terminate();
         this.worker = null;
         this.pendingLoad?.reject(error);

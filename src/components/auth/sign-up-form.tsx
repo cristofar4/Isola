@@ -4,7 +4,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
-import { authClient, authErrorMessage, oauthErrorMessage, safeNext } from "@/lib/auth-client";
+import { authClient, authErrorMessage, oauthErrorMessage, safeNext, verifyCallback } from "@/lib/auth-client";
+import { CheckEmail } from "./check-email";
 import { FormAlert, PasswordField, TextField } from "./fields";
 import { SignedInNotice } from "./signed-in-notice";
 
@@ -19,7 +20,9 @@ export function SignUpForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(oauthErrorMessage(params.get("error")));
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
 
+  if (verifyEmail) return <CheckEmail email={verifyEmail} next={next} reason="sign-up" />;
   if (!isPending && session) return <SignedInNotice name={session.user.name} email={session.user.email} />;
 
   async function submit(event: FormEvent) {
@@ -31,9 +34,20 @@ export function SignUpForm() {
     }
     setPasswordError(null);
     setSubmitting(true);
-    const { error } = await authClient.signUp.email({ name: name.trim(), email: email.trim(), password });
+    const { data, error } = await authClient.signUp.email({
+      name: name.trim(),
+      email: email.trim(),
+      password,
+      callbackURL: verifyCallback(next),
+    });
     if (error) {
       setError(authErrorMessage(error));
+      setSubmitting(false);
+      return;
+    }
+    // No session yet means the deployment requires a confirmed email first.
+    if (!data?.token) {
+      setVerifyEmail(email.trim());
       setSubmitting(false);
       return;
     }

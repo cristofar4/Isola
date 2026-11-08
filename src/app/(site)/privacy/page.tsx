@@ -33,7 +33,8 @@ export default function PrivacyPage() {
 
       <h2>Accounts</h2>
       <p>
-        You can use ISOLA without an account. If you create one, ISOLA stores your name and email address, and either a
+        Removing backgrounds requires a free account. When you create one, ISOLA stores your name and email address, whether
+        you&apos;ve confirmed it, and either a
         securely hashed password or a link to the Google or GitHub account you signed in with (including the access tokens
         that provider issues). Images and projects are not stored in your account.
       </p>
@@ -46,9 +47,10 @@ export default function PrivacyPage() {
 
       <h2>Email</h2>
       <p>
-        If you ask to reset your password, ISOLA sends an email to the address on your account through the email service
-        this deployment uses. That service receives your email address and the message, which contains a single-use link
-        that expires after 60 minutes. ISOLA doesn&apos;t send marketing email.
+        ISOLA sends account emails only: a link to confirm your address when you sign up (valid for 24 hours), a password
+        reset link when you ask for one (single use, 60 minutes), and a notice if someone tries to sign up with an address
+        that already has an account. They go through the email service this deployment uses, which receives your address
+        and the message. ISOLA doesn&apos;t send marketing email.
       </p>
 
       <h2>Cookies and analytics</h2>

@@ -8,23 +8,11 @@
  *   BASE_URL=http://localhost:3000 npm run test:reset
  */
 import { chromium } from "playwright";
-import { SMTPServer } from "smtp-server";
-import { simpleParser } from "mailparser";
+import { createConfirmedAccount, signInContext } from "./lib/accounts.mjs";
+import { linkIn, startMailbox } from "./lib/mail.mjs";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
-const PORT = Number(process.env.SMTP_TEST_PORT || 2525);
-const inbox = [];
-const smtp = new SMTPServer({
-  authOptional: true,
-  disabledCommands: ["STARTTLS"],
-  logger: false,
-  onData(stream, _session, callback) {
-    simpleParser(stream)
-      .then((mail) => inbox.push({ to: mail.to?.text ?? "", subject: mail.subject ?? "", text: mail.text ?? "", html: mail.html || "" }))
-      .then(() => callback(), callback);
-  },
-});
-await new Promise((resolve) => smtp.listen(PORT, "127.0.0.1", resolve));
+const mailbox = await startMailbox();
 
 let failures = 0;
 let total = 0;
@@ -34,13 +22,7 @@ function check(name, ok, detail = "") {
   console.log(`${ok ? "✓" : "✗"} ${name}${detail ? ` — ${detail}` : ""}`);
 }
 async function waitForMail(to, count, timeout = 15000) {
-  const start = Date.now();
-  while (Date.now() - start < timeout) {
-    const mine = inbox.filter((m) => m.to.includes(to));
-    if (mine.length >= count) return mine[count - 1];
-    await new Promise((r) => setTimeout(r, 200));
-  }
-  return null;
+  return mailbox.waitFor(to, /Reset your ISOLA password/, count, timeout);
 }
 const visible = (locator) => locator.filter({ visible: true });
 
@@ -65,13 +47,11 @@ const oldPassword = "old-password-1";
 const newPassword = "new-password-2";
 const browser = await chromium.launch();
 
-// A signed-in session on another "device" that should be revoked by the reset.
+// A confirmed account, signed in on another "device" whose session the reset should end.
+await createConfirmedAccount(browser, BASE, mailbox, { name: "Reset Tester", email, password: oldPassword });
 const device = await browser.newContext();
-const deviceSignUp = await device.request.post(`${BASE}/api/auth/sign-up/email`, {
-  data: { name: "Reset Tester", email, password: oldPassword },
-  headers: { origin: BASE },
-});
-check("Test account created", deviceSignUp.ok(), `HTTP ${deviceSignUp.status()}`);
+await signInContext(device, BASE, { email, password: oldPassword });
+check("Test account created and signed in elsewhere", (await (await device.request.get(`${BASE}/api/auth/get-session`)).text()) !== "null");
 
 const context = await browser.newContext();
 const page = await context.newPage();
@@ -83,7 +63,7 @@ await visible(page.getByLabel("Email")).fill(`nobody-${Date.now()}@example.com`)
 await page.getByRole("button", { name: "Send reset link" }).click();
 await page.getByText(/If an account exists for/).waitFor();
 await page.waitForTimeout(1500);
-check("Unknown emails get the same response and no email", inbox.length === 0, `${inbox.length} emails`);
+check("Unknown emails get the same response and no email", mailbox.count("nobody-", /Reset/) === 0, `${mailbox.count("nobody-", /Reset/)} emails`);
 
 // Request a reset from the sign-in page link.
 await page.goto(`${BASE}/sign-in`);
@@ -134,7 +114,30 @@ await submitSignIn(page);
 await page.waitForURL(atPath("/account"));
 check("New password signs in", true);
 
+// A completed reset proves the mailbox, so it also confirms an unconfirmed email.
+const pending = `pending-${Date.now()}@example.com`;
+await context.request.post(`${BASE}/api/auth/sign-up/email`, {
+  data: { name: "Pending", email: pending, password: "pending-password-1" },
+  headers: { origin: BASE },
+});
+await page.goto(`${BASE}/forgot-password`);
+await visible(page.getByLabel("Email")).fill(pending);
+await page.getByRole("button", { name: "Send reset link" }).click();
+const pendingMail = await mailbox.waitFor(pending, /Reset your ISOLA password/);
+await page.goto(linkIn(pendingMail, "/api/auth/reset-password"));
+await visible(page.getByLabel("New password", { exact: true })).fill("pending-password-2");
+await visible(page.getByLabel("Confirm new password")).fill("pending-password-2");
+await page.getByRole("button", { name: "Set new password" }).click();
+await page.getByText("Your password has been changed.").waitFor();
+const fresh = await browser.newContext();
+const confirmedByReset = await signInContext(fresh, BASE, { email: pending, password: "pending-password-2" }).then(
+  () => true,
+  (e) => (console.log("  ", e.message), false),
+);
+check("Resetting a password also confirms the email", confirmedByReset);
+await fresh.close();
+
 await browser.close();
-await new Promise((resolve) => smtp.close(resolve));
+await mailbox.close();
 console.log(`\n${total - failures}/${total} password reset checks passed`);
 process.exit(failures ? 1 : 0);

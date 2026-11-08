@@ -45,8 +45,12 @@ export const exportLimits = {
 } as const;
 
 export const engineConfig = {
-  /** Where the ONNX model files are served from. Must allow CORS if cross-origin. */
-  modelBaseUrl: process.env.NEXT_PUBLIC_ISOLA_MODEL_BASE_URL || "/models/",
+  /**
+   * Where model files are fetched from. The default route serves them only to
+   * signed-in users. A cross-origin host must allow CORS (and then the sign-in
+   * requirement is enforced by the app UI only).
+   */
+  modelBaseUrl: process.env.NEXT_PUBLIC_ISOLA_MODEL_BASE_URL || "/api/models/",
   /** Where the ONNX Runtime Web .mjs/.wasm files are served from. */
   ortBaseUrl: process.env.NEXT_PUBLIC_ISOLA_ORT_BASE_URL || "/ort/",
   /** Model used when the visitor has not chosen one. */

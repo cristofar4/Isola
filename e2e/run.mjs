@@ -1,13 +1,17 @@
 /**
  * End-to-end verification of the core workflow against a running server.
  *
- *   npm run build && npm start            # or npm run dev
+ *   npm run build && SMTP_URL=smtp://127.0.0.1:2525 npm start
  *   BASE_URL=http://localhost:3000 npm run test:e2e
  *
- * Requires the Standard model in public/models (npm run models:fetch).
+ * Background removal requires an account, so this signs in with accounts it
+ * creates (confirming the email through a local SMTP mailbox). The server
+ * downloads the model on first use if it isn't in ./models yet.
  * Writes downloads and screenshots to e2e/output/.
  */
 import { chromium } from "playwright";
+import { createConfirmedAccount, signInContext } from "./lib/accounts.mjs";
+import { startMailbox } from "./lib/mail.mjs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { unzipSync } from "fflate";
 import { join } from "node:path";
@@ -92,18 +96,29 @@ async function stroke(page, from, to) {
 }
 
 const browser = await chromium.launch();
+const mailbox = await startMailbox();
+const account = await createConfirmedAccount(browser, BASE, mailbox, { name: "E2E Tester" });
+
+/* 0. Background removal needs an account ------------------------------ */
+{
+  const anon = await browser.newContext();
+  const res = await anon.request.get(`${BASE}/api/models/isnet-general-use.onnx`);
+  check("The model is only served to signed-in users", res.status() === 401, `HTTP ${res.status()} when signed out`);
+  await anon.close();
+}
 
 /* 1. Honest unavailable state + retry after failure ------------------- */
 {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await signInContext(context, BASE, account);
   const page = await context.newPage();
-  await context.route("**/models/**", (route) => route.fulfill({ status: 404, body: "missing" }));
+  await context.route("**/api/models/**", (route) => route.fulfill({ status: 404, contentType: "application/json", body: '{"code":"model-missing"}' }));
   await page.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Try the sneaker example" }).click();
   const alert = page.getByRole("alert").filter({ hasText: "isn't installed" });
   await alert.waitFor({ timeout: 60_000 });
   check("Missing model shows an honest unavailable state", true, (await alert.innerText()).split("\n")[0]);
-  await context.unroute("**/models/**");
+  await context.unroute("**/api/models/**");
   await page.getByRole("button", { name: "Try again" }).click();
   await waitReady(page);
   check("Retry after failure succeeds with the preserved original", true);
@@ -121,8 +136,24 @@ await page.getByRole("button", { name: "Upload image" }).click();
 await (await chooser).setFiles(SAMPLE);
 await page.waitForURL("**/editor");
 check("Landing upload opens the editor", true);
+
+// Signed out: the image waits with a sign-in prompt instead of processing.
+const gate = page.getByText("Sign in to remove the background").filter({ visible: true });
+await gate.waitFor({ timeout: 30_000 });
+check("Signed-out visitors are asked to sign in before removal", true);
+await page.getByRole("link", { name: "Sign in", exact: true }).filter({ visible: true }).first().click();
+await page.waitForURL((u) => u.pathname === "/sign-in");
+await page.getByLabel("Email").filter({ visible: true }).fill(account.email);
+await page.getByLabel("Password", { exact: true }).filter({ visible: true }).fill(account.password);
+await page.getByRole("button", { name: "Sign in" }).click();
+if (await page.getByRole("alert").filter({ hasText: "Too many attempts" }).waitFor({ timeout: 3000 }).then(() => true, () => false)) {
+  await page.waitForTimeout(11_000);
+  await page.getByRole("button", { name: "Sign in" }).click();
+}
+await page.waitForURL((u) => u.pathname === "/editor");
 const started = Date.now();
 await waitReady(page);
+check("After signing in, the same upload is processed without re-uploading", true);
 check("Background removed on device", true, `${((Date.now() - started) / 1000).toFixed(1)}s incl. model load`);
 await page.screenshot({ path: join(OUT, "editor-desktop.png") });
 
@@ -260,8 +291,11 @@ await context.close();
 {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
   const p = await ctx.newPage();
-  await ctx.route("**/models/**", (route) => route.fulfill({ status: 404, body: "missing" }));
   await p.goto(`${BASE}/batch`, { waitUntil: "networkidle" });
+  check("Batch Studio asks signed-out visitors to sign in", await p.getByText("Sign in to remove backgrounds").filter({ visible: true }).isVisible());
+  await signInContext(ctx, BASE, account);
+  await ctx.route("**/api/models/**", (route) => route.fulfill({ status: 404, contentType: "application/json", body: '{"code":"model-missing"}' }));
+  await p.reload({ waitUntil: "networkidle" });
   const status = p.locator("[data-batch-status]");
   const samples = [SAMPLE, ...["serum-bottle.jpg", "portrait-curly.jpg", "sky.jpg"].map((f) => join(process.cwd(), "public", "samples", f))];
   await p.locator("#batch-files").setInputFiles([...samples, join(OUT, "not-an-image.png")]);
@@ -269,7 +303,7 @@ await context.close();
   check("Batch rejects invalid files individually", true);
   await status.getByText("4 failed or cancelled").waitFor({ timeout: 60_000 });
   check("Batch items fail honestly when the model is missing", true);
-  await ctx.unroute("**/models/**");
+  await ctx.unroute("**/api/models/**");
   await p.getByRole("button", { name: "Retry failed" }).click();
   let maxProcessing = 0;
   const deadline = Date.now() + 240_000;
@@ -332,6 +366,7 @@ await context.close();
 /* 13. Mobile layout --------------------------------------------------- */
 {
   const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  await signInContext(mobile, BASE, account);
   const m = await mobile.newPage();
   await m.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
   await m.getByRole("button", { name: "Try the portrait example" }).click();
@@ -350,6 +385,7 @@ await context.close();
 }
 
 await browser.close();
+await mailbox.close();
 writeFileSync(join(OUT, "results.json"), JSON.stringify(results, null, 2));
 console.log(`\n${results.length - failures}/${results.length} checks passed`);
 process.exit(failures ? 1 : 0);

@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import { Sheet } from "@/components/ui/sheet";
 import { useFileDrop } from "@/components/upload/use-file-drop";
 import { cn } from "@/lib/cn";
-import { importFiles, redo, undo } from "@/lib/project/actions";
+import { importFiles, redo, resumeAfterSignIn, undo } from "@/lib/project/actions";
+import { useOnSignIn } from "@/lib/session-gate";
 import { useActiveImage, useProject } from "@/lib/project/store";
 import { EditorCanvas } from "./editor-canvas";
 import { useEditorUI } from "./editor-ui-store";
@@ -29,6 +30,8 @@ export function EditorShell() {
   const [imagesOpen, setImagesOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Images added while signed out start processing as soon as the visitor signs in.
+  useOnSignIn(resumeAfterSignIn);
   const drop = useFileDrop(async (files) => {
     const report = await importFiles(files);
     setNotice(report.rejected.length ? report.rejected.map((r) => `${r.name}: ${r.error.message}`).join(" ") : null);

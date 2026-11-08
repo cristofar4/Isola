@@ -51,7 +51,14 @@ function ProfileCard({ user }: { user: CurrentUser }) {
     <Card icon={<UserRound className="size-4" />} title="Profile" description={`Member since ${new Date(user.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`}>
       <form onSubmit={save} className="grid gap-4">
         <TextField label="Name" autoComplete="name" required maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
-        <TextField label="Email" type="email" value={user.email} readOnly disabled hint="Email changes aren't available yet." />
+        <TextField
+          label="Email"
+          type="email"
+          value={user.email}
+          readOnly
+          disabled
+          hint={`${user.emailVerified ? "Confirmed." : "Not confirmed yet."} Email changes aren't available yet.`}
+        />
         <div>
           <p className="text-[13px] font-medium text-ink">Sign-in methods</p>
           <ul className="mt-1.5 flex flex-wrap gap-2">

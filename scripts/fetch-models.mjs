@@ -1,5 +1,7 @@
-// Downloads the on-device segmentation models into public/models and verifies
-// their SHA-256 checksums. Usage:
+// Downloads the on-device segmentation models into ./models (ISOLA_MODEL_DIR)
+// and verifies their SHA-256 checksums. They're kept out of public/ because
+// the app serves them only to signed-in users (app/api/models). Optional: the
+// server downloads a missing model on first use. Usage:
 //   npm run models:fetch                 # default model (isnet-general-use)
 //   npm run models:fetch -- --all        # every model
 //   npm run models:fetch -- birefnet-lite
@@ -8,7 +10,7 @@
 //   isnet-general-use — Apache-2.0 (https://github.com/xuebinqin/DIS)
 //   birefnet-lite     — MIT        (https://github.com/ZhengPeng7/BiRefNet)
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync, mkdirSync, renameSync, statSync, unlinkSync } from "node:fs";
+import { createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -29,8 +31,19 @@ const MODELS = {
 };
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const target = join(root, "public", "models");
+const target = process.env.ISOLA_MODEL_DIR || join(root, "models");
 mkdirSync(target, { recursive: true });
+
+// Older versions stored models in public/models, where anyone could download
+// them. Move any found there into the private directory.
+const legacy = join(root, "public", "models");
+if (existsSync(legacy)) {
+  for (const name of readdirSync(legacy).filter((f) => f.endsWith(".onnx"))) {
+    if (!existsSync(join(target, name))) renameSync(join(legacy, name), join(target, name));
+    else unlinkSync(join(legacy, name));
+    console.log(`→ moved ${name} out of public/models`);
+  }
+}
 
 const args = process.argv.slice(2);
 const wanted = args.includes("--all") ? Object.keys(MODELS) : args.filter((a) => !a.startsWith("-"));

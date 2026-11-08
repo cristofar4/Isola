@@ -28,7 +28,9 @@ export async function POST(request: Request) {
     return json(403, "forbidden", "Cross-origin requests aren't allowed.");
   }
 
-  const usage = await limiter.consume(usageSubject(request, await accountIdFor(request)));
+  const accountId = await accountIdFor(request);
+  if (!accountId) return json(401, "auth-required", "Sign in to remove backgrounds.");
+  const usage = await limiter.consume(usageSubject(request, accountId));
   if (!usage.allowed) {
     return json(429, "rate-limited", "You've reached the processing limit for now. Try again later.", {
       "Retry-After": String(Math.ceil((usage.resetAt - Date.now()) / 1000)),
