@@ -16,7 +16,7 @@ const options: Array<{ value: Option; label: string; swatch: string }> = [
 function Cutout({ shadow }: { shadow?: boolean }) {
   return (
     <Image
-      src="/showcase/sneaker-cutout.webp"
+      src="/showcase/sneaker-white-cutout.webp"
       alt=""
       fill
       sizes="(min-width: 1024px) 260px, 45vw"

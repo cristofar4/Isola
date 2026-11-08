@@ -156,6 +156,15 @@ export default function DevelopersPage() {
         with a shared store before relying on it in production.
       </p>
 
+      <h2 id="accounts">Accounts</h2>
+      <p>
+        Accounts use <a href="https://www.better-auth.com">Better Auth</a>, mounted at <code>/api/auth/*</code> for the
+        site&apos;s own sign-in pages. These routes are an implementation detail, not a public API. Email and password
+        sign-in is always on; Google and GitHub appear only when their OAuth credentials are set. Accounts are stored in
+        Postgres when <code>DATABASE_URL</code> is set, otherwise in a local SQLite file. When signed in, the server
+        engine&apos;s rate limit applies per account instead of per IP address.
+      </p>
+
       <h2 id="limits">Limits</h2>
       <p>
         Uploads: {formatBytes(uploadLimits.maxFileBytes)}, {uploadLimits.maxDimension.toLocaleString("en-US")}px per side and{" "}

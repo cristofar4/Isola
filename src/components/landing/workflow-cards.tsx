@@ -4,9 +4,9 @@ import { ButtonLink } from "@/components/ui/button";
 import { uploadLimits } from "@/lib/config";
 
 const stack = [
-  { src: "/samples/portrait.jpg", rotate: "-rotate-6", offset: "translate-y-2" },
-  { src: "/samples/sneaker.jpg", rotate: "rotate-0", offset: "-translate-y-1" },
-  { src: "/samples/bottles.jpg", rotate: "rotate-6", offset: "translate-y-3" },
+  { src: "/samples/portrait-curly.jpg", rotate: "-rotate-6", offset: "translate-y-2" },
+  { src: "/samples/sneaker-white.jpg", rotate: "rotate-0", offset: "-translate-y-1" },
+  { src: "/samples/serum-bottle.jpg", rotate: "rotate-6", offset: "translate-y-3" },
 ];
 
 export function WorkflowCards() {
@@ -62,11 +62,11 @@ export function WorkflowCards() {
         </div>
         <div className="flex flex-1 items-center justify-center gap-3" aria-hidden="true">
           <div className="relative h-28 w-28 overflow-hidden rounded-[12px] border-4 border-white bg-sky shadow-[var(--shadow-card)]">
-            <Image src="/showcase/sneaker.webp" alt="" fill sizes="120px" className="object-cover" />
+            <Image src="/showcase/sneaker-white.webp" alt="" fill sizes="120px" className="object-cover" />
           </div>
           <ArrowRight className="size-5 text-ink" />
           <div className="checkerboard-sm relative h-28 w-28 overflow-hidden rounded-[12px] border-4 border-white shadow-[var(--shadow-card)]">
-            <Image src="/showcase/sneaker-cutout.webp" alt="" fill sizes="120px" className="object-cover" />
+            <Image src="/showcase/sneaker-white-cutout.webp" alt="" fill sizes="120px" className="object-cover" />
           </div>
         </div>
       </article>

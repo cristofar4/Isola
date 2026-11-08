@@ -77,6 +77,8 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Keep in-page anchors clear of the fixed site header. */
+    scroll-padding-top: 5rem;
     text-rendering: optimizeLegibility;
   }
   body {

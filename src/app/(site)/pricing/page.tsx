@@ -14,7 +14,7 @@ export default function PricingPage() {
     <PageShell
       eyebrow="Pricing"
       title="No plans to choose from yet."
-      intro={<p>ISOLA hasn&apos;t introduced paid plans. Everything below works today without an account.</p>}
+      intro={<p>ISOLA hasn&apos;t introduced paid plans. Everything below works today, with or without a free account.</p>}
     >
       <ul className="!list-none !pl-0 grid gap-3">
         {[

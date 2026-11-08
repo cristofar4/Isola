@@ -71,7 +71,7 @@ function EditorMockup({ mode }: { mode: Item }) {
           )}
         >
           <Image
-            src="/showcase/curls-cutout.webp"
+            src="/showcase/portrait-curly-detail-cutout.webp"
             alt=""
             fill
             sizes="(min-width: 1024px) 520px, 90vw"

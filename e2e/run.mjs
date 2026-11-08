@@ -15,7 +15,8 @@ import { join } from "node:path";
 const BASE = process.env.BASE_URL || "http://localhost:3000";
 const OUT = join(process.cwd(), "e2e", "output");
 mkdirSync(OUT, { recursive: true });
-const SAMPLE = join(process.cwd(), "public", "samples", "sneaker.jpg");
+// Fixed test photo (1600×1280 product shot) so pixel probes don't depend on marketing samples.
+const SAMPLE = join(process.cwd(), "e2e", "fixtures", "product.jpg");
 
 let failures = 0;
 const results = [];
@@ -231,7 +232,7 @@ check("Transparent input keeps transparency", img.samples[0][3] === 0 && img.sam
 
 /* 11. Large image ---------------------------------------------------- */
 const largeB64 = await page.evaluate(async () => {
-  const bmp = await createImageBitmap(await (await fetch("/samples/sneaker.jpg")).blob());
+  const bmp = await createImageBitmap(await (await fetch("/samples/sneaker-white.jpg")).blob());
   const c = new OffscreenCanvas(6000, 4000);
   const ctx = c.getContext("2d");
   ctx.fillStyle = "#d9dbe0";
@@ -261,7 +262,7 @@ await context.close();
   const p = await ctx.newPage();
   await ctx.route("**/models/**", (route) => route.fulfill({ status: 404, body: "missing" }));
   await p.goto(`${BASE}/batch`, { waitUntil: "networkidle" });
-  const samples = ["sneaker.jpg", "bottles.jpg", "portrait.jpg"].map((f) => join(process.cwd(), "public", "samples", f));
+  const samples = [SAMPLE, ...["serum-bottle.jpg", "portrait-curly.jpg"].map((f) => join(process.cwd(), "public", "samples", f))];
   await p.locator("#batch-files").setInputFiles([...samples, join(OUT, "not-an-image.png")]);
   await p.getByRole("alert").filter({ hasText: "not-an-image.png" }).waitFor();
   check("Batch rejects invalid files individually", true);
@@ -289,9 +290,9 @@ await context.close();
   await (await zipDownload).saveAs(zipPath);
   const entries = unzipSync(readFileSync(zipPath));
   const names = Object.keys(entries).sort();
-  check("ZIP contains one PNG per image", names.join() === "bottles-isola.png,portrait-isola.png,sneaker-isola.png", names.join(", "));
+  check("ZIP contains one PNG per image", names.join() === "portrait-curly-isola.png,product-isola.png,serum-bottle-isola.png", names.join(", "));
   const sneakerPng = join(OUT, "batch-sneaker.png");
-  writeFileSync(sneakerPng, entries["sneaker-isola.png"]);
+  writeFileSync(sneakerPng, entries["product-isola.png"]);
   const z = await decode(p, sneakerPng, [[10, 10], [760, 600]]);
   check("ZIP PNGs are full size with real alpha", z.width === 1600 && z.height === 1280 && z.samples[0][3] === 0 && z.samples[1][3] === 255, `${z.width}×${z.height}`);
   await p.getByRole("button", { name: "Edit" }).first().click();

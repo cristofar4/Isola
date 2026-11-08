@@ -6,8 +6,8 @@ ISOLA is a background-removal and image-editing web app. It removes backgrounds
 with a real segmentation model running **in the visitor's browser**, then gives
 them tools to refine the result and export it at full resolution.
 
-Built with Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS 4 and
-ONNX Runtime Web.
+Built with Next.js 16 (App Router, Turbopack), TypeScript, Tailwind CSS 4,
+ONNX Runtime Web and Better Auth.
 
 ---
 
@@ -20,6 +20,9 @@ npm run dev              # http://localhost:3000
 ```
 
 For the optional High detail model (WebGPU only) run `npm run models:fetch -- --all`.
+
+Accounts work out of the box in development: a SQLite database is created at
+`.data/isola.db` on first use. For production, see [Accounts](#accounts).
 
 Production:
 
@@ -41,6 +44,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm run lint` | ESLint (Next.js core-web-vitals + TypeScript rules) |
 | `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling |
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`) |
+| `npm run test:auth` | Account journey (sign up, sign in/out, profile, password, delete) against a running server |
 
 `node e2e/a11y.mjs` runs an axe-core audit (install with `npm i --no-save axe-core`).
 
@@ -68,11 +72,20 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `ISOLA_REMOTE_MAX_UPLOAD_MB` | `12` | Server engine upload limit |
 | `ISOLA_REMOTE_RATE_LIMIT_PER_HOUR` | `30` | Per-client limit (in memory, per instance) |
 | `ISOLA_REMOTE_ALLOW_CROSS_ORIGIN` | `false` | Allow cross-origin browser calls to the route |
+| `BETTER_AUTH_SECRET` | — | **Required in production.** Signs sessions and encrypts tokens |
+| `BETTER_AUTH_URL` | request origin | Public site URL, used for OAuth callbacks |
+| `DATABASE_URL` | — | `postgres://…` to store accounts in Postgres; otherwise SQLite |
+| `ISOLA_SQLITE_PATH` | `.data/isola.db` | SQLite file location |
+| `ISOLA_AUTH_AUTO_MIGRATE` | `true` | Create/upgrade auth tables on first use |
+| `ISOLA_TRUSTED_ORIGINS` | — | Extra origins allowed to call `/api/auth` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | — | Enables "Continue with Google" |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | — | Enables "Continue with GitHub" |
 | `NEXT_PUBLIC_ISOLA_SOCIAL_GITHUB` / `_X` / `_INSTAGRAM` / `_LINKEDIN` / `_YOUTUBE` | GitHub: this repo | Footer social links; unset ones aren't shown |
 | `NEXT_PUBLIC_ISOLA_SUPPORT_EMAIL` | — | Shows a contact link in the footer and help pages |
 | `NEXT_PUBLIC_ISOLA_LEGAL_ENTITY` | `ISOLA` | Copyright line |
 
 No variable is required for the core workflow; only the model files are.
+Production accounts need `BETTER_AUTH_SECRET` (and should set `BETTER_AUTH_URL`).
 
 ## How background removal works
 
@@ -106,6 +119,36 @@ Measured in this repo's sandbox (headless Chromium, 4 vCPU, WebAssembly, 3
 threads): Standard processes a 1600×1280 photo in ~6–7 s after a one-time model
 load; a 6000×4000 image completes in ~10 s including the full-resolution mask.
 
+## Accounts
+
+Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
+`/api/auth/*`, with pages at `/sign-in`, `/sign-up` and `/account`.
+
+- **Email and password** is always available (8–128 characters, hashed with scrypt).
+- **Google** and **GitHub** buttons appear only when both their client ID and
+  secret are set. Register these callback URLs with each provider:
+  `{BETTER_AUTH_URL}/api/auth/callback/google` and
+  `{BETTER_AUTH_URL}/api/auth/callback/github`.
+- An OAuth sign-in is never attached automatically to an existing account
+  whose email hasn't been verified, which prevents someone pre-registering
+  another person's email. Because email verification isn't set up yet, a
+  Google/GitHub login that matches an existing password account is refused
+  with a clear message instead of being linked.
+- **Account page:** edit name, change password (optionally signing out other
+  devices), sign out everywhere, delete the account.
+- **Storage:** Postgres when `DATABASE_URL` is set; otherwise a local SQLite
+  file using Node's built-in `node:sqlite` (development and single-server use;
+  Node prints an "experimental" warning for it). Better Auth's tables (`user`,
+  `session`, `account`, `verification`) are created or extended on first use;
+  this only adds what's missing. Set `ISOLA_AUTH_AUTO_MIGRATE=false` if you'd
+  rather create them with your own migration tooling.
+- **Server rate limits** follow the signed-in account rather than the IP address.
+- Pages read the session behind `<Suspense>` (Cache Components), so the rest
+  of each page still prerenders.
+
+Not built yet: email verification, password reset and email change (they need
+an email provider), and saving projects to an account.
+
 ## Editing model
 
 Every image keeps separate, non-destructive layers:
@@ -128,14 +171,15 @@ canvas; the checkerboard is drawn by the preview only.
 ```
 src/
   app/                    routes: / (landing), /editor, /batch, /developers, /pricing,
-                          /sign-in, /privacy, /terms, /support, /api/engines,
-                          /api/remove-background
+                          /sign-in, /sign-up, /account, /privacy, /terms, /support,
+                          /api/auth/*, /api/engines, /api/remove-background
   components/
     landing/              hero, comparison slider, upload panel, sections
     editor/               shell, canvas (pan/zoom/brush/crop/compare), panels, export
     batch/                batch studio
     ui/                   buttons, sliders, switches, sheets (Radix), progress
     upload/               shared upload + drag-and-drop hooks
+    auth/                 sign-in/up forms, social buttons, account panel
   lib/
     config.ts             limits and engine configuration (env-driven)
     image/                content sniffing, validation, decoding, mask PNG codec
@@ -144,7 +188,8 @@ src/
     editor/               mask ops, history, layers, compositing, export
     project/              project store, heavy-asset store, actions
     batch/                batch queue, ZIP export
-  server/                 remote provider, usage limiter, auth + billing boundaries
+  server/                 Better Auth setup + session helpers, remote provider,
+                          usage limiter, billing boundary
 scripts/                  copy-ort.mjs (postinstall), fetch-models.mjs
 tests/                    Vitest unit tests
 e2e/                      Playwright end-to-end + a11y scripts
@@ -196,8 +241,10 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 
 **Not yet built / needs integration**
 
-- **Accounts and billing:** `src/server/auth.ts` and `src/server/billing.ts` are
-  boundaries only; there is no sign-in and no pricing. The UI says so.
+- **Billing:** `src/server/billing.ts` is a boundary only; there are no plans or
+  prices, and the Pricing page says so.
+- **Account email flows:** verification, password reset and email change need
+  an email provider. Projects aren't saved to accounts.
 - **Public API:** no hosted API or API keys. The developer page documents only the
   two routes that exist.
 - **Server rate limiting** is in memory per instance; use a shared store for
@@ -211,5 +258,6 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 
 ## Credits
 
-Sample photography from Unsplash (see `public/samples/CREDITS.md`). Models:
+Sample photography from Unsplash (see `public/samples/CREDITS.md`); the test
+fixture in `e2e/fixtures` is also from Unsplash. Models:
 IS-Net (DIS, Apache-2.0) and BiRefNet (MIT), mirrored by the rembg project.

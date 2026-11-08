@@ -1,5 +1,6 @@
 import { sniffImage } from "@/lib/image/sniff";
 import { getRemoteProvider, ProviderError, remoteMaxUploadBytes } from "@/server/remote-provider";
+import { accountIdFor } from "@/server/auth";
 import { limiter, usageSubject } from "@/server/usage";
 
 function json(status: number, error: string, message: string, headers: Record<string, string> = {}) {
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     return json(403, "forbidden", "Cross-origin requests aren't allowed.");
   }
 
-  const usage = await limiter.consume(usageSubject(request));
+  const usage = await limiter.consume(usageSubject(request, await accountIdFor(request)));
   if (!usage.allowed) {
     return json(429, "rate-limited", "You've reached the processing limit for now. Try again later.", {
       "Retry-After": String(Math.ceil((usage.resetAt - Date.now()) / 1000)),

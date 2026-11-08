@@ -72,6 +72,17 @@ export default function SupportPage() {
         </tbody>
       </table>
 
+      <h2 id="accounts">Accounts</h2>
+      <p>
+        An account is optional. Create one with your email and a password, or with Google or GitHub where this site offers
+        them. From the Account page you can change your name and password, sign out of other devices and delete the
+        account. Projects aren&apos;t saved to accounts yet, so export your work before closing the tab.
+      </p>
+      <p>
+        Password reset by email isn&apos;t available yet. If you can&apos;t sign in, create a new account or contact
+        support{site.supportEmail ? "" : " through the site operator"}.
+      </p>
+
       <h2 id="troubleshooting">Troubleshooting</h2>
       <h3>The first image takes a while</h3>
       <p>

@@ -48,3 +48,6 @@ next-env.d.ts
 /e2e/output/
 
 !.env.example
+
+# Local account database (SQLite)
+/.data/

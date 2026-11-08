@@ -23,10 +23,10 @@ export function Hero() {
       <div className="mt-10 grid gap-5 lg:grid-cols-[minmax(0,1.62fr)_minmax(320px,1fr)] lg:gap-6">
         <div className="animate-fade-up [animation-delay:120ms]">
           <CompareSlider
-            before="/showcase/portrait.webp"
-            after="/showcase/portrait-cutout.webp"
-            alt="Smiling woman with wavy hair"
-            objectPosition="50% 22%"
+            before="/showcase/portrait-curly.webp"
+            after="/showcase/portrait-curly-cutout.webp"
+            alt="Smiling woman with short curly hair in a striped blazer"
+            objectPosition="50% 21%"
             className="aspect-[4/3] sm:aspect-[16/10]"
             priority
             caption={

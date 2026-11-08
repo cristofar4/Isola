@@ -27,14 +27,29 @@ export default function PrivacyPage() {
         provider&apos;s own privacy policy applies to what it receives.
       </p>
       <p>
-        Projects exist only in the open tab. Closing or reloading the page discards them, and nothing is kept between
-        visits.
+        Projects exist only in the open tab, whether or not you&apos;re signed in. Closing or reloading the page discards
+        them.
       </p>
 
-      <h2>Accounts, cookies and analytics</h2>
+      <h2>Accounts</h2>
       <p>
-        ISOLA has no accounts. It sets no cookies and includes no analytics or advertising scripts. Your browser stores the
-        downloaded model in Cache Storage, which you can clear at any time from your browser settings.
+        You can use ISOLA without an account. If you create one, ISOLA stores your name and email address, and either a
+        securely hashed password or a link to the Google or GitHub account you signed in with (including the access tokens
+        that provider issues). Images and projects are not stored in your account.
+      </p>
+      <p>
+        To keep you signed in and protect your account, each sign-in creates a session record holding its expiry time, the
+        IP address and the browser user agent. Sessions last up to 30 days. You can sign out of other devices, change your
+        password or permanently delete your account from the Account page; deleting it removes your profile, sign-in methods
+        and sessions.
+      </p>
+
+      <h2>Cookies and analytics</h2>
+      <p>
+        ISOLA sets cookies only when you sign in: a session cookie that keeps you signed in, plus short-lived cookies used
+        during Google or GitHub sign-in. They are strictly necessary for accounts and aren&apos;t used for tracking. ISOLA
+        includes no analytics or advertising scripts. Your browser also keeps the downloaded model in Cache Storage, which
+        you can clear from your browser settings.
       </p>
 
       <h2>Server logs</h2>

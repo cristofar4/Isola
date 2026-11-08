@@ -11,13 +11,16 @@
     "test": "vitest run",
     "test:e2e": "node e2e/run.mjs",
     "postinstall": "node scripts/copy-ort.mjs",
-    "models:fetch": "node scripts/fetch-models.mjs"
+    "models:fetch": "node scripts/fetch-models.mjs",
+    "test:auth": "node e2e/auth.mjs"
   },
   "dependencies": {
+    "better-auth": "^1.7.18",
     "fflate": "^0.8.3",
     "lucide-react": "^1.70.0",
     "next": "16.4.5",
     "onnxruntime-web": "^1.31.1",
+    "pg": "^8.23.1",
     "radix-ui": "^1.8.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -28,6 +31,7 @@
     "@playwright/test": "^1.63.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
 import { Code2, ChevronDown, Eraser, Layers, Menu, Wand2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
+import { MobileUserLinks, UserMenu } from "./user-menu";
 
 const tools = [
   { href: "/editor", label: "Background remover", description: "Remove, refine and export one image", icon: Wand2 },
@@ -26,8 +27,23 @@ const links = [
 export function SiteHeader() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  // Subscribe to scroll position so the fixed bar can gain a shadow once content passes under it.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <header className="relative z-30 border-b border-line/80 bg-paper/85 backdrop-blur-md">
+    <header
+      className={cn(
+        "sticky top-0 z-40 border-b bg-paper/85 backdrop-blur-md transition-[box-shadow,border-color,background-color] duration-200 supports-[backdrop-filter]:bg-paper/75",
+        scrolled ? "border-line shadow-[0_6px_24px_-16px_rgba(32,41,45,0.35)]" : "border-line/60",
+      )}
+    >
       <div className="mx-auto flex h-16 max-w-[1240px] items-center gap-6 px-4 sm:px-6 lg:px-8">
         <Link href="/" aria-label="ISOLA home" className="rounded-md">
           <Logo />
@@ -42,8 +58,7 @@ export function SiteHeader() {
                 aria-hidden="true"
               />
             </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content
+                          <DropdownMenu.Content
                 align="start"
                 sideOffset={8}
                 className="z-50 w-[320px] animate-scale-in rounded-[14px] border border-line bg-surface p-1.5 shadow-[var(--shadow-float)]"
@@ -65,8 +80,7 @@ export function SiteHeader() {
                   </DropdownMenu.Item>
                 ))}
               </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
+                      </DropdownMenu.Root>
           {links.map((link) => (
             <Link
               key={link.href}
@@ -83,12 +97,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="ml-auto hidden items-center gap-2 md:flex lg:ml-0">
-          <Link href="/sign-in" className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-ink hover:bg-ink/5">
-            Sign in
-          </Link>
-          <ButtonLink href="/editor" size="md">
-            Get started
-          </ButtonLink>
+          <UserMenu />
         </div>
 
         <button
@@ -117,9 +126,8 @@ export function SiteHeader() {
               {link.label}
             </Link>
           ))}
-          <Link href="/sign-in" className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
-            Sign in
-          </Link>
+          <div className="my-2 h-px bg-line" />
+          <MobileUserLinks onNavigate={() => setMenuOpen(false)} />
           <ButtonLink href="/editor" size="lg" className="mt-3">
             Get started
           </ButtonLink>

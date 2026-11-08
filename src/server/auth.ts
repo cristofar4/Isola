@@ -1,19 +1,166 @@
 import "server-only";
 
+import { mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { getMigrations } from "better-auth/db/migration";
+import { nextCookies } from "better-auth/next-js";
+import { Pool } from "pg";
+
 /**
- * Authentication boundary. ISOLA has no accounts yet, so `getSession` always
- * returns null. When accounts are added, implement it with your auth provider
- * (session cookie, OAuth, etc.) and use it in route handlers; usage limits
- * (`src/server/usage.ts`) and entitlements (`src/server/billing.ts`) are
- * already keyed by a subject string so they can follow the account id.
+ * Accounts, powered by Better Auth.
+ *
+ * - Email and password sign-up/sign-in is always on.
+ * - Google and GitHub sign-in are enabled only when their OAuth credentials are
+ *   set (see README → Accounts). Buttons for providers that aren't configured
+ *   are never shown.
+ * - Storage: Postgres when DATABASE_URL is a postgres:// URL, otherwise a local
+ *   SQLite file (Node's built-in node:sqlite) at ISOLA_SQLITE_PATH or
+ *   .data/isola.db. SQLite is for development and single-server deployments.
+ * - Tables are created on first use unless ISOLA_AUTH_AUTO_MIGRATE=false.
  */
 
-export interface Session {
-  accountId: string;
-  email: string;
+export type SocialProvider = "google" | "github";
+
+export function enabledSocialProviders(): SocialProvider[] {
+  const providers: SocialProvider[] = [];
+  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) providers.push("google");
+  if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) providers.push("github");
+  return providers;
 }
 
-export async function getSession(_request: Request): Promise<Session | null> {
-  void _request;
+/** Why accounts can't work on this deployment, or null when they can. */
+export function authConfigurationProblem(): string | null {
+  if (process.env.NODE_ENV === "production" && !process.env.BETTER_AUTH_SECRET && !process.env.AUTH_SECRET) {
+    return "BETTER_AUTH_SECRET is not set on the server.";
+  }
   return null;
+}
+
+function createDatabase(): BetterAuthOptions["database"] {
+  const url = process.env.DATABASE_URL;
+  if (url && /^postgres(ql)?:\/\//.test(url)) {
+    return new Pool({ connectionString: url, max: Number(process.env.DATABASE_POOL_MAX || 5) });
+  }
+  const file = process.env.ISOLA_SQLITE_PATH || join(process.cwd(), ".data", "isola.db");
+  mkdirSync(dirname(file), { recursive: true });
+  const db = new DatabaseSync(file);
+  db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
+  return db;
+}
+
+function createOptions(): BetterAuthOptions {
+  const google =
+    process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? { google: { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET } }
+      : {};
+  const github =
+    process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
+      ? { github: { clientId: process.env.GITHUB_CLIENT_ID, clientSecret: process.env.GITHUB_CLIENT_SECRET } }
+      : {};
+  return {
+    appName: "ISOLA",
+    baseURL: process.env.BETTER_AUTH_URL || undefined,
+    database: createDatabase(),
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: 8,
+      maxPasswordLength: 128,
+      autoSignIn: true,
+    },
+    socialProviders: { ...google, ...github },
+    account: {
+      accountLinking: {
+        enabled: true,
+        // Never attach an OAuth login to an account whose email hasn't been proven.
+        requireLocalEmailVerified: true,
+      },
+    },
+    user: { deleteUser: { enabled: true } },
+    session: {
+      expiresIn: 60 * 60 * 24 * 30,
+      updateAge: 60 * 60 * 24,
+    },
+    rateLimit: { enabled: process.env.NODE_ENV === "production", window: 60, max: 60 },
+    advanced: { cookiePrefix: "isola" },
+    trustedOrigins: process.env.ISOLA_TRUSTED_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean),
+    plugins: [nextCookies()],
+  };
+}
+
+type Auth = ReturnType<typeof betterAuth>;
+
+const globalForAuth = globalThis as unknown as { __isolaAuthInstance?: Promise<Auth> };
+
+async function createAuth(): Promise<Auth> {
+  const options = createOptions();
+  // Create missing tables before the first request touches them (idempotent).
+  if (process.env.ISOLA_AUTH_AUTO_MIGRATE !== "false") {
+    const { runMigrations } = await getMigrations(options);
+    await runMigrations();
+  }
+  return betterAuth(options);
+}
+
+/** The shared Better Auth instance (one per server process). */
+export async function getAuth(): Promise<Auth> {
+  const problem = authConfigurationProblem();
+  if (problem) throw new AuthUnavailableError(problem);
+  globalForAuth.__isolaAuthInstance ??= createAuth().catch((error) => {
+    globalForAuth.__isolaAuthInstance = undefined;
+    throw error;
+  });
+  return globalForAuth.__isolaAuthInstance;
+}
+
+export class AuthUnavailableError extends Error {}
+
+export interface CurrentUser {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  createdAt: string;
+  /** Linked sign-in methods, e.g. ["credential", "google"]. */
+  providers: string[];
+}
+
+/** Data Access Layer: the signed-in user, or null. Reads the request, so call it inside <Suspense>. */
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  // Read the request first so this is never evaluated at build time.
+  const requestHeaders = await headers();
+  const auth = await getAuth();
+  const session = await auth.api.getSession({ headers: requestHeaders });
+  if (!session) return null;
+  const accounts = await auth.api.listUserAccounts({ headers: requestHeaders });
+  return {
+    id: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+    emailVerified: session.user.emailVerified,
+    createdAt: new Date(session.user.createdAt).toISOString(),
+    providers: accounts.map((a) => a.providerId),
+  };
+}
+
+/** Like getCurrentUser, but sends signed-out visitors to the sign-in page. */
+export async function requireUser(returnTo: string): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect(`/sign-in?next=${encodeURIComponent(returnTo)}`);
+  return user;
+}
+
+/** Account id for a request, used to key usage limits; null when signed out. */
+export async function accountIdFor(request: Request): Promise<string | null> {
+  if (authConfigurationProblem()) return null;
+  try {
+    const auth = await getAuth();
+    const session = await auth.api.getSession({ headers: request.headers });
+    return session?.user.id ?? null;
+  } catch {
+    return null;
+  }
 }

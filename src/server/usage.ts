@@ -50,10 +50,11 @@ export const limiter: UsageLimiter = new MemoryLimiter(
 );
 
 /**
- * Identify the caller. Today that's the client address; when authentication
- * is added, return the account id instead so limits follow the user.
+ * Identify the caller: the signed-in account when there is one (so limits
+ * follow the user across devices), otherwise the client address.
  */
-export function usageSubject(request: Request): string {
+export function usageSubject(request: Request, accountId: string | null): string {
+  if (accountId) return `user:${accountId}`;
   const forwarded = request.headers.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "anonymous";
+  return `ip:${forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "anonymous"}`;
 }

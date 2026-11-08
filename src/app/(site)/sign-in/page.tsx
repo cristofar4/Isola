@@ -1,36 +1,35 @@
 import type { Metadata } from "next";
-import { ButtonLink } from "@/components/ui/button";
-import { PageShell } from "@/components/site/page-shell";
+import Link from "next/link";
+import { Suspense } from "react";
+import { AuthShell, FormSkeleton } from "@/components/auth/auth-shell";
+import { ProviderSlot } from "@/components/auth/provider-slot";
+import { SignInForm } from "@/components/auth/sign-in-form";
 
 export const metadata: Metadata = {
   title: "Sign in",
-  description: "ISOLA accounts aren't available yet. You can use every tool without signing in.",
+  description: "Sign in to your ISOLA account.",
 };
 
 export default function SignInPage() {
   return (
-    <PageShell
-      eyebrow="Accounts"
-      title="Accounts aren't available yet."
-      intro={
-        <p>
-          There&apos;s nothing to sign in to at the moment, and you don&apos;t need an account: the editor and batch studio
-          work in your browser without one.
-        </p>
+    <AuthShell
+      title="Welcome back"
+      subtitle="Sign in to your ISOLA account."
+      footer={
+        <>
+          New to ISOLA?{" "}
+          <Link href="/sign-up" className="font-semibold text-blue-700 underline-offset-2 hover:underline">
+            Create an account
+          </Link>
+        </>
       }
     >
-      <p>
-        Because there are no accounts, ISOLA doesn&apos;t save projects between visits. Export your images before closing
-        the tab.
-      </p>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <ButtonLink href="/editor" size="lg">
-          Open the editor
-        </ButtonLink>
-        <ButtonLink href="/batch" size="lg" variant="secondary">
-          Batch studio
-        </ButtonLink>
-      </div>
-    </PageShell>
+      <Suspense fallback={null}>
+        <ProviderSlot mode="sign-in" />
+      </Suspense>
+      <Suspense fallback={<FormSkeleton />}>
+        <SignInForm />
+      </Suspense>
+    </AuthShell>
   );
 }
