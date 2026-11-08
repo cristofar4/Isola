@@ -89,6 +89,15 @@ export default function SupportPage() {
         doesn&apos;t arrive, check your spam folder.
       </p>
 
+      <h2 id="plans">Plans</h2>
+      <p>
+        Free accounts can remove backgrounds and download previews up to 1,000px with an ISOLA watermark. Pro costs
+        ₦14,000 a month and gives full-resolution exports without a watermark, plus Batch Studio. Upgrade from the{" "}
+        <a href="/pricing">Pricing</a> page; payment is handled by Paystack. Subscribers can change their card or cancel
+        from <strong>Manage subscription</strong> on the Account page, and Pro stays active until the end of the paid
+        month.
+      </p>
+
       <h2 id="troubleshooting">Troubleshooting</h2>
       <h3>The first image takes a while</h3>
       <p>

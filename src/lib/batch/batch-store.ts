@@ -13,12 +13,12 @@ import { getEngine } from "@/lib/processing/registry";
 import { EngineError, isCancellation, type JobPhase } from "@/lib/processing/types";
 import { backgroundAssets } from "@/lib/project/assets";
 import { useProject } from "@/lib/project/store";
-import { isSignedIn } from "@/lib/session-gate";
+import { sessionAccess } from "@/lib/session-gate";
 import { renderBatchBlob, renderBatchPreview, type BatchSources } from "./render";
 import { reviewMask } from "./review";
 import { DEFAULT_BATCH_SETTINGS, exportName, type BatchSettings } from "./settings";
 
-export type BatchStatus = "queued" | "needs-auth" | "processing" | "done" | "error" | "cancelled";
+export type BatchStatus = "queued" | "needs-auth" | "needs-pro" | "processing" | "done" | "error" | "cancelled";
 
 export interface BatchItem {
   id: string;
@@ -143,9 +143,10 @@ async function refreshPreview(id: string) {
 async function run(id: string) {
   const item = get(id);
   if (!item) return;
-  // Removing backgrounds needs an account: park the item until the visitor signs in.
-  if (!(await isSignedIn())) {
-    patch(id, { status: "needs-auth", phase: null });
+  // Removing backgrounds needs an account, and Batch Studio is part of Pro.
+  const access = await sessionAccess();
+  if (!access.signedIn || !access.pro) {
+    patch(id, { status: access.signedIn ? "needs-pro" : "needs-auth", phase: null });
     return;
   }
   const controller = new AbortController();
@@ -335,7 +336,7 @@ export const useBatch = create<BatchState>((set, getState) => ({
     pump();
   },
   resumeAfterSignIn() {
-    getState().process(getState().items.filter((i) => i.status === "needs-auth").map((i) => i.id));
+    getState().process(getState().items.filter((i) => i.status === "needs-auth" || i.status === "needs-pro").map((i) => i.id));
   },
   retryFailed() {
     getState().process(getState().items.filter((i) => i.status === "error" || i.status === "cancelled").map((i) => i.id));

@@ -53,6 +53,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling |
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`; start it with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:auth` | Account journey including email confirmation (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
+| `npm run test:billing` | Plans and payments against a local Paystack stand-in (start the app with `PAYSTACK_SECRET_KEY=sk_test_isola_e2e PAYSTACK_API_BASE=http://127.0.0.1:4010`) |
 | `npm run test:reset` | Password reset through a real SMTP hop (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 
 `node e2e/a11y.mjs` runs an axe-core audit (install with `npm i --no-save axe-core`).
@@ -97,6 +98,11 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `EMAIL_FROM` | `ISOLA <no-reply@localhost>` | Sender for account emails |
 | `SMTP_URL` *or* `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_SECURE` | — | Send email over SMTP |
 | `RESEND_API_KEY` | — | Send email with Resend's API (used if SMTP isn't set) |
+| `NEXT_PUBLIC_ISOLA_PRO_PRICE_NGN` | `14000` | Pro price in naira per month |
+| `NEXT_PUBLIC_ISOLA_FREE_MAX_EXPORT_SIDE` | `1000` | Longest side of free-plan exports, px |
+| `PAYSTACK_SECRET_KEY` | — | Enables upgrading to Pro (**server only**) |
+| `PAYSTACK_PLAN_CODE` | — | Monthly Paystack plan for auto-renewal; without it each payment buys a month |
+| `PAYSTACK_API_BASE` | `https://api.paystack.co` | Only changed for tests |
 | `NEXT_PUBLIC_ISOLA_SOCIAL_GITHUB` / `_X` / `_INSTAGRAM` / `_LINKEDIN` / `_YOUTUBE` | GitHub: this repo | Footer social links; unset ones aren't shown |
 | `NEXT_PUBLIC_ISOLA_SUPPORT_EMAIL` | — | Shows a contact link in the footer and help pages |
 | `NEXT_PUBLIC_ISOLA_LEGAL_ENTITY` | `ISOLA` | Copyright line |
@@ -190,7 +196,43 @@ Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
 - Pages read the session behind `<Suspense>` (Cache Components), so the rest
   of each page still prerenders.
 
-Not built yet: changing the email address, and saving projects to an account.
+Not built yet: changing the email address, saving projects to an account, and
+yearly billing.
+
+## Plans and payments
+
+| | Free | Pro — ₦14,000/month |
+| --- | --- | --- |
+| Background removal (account required) | ✓ | ✓ |
+| Single-image editor | ✓ | ✓ |
+| Export size | Up to 1,000px on the longest side | Full resolution |
+| Watermark | "ISOLA" tiled across exports | None |
+| Batch Studio | — | ✓ |
+
+- **Payments** go through [Paystack](https://paystack.com) in naira. "Upgrade
+  to Pro" opens Paystack's hosted checkout; when the payer returns,
+  `/billing/callback` verifies the transaction with Paystack's API (status,
+  ₦14,000 in kobo, NGN, and that it belongs to the signed-in account) before
+  granting a month of Pro. Payments are recorded by reference, so a callback
+  and a webhook for the same charge only count once.
+- **Renewal:** set `PAYSTACK_PLAN_CODE` to a monthly ₦14,000 plan created in
+  the Paystack dashboard and checkout starts a subscription; each renewal
+  charge (delivered to `/api/billing/webhook`, signature-checked with your
+  secret key) adds another month. Subscribers get "Manage subscription" on the
+  Account page, which opens Paystack's page to change card or cancel; Pro then
+  lasts until the end of the paid month. Without a plan code, each payment buys
+  one month and doesn't renew.
+- **Set up:** add `PAYSTACK_SECRET_KEY` (and optionally `PAYSTACK_PLAN_CODE`),
+  and set the webhook URL in the Paystack dashboard to
+  `{BETTER_AUTH_URL}/api/billing/webhook`. Without a key, the Upgrade button
+  says payments aren't set up yet and everyone stays on Free.
+- **How limits are enforced:** Pro status is stored on the server and only the
+  server can change it. Because background removal and export run in the
+  browser (images are never uploaded), the watermark and export size are
+  applied by the app in the browser; a technically skilled user could get
+  around them. Server-side rendering of exports would be needed for strict
+  enforcement.
+- **Yearly billing** isn't offered yet; the pricing page shows monthly only.
 
 ## Editing model
 
@@ -261,6 +303,12 @@ empty model folder (so the automatic download is exercised) and with
   original tab carrying on, duplicate sign-up revealing nothing while emailing
   the owner, profile, sign out, password change and account deletion.
 - **Password reset (`npm run test:reset`): 13/13**, through a real SMTP hop.
+- **Plans and payments (`npm run test:billing`): 22/22**, including the price
+  and amount sent to checkout, free exports capped at 1,000px with a
+  watermark, Batch Studio blocked on Free, upgrade through checkout, Pro
+  exports at full resolution without a watermark, refusing replayed,
+  underpaid and other-account payments, rejecting forged webhooks, renewals
+  extending Pro once, and subscription management.
 - **Google/GitHub (`node e2e/oauth.mjs`):** both buttons start a real OAuth
   redirect with the right callback URL (completing it needs real credentials).
 - **Accessibility:** axe-core reports 0 violations on 15 pages and states,
@@ -270,7 +318,7 @@ empty model folder (so the automatic download is exercised) and with
 Not verified here: WebGPU (unavailable in the headless sandbox, so the High detail
 model has only been validated with native ONNX Runtime), Safari and Firefox,
 real touch devices, completing Google/GitHub sign-in, delivery through a real
-email provider, and live calls to remove.bg (its API is unreachable from the
+email provider, live Paystack payments, and live calls to remove.bg (its API is unreachable from the
 sandbox; the route's validation, rate limiting and error paths were tested).
 
 ## Feature status
@@ -307,8 +355,10 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 
 **Not yet built / needs integration**
 
-- **Billing:** `src/server/billing.ts` is a boundary only; there are no plans or
-  prices, and the Pricing page says so.
+- **Billing:** Pro at ₦14,000/month through Paystack is built and tested
+  against a local stand-in for Paystack's API; it hasn't been run against live
+  Paystack from here. Studio (team workspace, centralised billing) is planned
+  and marked as such.
 - **Account email flows:** confirmation and password reset are done; changing
   the email address isn't built yet. Projects aren't saved to accounts.
 - **Public API:** no hosted API or API keys. The developer page documents only the

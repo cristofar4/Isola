@@ -1,8 +1,10 @@
 "use client";
 
 import { AlertDialog } from "radix-ui";
-import { CircleCheck, KeyRound, LogOut, MonitorSmartphone, Trash2, UserRound } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { CircleCheck, KeyRound, LogOut, MonitorSmartphone, Sparkles, Trash2, UserRound } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { UpgradeButton } from "@/components/billing/upgrade-button";
+import { formatNaira, planConfig, uploadLimits } from "@/lib/config";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
@@ -226,9 +228,60 @@ function DeleteCard({ user }: { user: CurrentUser }) {
   );
 }
 
-export function AccountPanel({ user }: { user: CurrentUser }) {
+function PlanCard({ user, billingAvailable }: { user: CurrentUser; billingAvailable: boolean }) {
+  const params = useSearchParams();
+  const upgraded = params.get("upgraded") === "1";
+  const manage = params.get("manage");
+  const { plan } = user;
+  const until = plan.proUntil ? new Date(plan.proUntil).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null;
+  return (
+    <Card
+      icon={<Sparkles className="size-4" />}
+      title="Plan"
+      description={plan.pro ? `Pro · ${formatNaira(planConfig.proPriceNgn)}/month` : "Free"}
+    >
+      <div className="grid gap-4">
+        {upgraded && plan.pro && <FormAlert tone="success">Payment confirmed. Welcome to Pro.</FormAlert>}
+        {manage === "failed" && <FormAlert>Couldn&apos;t open subscription management. Please try again.</FormAlert>}
+        {plan.pro ? (
+          <>
+            <p className="text-sm leading-relaxed text-ink-3">
+              Full-resolution exports without a watermark, and Batch Studio. Active until{" "}
+              <span className="font-semibold text-ink">{until}</span>.{" "}
+              {plan.renews ? "Renews automatically." : "It won't renew on its own; pay again before then to keep Pro."}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {plan.hasSubscription ? (
+                <a
+                  href="/api/billing/manage"
+                  className="inline-flex h-10 items-center rounded-[10px] border border-line bg-surface px-4 text-sm font-semibold text-ink hover:bg-paper"
+                >
+                  Manage subscription
+                </a>
+              ) : (
+                !plan.renews && <UpgradeButton available={billingAvailable} size="md" className="w-auto" returnTo="/account" />
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm leading-relaxed text-ink-3">
+              Free exports include an ISOLA watermark and are limited to {planConfig.freeMaxExportSide.toLocaleString("en-US")}px.
+              Pro removes the watermark, exports at full resolution and unlocks Batch Studio (up to {uploadLimits.maxBatchFiles}{" "}
+              images at a time) for {formatNaira(planConfig.proPriceNgn)}/month.
+            </p>
+            <UpgradeButton available={billingAvailable} size="md" className="w-auto sm:max-w-xs" returnTo="/account" />
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+export function AccountPanel({ user, billingAvailable }: { user: CurrentUser; billingAvailable: boolean }) {
   return (
     <div className="grid gap-5">
+      <PlanCard user={user} billingAvailable={billingAvailable} />
       <ProfileCard user={user} />
       {user.providers.includes("credential") && <PasswordCard />}
       <SessionsCard />

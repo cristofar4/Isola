@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { AccountPanel } from "@/components/auth/account-panel";
 import { ButtonLink } from "@/components/ui/button";
 import { AuthUnavailableError, requireUser } from "@/server/auth";
+import { billingConfigured } from "@/server/billing";
 
 export const metadata: Metadata = {
   title: "Account",
@@ -28,7 +29,7 @@ async function AccountContent() {
       <p className="mb-6 text-[17px] text-ink-3">
         Signed in as <span className="font-semibold text-ink">{user.name || user.email}</span>.
       </p>
-      <AccountPanel user={user} />
+      <AccountPanel user={user} billingAvailable={billingConfigured()} />
     </>
   );
 }

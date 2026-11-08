@@ -53,6 +53,14 @@ export default function PrivacyPage() {
         and the message. ISOLA doesn&apos;t send marketing email.
       </p>
 
+      <h2>Payments</h2>
+      <p>
+        If you upgrade to Pro, you pay on Paystack&apos;s secure checkout. Paystack handles your card or bank details;
+        ISOLA never sees or stores them. ISOLA receives and keeps a record of each payment (its reference, amount,
+        currency and date), your Paystack customer and subscription codes, and the date your Pro plan runs until.
+        Paystack&apos;s own privacy policy applies to the information you give it.
+      </p>
+
       <h2>Cookies and analytics</h2>
       <p>
         ISOLA sets cookies only when you sign in: a session cookie that keeps you signed in, plus short-lived cookies used

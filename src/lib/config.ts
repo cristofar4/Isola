@@ -44,6 +44,16 @@ export const exportLimits = {
   maxDimension: positiveNumber(process.env.NEXT_PUBLIC_ISOLA_MAX_EXPORT_DIMENSION, 12000),
 } as const;
 
+/** Free plan: exports are watermarked and limited to this longest side (px). Pro removes both limits. */
+export const planConfig = {
+  freeMaxExportSide: positiveNumber(process.env.NEXT_PUBLIC_ISOLA_FREE_MAX_EXPORT_SIDE, 1000),
+  proPriceNgn: positiveNumber(process.env.NEXT_PUBLIC_ISOLA_PRO_PRICE_NGN, 14000),
+} as const;
+
+export function formatNaira(amount: number) {
+  return `₦${amount.toLocaleString("en-NG")}`;
+}
+
 export const engineConfig = {
   /**
    * Where model files are fetched from. The default route serves them only to

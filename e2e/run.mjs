@@ -1,7 +1,8 @@
 /**
  * End-to-end verification of the core workflow against a running server.
  *
- *   npm run build && SMTP_URL=smtp://127.0.0.1:2525 npm start
+ *   npm run build && SMTP_URL=smtp://127.0.0.1:2525 PAYSTACK_SECRET_KEY=sk_test_isola_e2e \
+ *     PAYSTACK_API_BASE=http://127.0.0.1:4010 npm start
  *   BASE_URL=http://localhost:3000 npm run test:e2e
  *
  * Background removal requires an account, so this signs in with accounts it
@@ -12,6 +13,7 @@
 import { chromium } from "playwright";
 import { createConfirmedAccount, signInContext } from "./lib/accounts.mjs";
 import { startMailbox } from "./lib/mail.mjs";
+import { startFakePaystack, upgradeToPro } from "./lib/paystack.mjs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { unzipSync } from "fflate";
 import { join } from "node:path";
@@ -97,7 +99,15 @@ async function stroke(page, from, to) {
 
 const browser = await chromium.launch();
 const mailbox = await startMailbox();
+const paystack = await startFakePaystack();
 const account = await createConfirmedAccount(browser, BASE, mailbox, { name: "E2E Tester" });
+// Full-resolution exports and Batch Studio are Pro features (free-plan limits are covered by test:billing).
+{
+  const upgrader = await browser.newContext();
+  await signInContext(upgrader, BASE, account);
+  await upgradeToPro(upgrader, BASE);
+  await upgrader.close();
+}
 
 /* 0. Background removal needs an account ------------------------------ */
 {
@@ -386,6 +396,7 @@ await context.close();
 
 await browser.close();
 await mailbox.close();
+await paystack.close();
 writeFileSync(join(OUT, "results.json"), JSON.stringify(results, null, 2));
 console.log(`\n${results.length - failures}/${results.length} checks passed`);
 process.exit(failures ? 1 : 0);

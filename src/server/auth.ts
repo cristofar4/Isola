@@ -6,7 +6,7 @@ import { DatabaseSync } from "node:sqlite";
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
-import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { betterAuth, type BetterAuthOptions, type BetterAuthPlugin } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
@@ -62,6 +62,35 @@ function list(value: string | undefined): string[] | undefined {
   const items = value?.split(",").map((s) => s.trim()).filter(Boolean);
   return items?.length ? items : undefined;
 }
+
+/**
+ * Plan fields live on the user row (written only by the server, never by
+ * updateUser) and verified payments get their own table, keyed by the
+ * provider's reference so a payment can never be counted twice.
+ */
+const planFields = {
+  plan: { type: "string", required: false, defaultValue: "free", input: false },
+  proUntil: { type: "date", required: false, input: false },
+  proRenews: { type: "boolean", required: false, defaultValue: false, input: false },
+  paystackCustomerCode: { type: "string", required: false, input: false, returned: false },
+  paystackSubscriptionCode: { type: "string", required: false, input: false, returned: false },
+} as const;
+
+const billingTables = {
+  id: "isola-billing",
+  schema: {
+    payment: {
+      fields: {
+        reference: { type: "string", required: true, unique: true },
+        userId: { type: "string", required: true, references: { model: "user", field: "id", onDelete: "cascade" } },
+        amount: { type: "number", required: true },
+        currency: { type: "string", required: true },
+        paidAt: { type: "date", required: true },
+        provider: { type: "string", required: true },
+      },
+    },
+  },
+} satisfies BetterAuthPlugin;
 
 function createDatabase(): BetterAuthOptions["database"] {
   const url = process.env.DATABASE_URL;
@@ -143,7 +172,7 @@ function createOptions(): BetterAuthOptions {
         requireLocalEmailVerified: true,
       },
     },
-    user: { deleteUser: { enabled: true } },
+    user: { deleteUser: { enabled: true }, additionalFields: planFields },
     session: {
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
@@ -167,7 +196,7 @@ function createOptions(): BetterAuthOptions {
       },
     },
     trustedOrigins: list(process.env.ISOLA_TRUSTED_ORIGINS),
-    plugins: [nextCookies()],
+    plugins: [nextCookies(), billingTables],
   };
 }
 
@@ -206,6 +235,7 @@ export interface CurrentUser {
   createdAt: string;
   /** Linked sign-in methods, e.g. ["credential", "google"]. */
   providers: string[];
+  plan: { pro: boolean; proUntil: string | null; renews: boolean; hasSubscription: boolean };
 }
 
 /** Data Access Layer: the signed-in user, or null. Reads the request, so call it inside <Suspense>. */
@@ -216,6 +246,13 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const session = await auth.api.getSession({ headers: requestHeaders });
   if (!session) return null;
   const accounts = await auth.api.listUserAccounts({ headers: requestHeaders });
+  const ctx = await auth.$context;
+  const row = await ctx.adapter.findOne<{ proUntil?: Date | string | null; proRenews?: boolean | null; paystackSubscriptionCode?: string | null }>({
+    model: "user",
+    where: [{ field: "id", value: session.user.id }],
+  });
+  const until = row?.proUntil ? new Date(row.proUntil) : null;
+  const pro = Boolean(until && until.getTime() > Date.now());
   return {
     id: session.user.id,
     name: session.user.name,
@@ -223,6 +260,12 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     emailVerified: session.user.emailVerified,
     createdAt: new Date(session.user.createdAt).toISOString(),
     providers: accounts.map((a) => a.providerId),
+    plan: {
+      pro,
+      proUntil: until ? until.toISOString() : null,
+      renews: pro && Boolean(row?.proRenews),
+      hasSubscription: Boolean(row?.paystackSubscriptionCode),
+    },
   };
 }
 

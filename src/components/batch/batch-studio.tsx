@@ -16,6 +16,8 @@ import { isReady, useBatch, zipItems, type BatchItem } from "@/lib/batch/batch-s
 import { useEngineState } from "@/lib/processing/registry";
 import { useProject } from "@/lib/project/store";
 import { signInHref, useOnSignIn } from "@/lib/session-gate";
+import { formatNaira, planConfig } from "@/lib/config";
+import { usePlan } from "@/lib/plan";
 import { BatchCard, BatchRow } from "./batch-card";
 import { BatchSettingsPanel } from "./batch-settings-panel";
 
@@ -31,7 +33,7 @@ function counts(items: BatchItem[]) {
       else ready++;
     } else if (i.status === "processing") processing++;
     else if (i.status === "queued") queued++;
-    else if (i.status === "needs-auth") waiting++;
+    else if (i.status === "needs-auth" || i.status === "needs-pro") waiting++;
     else failed++;
   }
   return { ready, processing, queued, review, failed, waiting };
@@ -102,6 +104,8 @@ export function BatchStudio() {
   const router = useRouter();
   // Images added while signed out start as soon as the visitor signs in.
   const { signedIn, isPending: sessionPending } = useOnSignIn(resumeAfterSignIn);
+  const plan = usePlan();
+  const needsPro = signedIn && !plan.isPending && !plan.pro;
   const engineId = useProject((s) => s.engineId);
   const engine = useEngineState(engineId);
   const files = useAddFiles();
@@ -121,7 +125,7 @@ export function BatchStudio() {
     c.processing && `${c.processing} processing`,
     c.queued && `${c.queued} queued`,
     c.review && `${c.review} need${c.review === 1 ? "s" : ""} review`,
-    c.waiting && `${c.waiting} waiting for sign-in`,
+    c.waiting && `${c.waiting} waiting for ${needsPro ? "Pro" : "sign-in"}`,
     c.failed && `${c.failed} failed or cancelled`,
   ]
     .filter(Boolean)
@@ -208,14 +212,29 @@ export function BatchStudio() {
         <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
           {/* Images */}
           <section aria-label="Images in this batch" className="rounded-[18px] border border-line bg-surface p-4 shadow-[var(--shadow-card)] sm:p-5">
+            {needsPro && (
+              <div className="mb-4 flex flex-col gap-3 rounded-[14px] border border-blue-100 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center">
+                <Lock className="hidden size-5 shrink-0 text-blue sm:block" aria-hidden="true" />
+                <div className="flex-1 text-[13px] leading-relaxed text-ink-3">
+                  <p className="font-semibold text-ink">Batch Studio is part of Pro</p>
+                  <p>
+                    Process up to {uploadLimits.maxBatchFiles} images at once, at full resolution and without a watermark, for{" "}
+                    {formatNaira(planConfig.proPriceNgn)}/month. Single images stay free in the editor.
+                  </p>
+                </div>
+                <ButtonLink href="/pricing" size="sm">
+                  Upgrade to Pro
+                </ButtonLink>
+              </div>
+            )}
             {!sessionPending && !signedIn && (
               <div className="mb-4 flex flex-col gap-3 rounded-[14px] border border-blue-100 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center">
                 <Lock className="hidden size-5 shrink-0 text-blue sm:block" aria-hidden="true" />
                 <div className="flex-1 text-[13px] leading-relaxed text-ink-3">
                   <p className="font-semibold text-ink">Sign in to remove backgrounds</p>
                   <p>
-                    It&apos;s free. Images you add now wait here and start processing as soon as you sign in. Processing
-                    still happens on this device.
+                    Batch Studio is part of Pro ({formatNaira(planConfig.proPriceNgn)}/month). Images you add now wait here
+                    and start once you&apos;re signed in on Pro. Processing happens on this device.
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -236,7 +255,7 @@ export function BatchStudio() {
               <button
                 type="button"
                 disabled={selected.length === 0}
-                onClick={() => (signedIn ? process(selected) : router.push(signInHref("/batch")))}
+                onClick={() => (!signedIn ? router.push(signInHref("/batch")) : needsPro ? router.push("/pricing") : process(selected))}
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:underline disabled:cursor-not-allowed disabled:text-subtle disabled:no-underline"
               >
                 <Scissors className="size-4" aria-hidden="true" /> Remove background

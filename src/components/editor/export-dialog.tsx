@@ -1,13 +1,15 @@
 "use client";
 
-import { CircleCheck, Download, Link2, Link2Off } from "lucide-react";
+import Link from "next/link";
+import { CircleCheck, Download, Link2, Link2Off, Sparkles } from "lucide-react";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { Sheet } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/cn";
-import { formatBytes } from "@/lib/config";
+import { formatBytes, formatNaira, planConfig } from "@/lib/config";
+import { usePlan } from "@/lib/plan";
 import { checkExportSize, downloadBlob, exportFileName, renderExport, type ExportFormat } from "@/lib/editor/export";
 import { cropOf, outputSizeOf, type BackgroundSpec } from "@/lib/editor/types";
 import { compositeSources, updateSettings } from "@/lib/project/actions";
@@ -41,10 +43,19 @@ function ExportForm({ image }: { image: ProjectImage }) {
   const [lock, setLock] = useState(true);
   const [state, setState] = useState<{ kind: "idle" } | { kind: "rendering" } | { kind: "done"; name: string; bytes: number } | { kind: "error"; message: string }>({ kind: "idle" });
   const ids = { w: useId(), h: useId() };
+  const plan = usePlan();
+  // Free plan: watermarked, and scaled down to fit the preview size.
+  const limited = !plan.pro;
+  const cap = planConfig.freeMaxExportSide;
+  const capScale = limited ? Math.min(1, cap / Math.max(size.width, size.height)) : 1;
+  const out = {
+    width: Math.max(1, Math.round(size.width * capScale)),
+    height: Math.max(1, Math.round(size.height * capScale)),
+  };
 
   const editorBackground = settings.background.kind !== "transparent";
   const background: BackgroundSpec = editorBackground ? settings.background : { kind: "color", color: matte };
-  const check = checkExportSize(size.width, size.height);
+  const check = checkExportSize(out.width, out.height);
   const fileName = exportFileName(image.name, format);
   const scalePct = Math.round((size.width / crop.w) * 100);
 
@@ -69,10 +80,11 @@ function ExportForm({ image }: { image: ProjectImage }) {
       if (JSON.stringify(wanted) !== JSON.stringify(settings.output)) updateSettings(image.id, "Resize", { output: wanted });
       const blob = await renderExport(sources, settings, {
         format,
-        width: size.width,
-        height: size.height,
+        width: out.width,
+        height: out.height,
         background,
         quality: quality / 100,
+        watermark: limited,
       });
       downloadBlob(blob, fileName);
       setState({ kind: "done", name: fileName, bytes: blob.size });
@@ -91,7 +103,7 @@ function ExportForm({ image }: { image: ProjectImage }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[13px] tabular-nums text-muted" aria-live="polite">
             <span className="font-semibold text-ink">
-              {size.width.toLocaleString("en-US")} × {size.height.toLocaleString("en-US")} px
+              {out.width.toLocaleString("en-US")} × {out.height.toLocaleString("en-US")} px
             </span>{" "}
             · {FORMATS.find((f) => f.value === format)?.label}
           </p>
@@ -105,6 +117,19 @@ function ExportForm({ image }: { image: ProjectImage }) {
         </div>
       }
     >
+      {limited && (
+        <div className="mb-5 flex gap-3 rounded-[12px] border border-blue-100 bg-blue-50 px-3.5 py-3 text-[13px] leading-relaxed text-ink-3">
+          <Sparkles className="mt-0.5 size-4 shrink-0 text-blue" aria-hidden="true" />
+          <p>
+            <span className="font-semibold text-ink">Free plan:</span> exports include an ISOLA watermark and are limited to{" "}
+            {cap.toLocaleString("en-US")}px on the longest side.{" "}
+            <Link href="/pricing" className="font-semibold text-blue-700 underline underline-offset-2">
+              Upgrade to Pro for {formatNaira(planConfig.proPriceNgn)}/month
+            </Link>{" "}
+            for full resolution without a watermark.
+          </p>
+        </div>
+      )}
       <fieldset className="grid gap-2">
         <legend className="mb-2 text-[13px] font-semibold text-ink">Format</legend>
         {FORMATS.map((f) => (

@@ -1,6 +1,7 @@
 import { exportLimits } from "@/lib/config";
 import { canvasToBlob, createCanvas, get2d } from "@/lib/image/decode";
 import { drawComposite, type CompositeSources } from "./compose";
+import { drawWatermark } from "./watermark";
 import type { BackgroundSpec, EditSettings } from "./types";
 
 export type ExportFormat = "png-transparent" | "png-background" | "jpeg";
@@ -13,6 +14,8 @@ export interface ExportRequest {
   background: BackgroundSpec;
   /** JPEG quality, 0–1. */
   quality: number;
+  /** Free plan: draw the ISOLA watermark over the result. */
+  watermark?: boolean;
 }
 
 export interface ExportCheck {
@@ -78,6 +81,7 @@ export async function renderExport(
     ctx.fillRect(0, 0, width, height);
   }
   drawComposite(ctx, sources, settings, { x: 0, y: 0, w: width, h: height }, { background });
+  if (request.watermark) drawWatermark(ctx, width, height);
   try {
     return await canvasToBlob(canvas, mimeFor(request.format), request.format === "jpeg" ? request.quality : undefined);
   } catch {

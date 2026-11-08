@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { authClient } from "./auth-client";
+import { planFromUser } from "./plan";
 
 /**
  * Background removal needs an account. The server enforces this (the model
@@ -9,19 +10,26 @@ import { authClient } from "./auth-client";
  * it can explain instead of failing.
  */
 
-let cached: { at: number; signedIn: boolean } | null = null;
+let cached: { at: number; signedIn: boolean; pro: boolean } | null = null;
 
-export async function isSignedIn(): Promise<boolean> {
-  if (cached && Date.now() - cached.at < 3000) return cached.signedIn;
+/** Whether the visitor is signed in and on Pro (cached for a few seconds). */
+export async function sessionAccess(): Promise<{ signedIn: boolean; pro: boolean }> {
+  if (cached && Date.now() - cached.at < 3000) return cached;
   let signedIn = false;
+  let pro = false;
   try {
     const { data } = await authClient.getSession();
     signedIn = Boolean(data?.session);
+    pro = planFromUser(data?.user as Parameters<typeof planFromUser>[0]).pro;
   } catch {
     signedIn = false;
   }
-  cached = { at: Date.now(), signedIn };
-  return signedIn;
+  cached = { at: Date.now(), signedIn, pro };
+  return cached;
+}
+
+export async function isSignedIn(): Promise<boolean> {
+  return (await sessionAccess()).signedIn;
 }
 
 export function forgetSession() {
