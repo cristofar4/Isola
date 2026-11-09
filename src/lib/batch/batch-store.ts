@@ -821,7 +821,7 @@ function sameRecord(a: storage.PersistedItem, b: storage.PersistedItem) {
 function schedulePersist() {
   if (!persistReady) return;
   clearTimeout(persistTimer);
-  persistTimer = setTimeout(() => void flushPersist(), 250);
+  persistTimer = setTimeout(() => void flushPersist(), 100);
 }
 
 let flushing: Promise<void> | null = null;
@@ -934,5 +934,15 @@ export function restoreBatch(): Promise<void> {
 if (typeof window !== "undefined") {
   useBatch.subscribe((state, previous) => {
     if (state.items !== previous.items || state.name !== previous.name) schedulePersist();
+  });
+  // Leaving or hiding the page: save now rather than after the debounce (best effort).
+  const saveNow = () => {
+    if (!persistReady) return;
+    clearTimeout(persistTimer);
+    void flushPersist();
+  };
+  window.addEventListener("pagehide", saveNow);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") saveNow();
   });
 }

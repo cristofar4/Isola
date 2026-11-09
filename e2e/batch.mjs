@@ -139,30 +139,92 @@ const NOT_IMAGE = join(OUT, "not-an-image.png");
 
 const account = await createConfirmedAccount(browser, BASE, mailbox, { name: "Batch Tester" });
 
-/* 1. Signed out: images wait, and survive the sign-in journey ------------ */
+/* 1. Signed out: the introduction, the walkthrough and the sample project -- */
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
 const page = await ctx.newPage();
 page.on("pageerror", (e) => console.log("page error:", e.message));
 await page.goto(`${BASE}/batch`, { waitUntil: "networkidle" });
-await page.locator("#batch-files").setInputFiles(PRODUCT);
-await visible(page.getByText("Sign in required")).first().waitFor({ timeout: 15_000 });
-check("Signed-out images wait with a clear reason", await visible(page.getByText("Sign in to remove backgrounds")).isVisible());
-const exportAll = visible(page.getByRole("button", { name: /^Export all ready/ })).last();
-check("Export is disabled until something is finished, with a reason", (await exportAll.isDisabled()) && (await visible(page.locator("#batch-export-reason")).innerText()).length > 0);
+check(
+  "Signed-out visitors get the Batch Studio introduction",
+  (await page.getByRole("heading", { level: 1 }).innerText()).replace(/\s+/g, " ") === "Your entire collection. One effortless workflow." &&
+    (await page.locator("#batch-files").count()) === 0 &&
+    (await page.locator('main a[href="/sign-up?next=%2Fbatch"]').count()) === 2,
+);
+check("It says Batch Studio is part of Pro", await page.getByText(/Batch Studio is part of Pro/).isVisible());
+const carousel = page.getByRole("region", { name: "How Batch Studio works" });
+check("The walkthrough has four steps", (await carousel.getByRole("tab").count()) === 4);
+await carousel.getByRole("tab", { name: /Export ZIP/ }).click();
+check("Choosing a step shows it", (await carousel.getByRole("tab", { name: /Export ZIP/ }).getAttribute("aria-selected")) === "true" && (await carousel.getByText("Everything in one download.").isVisible()));
+await carousel.getByRole("button", { name: "Next step" }).click();
+check("Next wraps around to the first step", (await carousel.getByRole("tab", { name: /Upload/ }).getAttribute("aria-selected")) === "true");
+await page.mouse.move(5, 5);
+await page.waitForTimeout(6600);
+check("It plays on its own", (await carousel.getByRole("tab", { name: /Remove backgrounds/ }).getAttribute("aria-selected")) === "true");
+await carousel.getByRole("button", { name: "Pause the walkthrough" }).click();
+await page.mouse.move(5, 5);
+await page.waitForTimeout(6600);
+check("Pause stops it", (await carousel.getByRole("tab", { name: /Remove backgrounds/ }).getAttribute("aria-selected")) === "true");
 
-await page.locator('main a[href="/sign-in?next=%2Fbatch"]').first().click();
+// The sample project uses the real compositor: apply a look, then download real files.
+const sample = page.locator("#try-it");
+await sample.locator('[data-sample-preview="rendered"]').first().waitFor({ timeout: 15_000 });
+await sample.getByRole("radio", { name: "Blue" }).click();
+await sample.getByLabel("Padding").fill("20");
+await sample.getByRole("button", { name: "Apply to samples" }).click();
+await sample.getByRole("button", { name: "Applied to samples" }).waitFor();
+await page.waitForFunction(() => document.querySelector("[data-sample-grid] img")?.getAttribute("alt")?.includes("blue background, 20% padding"));
+let sampleZip = await download(page, () => sample.getByRole("button", { name: /Download sample ZIP/ }).click(), "sample.zip");
+const sampleEntries = unzipSync(readFileSync(sampleZip.file));
+writeFileSync(join(OUT, "sample-sneaker.png"), sampleEntries["sneaker.png"]);
+const sampleImg = await inspect(page, join(OUT, "sample-sneaker.png"), { points: [[4, 4]], subject: { bg: [221, 230, 251] } });
+check(
+  "Sample ZIP: three square PNGs with the applied background and padding",
+  Object.keys(sampleEntries).sort().join() === "handbag.png,serum.png,sneaker.png" &&
+    sampleImg.width === sampleImg.height &&
+    sampleImg.samples[0].slice(0, 3).join() === "221,230,251" &&
+    sampleImg.box && Math.abs(Math.min(sampleImg.box.x0, sampleImg.box.y0, 1 - sampleImg.box.x1, 1 - sampleImg.box.y1) - 0.2) < 0.02,
+  `${sampleImg.width}×${sampleImg.height}, corner ${sampleImg.samples[0]}, margin ${sampleImg.box ? Math.min(sampleImg.box.x0, sampleImg.box.y0, 1 - sampleImg.box.x1, 1 - sampleImg.box.y1).toFixed(3) : "?"}`,
+);
+
+// Signing in from the page opens the workspace.
+await page.locator('main a[href="/sign-in?next=%2Fbatch"]').last().click();
 await page.waitForURL("**/sign-in**");
 await page.getByLabel("Email").fill(account.email);
 await page.getByLabel("Password", { exact: true }).fill(account.password);
 await page.getByRole("button", { name: "Sign in", exact: true }).click();
 await page.waitForURL((u) => u.pathname === "/batch", { timeout: 30_000 });
+await page.locator("#batch-files").waitFor({ state: "attached", timeout: 20_000 });
+check("After signing in, /batch is the workspace", (await page.getByRole("heading", { level: 1 }).innerText()) === "Batch Studio");
+await page.locator("#batch-files").setInputFiles(PRODUCT);
 await visible(page.getByText("Pro required")).first().waitFor({ timeout: 20_000 });
-check("The batch survives signing in (free account → Pro required)", (await page.locator("[data-batch-item]").filter({ visible: true }).count()) === 1);
+check("On a free account, images wait for Pro with a clear reason", await visible(page.getByText("Batch Studio is part of Pro")).isVisible());
+const exportAll = visible(page.getByRole("button", { name: /^Export all ready/ })).last();
+check("Export is disabled until something is finished, with a reason", (await exportAll.isDisabled()) && (await visible(page.locator("#batch-export-reason")).innerText()).length > 0);
 
 /* 2. Upgrade: a full page load later the batch is restored and starts ---- */
+// Wait until the batch is in IndexedDB (saving is debounced), as it would be by the time someone pays.
+const savedCount = () =>
+  page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const r = indexedDB.open("isola-batch");
+        r.onsuccess = () => {
+          const db = r.result;
+          if (!db.objectStoreNames.contains("items")) return resolve(0);
+          const q = db.transaction("items").objectStore("items").count();
+          q.onsuccess = () => resolve(q.result);
+          q.onerror = () => resolve(0);
+        };
+        r.onerror = () => resolve(0);
+      }),
+  );
+for (let t = Date.now(); Date.now() - t < 10_000 && (await savedCount()) !== 1; ) await page.waitForTimeout(200);
 await upgradeToPro(ctx, BASE);
 await page.reload({ waitUntil: "networkidle" });
-check("The batch is restored from this browser after a reload", (await card(page, "product.jpg").count()) === 1);
+check(
+  "The batch is restored from this browser after a reload",
+  await card(page, "product.jpg").waitFor({ timeout: 15_000 }).then(() => true, () => false),
+);
 
 /* 3. Mixed batch: valid images, a transparent PNG, a corrupt and a fake file */
 let maxProcessing = 0;

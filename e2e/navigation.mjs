@@ -96,14 +96,13 @@ await page.goto(BASE, { waitUntil: "networkidle" });
 await trigger.click();
 await visible(nav.getByRole("link", { name: /^Product images/ })).click();
 await page.waitForURL("**/batch?preset=catalogue");
-await visible(page.getByText("Catalogue preset loaded")).waitFor();
-const panel = page.getByRole("complementary", { name: "Batch settings" });
-check("Product images loads the catalogue preset into Batch settings", (await panel.getByRole("button", { name: "Square (1:1)" }).getAttribute("aria-pressed")) === "true");
-await panel.getByRole("tab", { name: "Background" }).click();
-check("…with a white background", (await panel.getByRole("radio", { name: "White" }).getAttribute("aria-checked")) === "true");
-await page.locator("#batch-files").setInputFiles(join(process.cwd(), "e2e", "fixtures", "product.jpg"));
-await page.getByRole("button", { name: "Apply to 1 image" }).first().waitFor();
-check("The preset stays a draft until applied, with a one-click apply", await panel.getByText(/Not applied yet/).isVisible());
+await page.getByText("Catalogue preset:").waitFor();
+const sampleAlt = await page.locator("[data-sample-grid] img").first().getAttribute("alt");
+check("Signed out, Product images shows the catalogue look on the samples", /white background, 10% padding/.test(sampleAlt ?? ""), sampleAlt ?? "");
+check(
+  "…and signing in from there keeps the preset",
+  (await page.getByRole("link", { name: "Sign in with this preset" }).getAttribute("href")) === "/sign-in?next=%2Fbatch%3Fpreset%3Dcatalogue",
+);
 
 await page.goto(BASE, { waitUntil: "networkidle" });
 await trigger.click();
@@ -115,6 +114,16 @@ await page.screenshot({ path: join(OUT, "tools-page.png"), fullPage: true });
 /* The editor applies the tool once an image is ready ----------------------- */
 const account = await createConfirmedAccount(browser, BASE, mailbox, { name: "Nav Tester" });
 await signInContext(context, BASE, account);
+await page.goto(`${BASE}/batch?preset=catalogue`, { waitUntil: "networkidle" });
+await visible(page.getByText("Catalogue preset loaded")).waitFor();
+const panel = page.getByRole("complementary", { name: "Batch settings" });
+check("Signed in, Product images loads the catalogue preset into Batch settings", (await panel.getByRole("button", { name: "Square (1:1)" }).getAttribute("aria-pressed")) === "true");
+await panel.getByRole("tab", { name: "Background" }).click();
+check("…with a white background", (await panel.getByRole("radio", { name: "White" }).getAttribute("aria-checked")) === "true");
+await page.locator("#batch-files").setInputFiles(join(process.cwd(), "e2e", "fixtures", "product.jpg"));
+await page.getByRole("button", { name: "Apply to 1 image" }).first().waitFor();
+check("The preset stays a draft until applied, with a one-click apply", await panel.getByText(/Not applied yet/).isVisible());
+
 await page.goto(`${BASE}/editor?tool=restore`, { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Try the sneaker example" }).click();
 await page.waitForFunction(() => [...document.querySelectorAll('[aria-label="Restore brush"]')].some((b) => !b.disabled && b.offsetParent), null, { timeout: 180_000 });

@@ -254,6 +254,16 @@ page has a Monthly/Yearly toggle (yearly saves about 17%).
 
 Batch Studio is part of Pro. Images processed there never leave the browser.
 
+- **Signed out, `/batch` is an introduction** (from the reference design): the
+  pitch, a four-step walkthrough (Upload → Remove backgrounds → Match your
+  style → Export ZIP) that plays on its own unless paused, hovered, focused or
+  the device asks for reduced motion, and a sample project. The sample project
+  uses three real cutouts from ISOLA's model and the real Batch Studio
+  compositor: pick a background and padding, apply, and download a ZIP of the
+  actual files. "Product images" in the Tools menu shows the catalogue look on
+  the samples and keeps the preset through sign-in. Signed in, `/batch` is the
+  workspace described below.
+
 - **Adding images:** choose files, drag and drop, or add more at any time (up
   to 50). Each file is checked by content, size and dimensions; a rejected file
   is listed with its reason and the rest are added. The app keeps its own copy
@@ -425,12 +435,16 @@ empty model folder (so the automatic download is exercised) and with
   Enter opens the section), the live browser check, troubleshooting entries,
   all 20 error codes listed, feedback stored (and refused for unknown pages or
   other origins), footer links, and the mobile guide menu.
-- **Navigation (`npm run test:nav`): 28/28**: every Tools menu link points
+- **Navigation (`npm run test:nav`): 30/30**: every Tools menu link points
   where it says, hover/click/Escape/keyboard behaviour, no axe violations with
   the menu open, the editor hints and preselected tools (restore brush after
   processing, crop tool when an image is already open), the catalogue preset
   in Batch Studio, the All tools page, and the grouped mobile menu.
-- **Batch Studio (`npm run test:batch`): 39/39**, with real processing of a
+- **Batch Studio (`npm run test:batch`): 47/47**: the signed-out
+  introduction (four-step walkthrough that can be stepped, wraps, autoplays and
+  pauses; the sample ZIP holds three square PNGs with the applied background
+  and padding measured in the file; signing in from it opens the workspace),
+  then real processing of a
   product photo, a bottle, a portrait with fine hair, a PNG with transparency,
   a corrupt PNG and a non-image, opening every downloaded file: the batch
   survives signing in and a reload after upgrading; the invalid file is

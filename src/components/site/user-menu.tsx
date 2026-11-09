@@ -35,6 +35,7 @@ export function Avatar({ name, email, size = "md" }: { name: string; email: stri
 export function UserMenu() {
   const router = useRouter();
   const signIn = useSignInHref();
+  const onBatch = usePathname() === "/batch";
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) return <span className="inline-block h-9 w-[180px]" aria-hidden="true" />;
@@ -42,12 +43,18 @@ export function UserMenu() {
   if (!session) {
     return (
       <>
-        <Link href={signIn} className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-ink hover:bg-ink/5">
+        <Link href={signIn} className="inline-flex h-10 items-center rounded-[10px] border border-line-strong px-4 text-sm font-semibold text-ink hover:border-ink hover:bg-ink/5">
           Sign in
         </Link>
-        <ButtonLink href="/editor" size="md">
-          Get started
-        </ButtonLink>
+        {onBatch ? (
+          <ButtonLink href="/sign-up?next=%2Fbatch" size="md">
+            Create account
+          </ButtonLink>
+        ) : (
+          <ButtonLink href="/editor" size="md">
+            Get started
+          </ButtonLink>
+        )}
       </>
     );
   }

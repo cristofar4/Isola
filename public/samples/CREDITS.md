@@ -25,3 +25,15 @@ model live in your browser; it never shows these pre-rendered files as a result.
 `showcase/sneaker-white-mask.webp` is the alpha channel of
 `sneaker-white-cutout.webp` saved as a greyscale image, used on the developer
 docs to show the mask step.
+
+Batch Studio intro page (`showcase/batch/`), from Unsplash under the Unsplash License:
+
+| File | Unsplash source |
+| --- | --- |
+| showcase/batch/sneaker.webp (cropped) | https://images.unsplash.com/photo-1608231387042-66d1773070a5 |
+| showcase/batch/serum.webp (cropped) | https://images.unsplash.com/photo-1608571423902-eed4a5ad8108 |
+| showcase/batch/handbag.webp (cropped) | https://images.unsplash.com/photo-1598532163257-ae3c6b2524b6 |
+
+The matching `*-cutout.webp` files are real outputs of ISOLA's Standard model
+(produced through this app's own `/api/v1/remove-background`), trimmed to the
+subject. They're used as sample assets on that page.
