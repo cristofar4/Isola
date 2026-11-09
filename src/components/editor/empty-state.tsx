@@ -7,9 +7,13 @@ import { Spinner } from "@/components/ui/progress";
 import { useUpload } from "@/components/upload/use-upload";
 import { FORMAT_LABEL, limitsSummary } from "@/lib/config";
 import { SAMPLES } from "@/lib/samples";
+import { INTENT_HINT } from "./editor-intent";
+import { useEditorUI } from "./editor-ui-store";
 
 export function EmptyState() {
   const upload = useUpload({ navigateTo: null });
+  const intent = useEditorUI((s) => s.intent);
+  const hint = intent ? INTENT_HINT[intent] : null;
   return (
     <div className="flex h-full items-center justify-center p-4">
       <input {...upload.inputProps} />
@@ -19,6 +23,11 @@ export function EmptyState() {
         </span>
         <h2 className="mt-4 font-display text-2xl font-bold tracking-tight">Start with a photo</h2>
         <p className="mt-2 text-sm text-muted">Drop images here, paste from your clipboard, or choose files.</p>
+        {hint && (
+          <p className="mt-4 rounded-[12px] border border-blue-100 bg-blue-50 px-3.5 py-2.5 text-left text-[13px] leading-relaxed text-ink-3">
+            <span className="font-semibold text-ink">{hint.title}:</span> {hint.text}
+          </p>
+        )}
         <Button
           size="lg"
           className="mt-6 w-full"

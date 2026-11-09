@@ -34,7 +34,7 @@ export default function SupportPage() {
           longest side and {uploadLimits.maxMegapixels} megapixels.
         </li>
         <li>
-          Batch studio holds up to {uploadLimits.maxBatchFiles} images at a time. Select images and use Batch settings to
+          Batch Studio holds up to {uploadLimits.maxBatchFiles} images at a time. Select images and use Batch settings to
           change their background, canvas size, padding, alignment, shadow and export format, then export them as a ZIP.
         </li>
         <li>

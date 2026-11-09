@@ -2,25 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DropdownMenu } from "radix-ui";
-import { Code2, ChevronDown, Eraser, Layers, Menu, Wand2 } from "lucide-react";
+import { ArrowUpRight, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
+import { TOOL_GROUPS } from "@/lib/tools";
+import { MainNav } from "./tools-menu";
 import { MobileUserLinks, UserMenu } from "./user-menu";
 
-const tools = [
-  { href: "/editor", label: "Background remover", description: "Remove, refine and export one image", icon: Wand2 },
-  { href: "/batch", label: "Batch studio", description: "Process a set of images in one go", icon: Layers },
-  { href: "/support#editing", label: "Restore & erase brushes", description: "How to fine-tune edges by hand", icon: Eraser },
-  { href: "/developers", label: "Engine adapter", description: "Swap models or providers", icon: Code2 },
-];
-
 const links = [
-  { href: "/batch", label: "Batch studio" },
-  { href: "/developers", label: "API" },
+  { href: "/batch", label: "Batch Studio" },
+  { href: "/developers", label: "Developers" },
   { href: "/pricing", label: "Pricing" },
 ];
 
@@ -49,56 +43,9 @@ export function SiteHeader() {
           <Logo />
         </Link>
 
-        <nav aria-label="Main" className="ml-auto hidden items-center gap-1 md:flex lg:ml-24 lg:mr-auto">
-          <DropdownMenu.Root modal={false}>
-            <DropdownMenu.Trigger className="group inline-flex h-9 items-center gap-1 rounded-lg px-3 text-sm font-medium text-ink hover:bg-ink/5 data-[state=open]:bg-ink/5">
-              Tools
-              <ChevronDown
-                className="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180"
-                aria-hidden="true"
-              />
-            </DropdownMenu.Trigger>
-                          <DropdownMenu.Content
-                align="start"
-                sideOffset={8}
-                className="z-50 w-[320px] animate-scale-in rounded-[14px] border border-line bg-surface p-1.5 shadow-[var(--shadow-float)]"
-              >
-                {tools.map((tool) => (
-                  <DropdownMenu.Item key={tool.href} asChild>
-                    <Link
-                      href={tool.href}
-                      className="flex items-start gap-3 rounded-[10px] p-2.5 outline-none data-[highlighted]:bg-paper"
-                    >
-                      <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue">
-                        <tool.icon className="size-4" aria-hidden="true" />
-                      </span>
-                      <span>
-                        <span className="block text-sm font-semibold text-ink">{tool.label}</span>
-                        <span className="block text-[13px] text-muted">{tool.description}</span>
-                      </span>
-                    </Link>
-                  </DropdownMenu.Item>
-                ))}
-              </DropdownMenu.Content>
-          </DropdownMenu.Root>
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={pathname === link.href ? "page" : undefined}
-              className={cn(
-                "relative inline-flex h-16 items-center px-3 text-sm font-medium transition-colors after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors",
-                pathname === link.href
-                  ? "text-blue-700 after:bg-blue"
-                  : "text-ink after:bg-transparent hover:text-blue-700",
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        <MainNav pathname={pathname} links={links} />
 
-        <div className="ml-auto hidden items-center gap-2 md:flex lg:ml-0">
+        <div className="ml-auto hidden items-center gap-2 md:flex">
           <UserMenu />
         </div>
 
@@ -115,19 +62,29 @@ export function SiteHeader() {
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen} title="Menu" side="right">
         <nav aria-label="Mobile" className="grid gap-1 pt-2" onClick={(e) => (e.target as HTMLElement).closest("a") && setMenuOpen(false)}>
-          <p className="eyebrow px-3 pb-1 pt-2 text-subtle">Tools</p>
-          {tools.map((tool) => (
-            <Link key={tool.href} href={tool.href} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
-              <tool.icon className="size-4 text-blue" aria-hidden="true" />
-              {tool.label}
-            </Link>
+          {TOOL_GROUPS.map((group) => (
+            <div key={group.title} className="grid gap-0.5">
+              <p className="eyebrow px-3 pb-1 pt-3 text-subtle">{group.title}</p>
+              {group.items.map((tool) => (
+                <Link key={tool.href} href={tool.href} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-paper">
+                  <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-blue-50 text-blue">
+                    <tool.icon className="size-[18px]" aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[15px] font-medium text-ink">{tool.label}</span>
+                    <span className="block text-[13px] text-muted">{tool.description}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
           ))}
+          <Link href="/tools" className="inline-flex items-center gap-1.5 px-3 py-2 text-[14px] font-semibold text-blue-700">
+            Explore all tools <ArrowUpRight className="size-4" aria-hidden="true" />
+          </Link>
           <div className="my-2 h-px bg-line" />
-          {links.map((link) => (
-            <Link key={link.href} href={link.href} className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
-              {link.label}
-            </Link>
-          ))}
+          <Link href="/pricing" className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
+            Pricing
+          </Link>
           <div className="my-2 h-px bg-line" />
           <MobileUserLinks onNavigate={() => setMenuOpen(false)} />
           <ButtonLink href="/editor" size="lg" className="mt-3">

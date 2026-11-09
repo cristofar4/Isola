@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:e2e": "node e2e/run.mjs",
     "test:batch": "node e2e/batch.mjs",
+    "test:nav": "node e2e/navigation.mjs",
     "postinstall": "node scripts/copy-ort.mjs",
     "models:fetch": "node scripts/fetch-models.mjs",
     "test:auth": "node e2e/auth.mjs",

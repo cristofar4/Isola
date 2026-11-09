@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
 import {
   AlertTriangle,
@@ -20,6 +20,7 @@ import {
   RotateCw,
   Scissors,
   Search,
+  ShoppingBag,
   SlidersHorizontal,
   Square,
   SquareCheckBig,
@@ -28,7 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { ToggleGroup } from "radix-ui";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { engineSummary } from "@/components/editor/engine-text";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -41,6 +42,7 @@ import {
   cancelItems,
   clearBatch,
   exportItems,
+  applySettings,
   hasUnappliedEdits,
   isBusy,
   isReady,
@@ -53,7 +55,7 @@ import {
   type BatchItem,
   type BatchView,
 } from "@/lib/batch/batch-store";
-import { formatLabel, sameSettings, sizeLabel } from "@/lib/batch/settings";
+import { CATALOGUE_PRESET, formatLabel, sameSettings, sizeLabel } from "@/lib/batch/settings";
 import { useEngineState } from "@/lib/processing/registry";
 import { useProject } from "@/lib/project/store";
 import { usePlan } from "@/lib/plan";
@@ -353,6 +355,52 @@ function StorageNote() {
   );
 }
 
+/** Loads a preset from ?preset= (the Tools menu's "Product images"). */
+function PresetFromUrl({ onPreset }: { onPreset: (preset: "catalogue") => void }) {
+  const preset = useSearchParams().get("preset");
+  useEffect(() => {
+    if (preset === "catalogue") onPreset("catalogue");
+  }, [preset, onPreset]);
+  return null;
+}
+
+function CatalogueNotice({ onDismiss }: { onDismiss: () => void }) {
+  const items = useBatch((s) => s.items);
+  const [applied, setApplied] = useState(false);
+  return (
+    <div role="status" className="mt-4 flex flex-col gap-3 rounded-[14px] border border-blue-100 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center">
+      <ShoppingBag className="hidden size-5 shrink-0 text-blue sm:block" aria-hidden="true" />
+      <div className="flex-1 text-[13px] leading-relaxed text-ink-3">
+        <p className="font-semibold text-ink">Catalogue preset loaded</p>
+        <p>
+          {applied
+            ? `Applied to ${items.length === 1 ? "1 image" : `all ${items.length} images`}. New images you add can be given the same look with Apply in Batch settings.`
+            : "White square canvas, 10% padding, centred products, JPEG. It's in Batch settings, not applied yet. Add your product photos, then apply it to every image."}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        {items.length > 0 && !applied && (
+          <Button
+            size="sm"
+            onClick={async () => {
+              await applySettings(
+                items.map((i) => i.id),
+                CATALOGUE_PRESET,
+              );
+              setApplied(true);
+            }}
+          >
+            {items.length === 1 ? "Apply to 1 image" : `Apply to all ${items.length} images`}
+          </Button>
+        )}
+        <Button size="sm" variant="secondary" onClick={onDismiss}>
+          Dismiss
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function BatchStudio() {
   const name = useBatch((s) => s.name);
   const setName = useBatch((s) => s.setName);
@@ -375,6 +423,16 @@ export function BatchStudio() {
   const inputRef = useRef<HTMLInputElement>(null);
   const settingsRef = useRef<HTMLElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [preset, setPreset] = useState<"catalogue" | null>(null);
+  const setDraft = useBatch((s) => s.setDraft);
+  const loadPreset = useCallback(
+    (p: "catalogue") => {
+      setPreset(p);
+      setDraft(CATALOGUE_PRESET);
+      setTab("layout");
+    },
+    [setDraft, setTab],
+  );
 
   useEffect(() => {
     void restoreBatch();
@@ -504,6 +562,11 @@ export function BatchStudio() {
             </button>
           </div>
         )}
+
+        <Suspense fallback={null}>
+          <PresetFromUrl onPreset={loadPreset} />
+        </Suspense>
+        {preset === "catalogue" && <CatalogueNotice onDismiss={() => setPreset(null)} />}
 
         {needsPro && (
           <div className="mt-4 flex flex-col gap-3 rounded-[14px] border border-blue-100 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center">

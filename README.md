@@ -53,6 +53,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling |
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`; start it with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:auth` | Account journey including email confirmation (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
+| `npm run test:nav` | Tools menu, its destinations and the mobile menu (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:batch` | Batch Studio end to end with real processing; opens every download (start the app with `SMTP_URL=smtp://127.0.0.1:2525 PAYSTACK_SECRET_KEY=sk_test_isola_e2e PAYSTACK_API_BASE=http://127.0.0.1:4010`) |
 | `npm run test:billing` | Plans and payments against a local Paystack stand-in (start the app as for `test:batch`, plus `PAYSTACK_PLAN_CODE=PLN_isola_monthly_e2e PAYSTACK_YEARLY_PLAN_CODE=PLN_isola_yearly_e2e`) |
 | `npm run test:reset` | Password reset through a real SMTP hop (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
@@ -367,6 +368,11 @@ empty model folder (so the automatic download is exercised) and with
   JPEG; shadows; crop and resize dimensions; invalid and oversized files rejected
   before decoding; transparent input; a 24 MP image; retry after a missing-model
   failure; mobile toolbar and bottom sheet.
+- **Navigation (`npm run test:nav`): 28/28**: every Tools menu link points
+  where it says, hover/click/Escape/keyboard behaviour, no axe violations with
+  the menu open, the editor hints and preselected tools (restore brush after
+  processing, crop tool when an image is already open), the catalogue preset
+  in Batch Studio, the All tools page, and the grouped mobile menu.
 - **Batch Studio (`npm run test:batch`): 39/39**, with real processing of a
   product photo, a bottle, a portrait with fine hair, a PNG with transparency,
   a corrupt PNG and a non-image, opening every downloaded file: the batch
@@ -416,6 +422,15 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 
 **Working**
 
+- Tools menu from the reference design: Edit an image (background remover,
+  restore & erase, change background, resize & crop), Work with more (Batch
+  Studio, product images), Learn & build (help centre, developer docs), a
+  before/after card made from ISOLA's own output, and "Explore all tools"
+  (`/tools`). Opens on hover or click, works with the keyboard, and is grouped
+  the same way in the mobile menu. Editor links (`/editor?tool=restore`,
+  `?tool=crop`, `?panel=background`) show a hint and select that tool once the
+  image is ready; "Product images" (`/batch?preset=catalogue`) loads a white
+  square catalogue preset into Batch settings as a draft with one-click apply.
 - Landing page from the reference design, with ISOLA branding, draggable
   before/after, upload panel, samples, feature sections and footer.
 - One upload path for every entry point (landing, CTA, editor, filmstrip, drag

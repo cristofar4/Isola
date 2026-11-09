@@ -1,7 +1,7 @@
 "use client";
 
 import { Download, ImagePlus, Lock, RotateCcw, Server, Wand2 } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/segmented";
 import { Slider } from "@/components/ui/slider";
@@ -27,9 +27,9 @@ import { imageAssets } from "@/lib/project/assets";
 import { useProject, type ProjectImage } from "@/lib/project/store";
 import { aspectRatioOf, BRUSH_MAX, BRUSH_MIN, useEditorUI, type AspectPreset } from "./editor-ui-store";
 
-function Section({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
+function Section({ title, children, className, sectionRef }: { title: string; children: ReactNode; className?: string; sectionRef?: Ref<HTMLElement> }) {
   return (
-    <section className={cn("border-b border-line px-4 py-4", className)} aria-label={title}>
+    <section ref={sectionRef} className={cn("border-b border-line px-4 py-4 transition-colors duration-700", className)} aria-label={title}>
       <h3 className="mb-3 text-[13px] font-semibold text-ink">{title}</h3>
       <div className="grid gap-4">{children}</div>
     </section>
@@ -188,9 +188,25 @@ function BackgroundSection({ image }: { image: ProjectImage }) {
   const [rememberedColor, setRememberedColor] = useState("#FFFFFF");
   const lastColor = bg.kind === "color" ? bg.color : rememberedColor;
   const colorDrag = useSettingsDrag(image);
+  // Arriving from "Change background" in the Tools menu: bring this section into view once.
+  const sectionRef = useRef<HTMLElement>(null);
+  const intent = useEditorUI((s) => s.intent);
+  const pending = useEditorUI((s) => s.intentPending);
+  const [highlight, setHighlight] = useState(false);
+  useEffect(() => {
+    if (intent !== "background" || !pending || !sectionRef.current?.offsetParent) return;
+    sectionRef.current.scrollIntoView({ block: "start", behavior: "smooth" });
+    useEditorUI.getState().clearIntentPending();
+    const on = window.setTimeout(() => setHighlight(true), 0);
+    const off = window.setTimeout(() => setHighlight(false), 1600);
+    return () => {
+      window.clearTimeout(on);
+      window.clearTimeout(off);
+    };
+  }, [intent, pending]);
 
   return (
-    <Section title="Background">
+    <Section title="Background" sectionRef={sectionRef} className={highlight ? "bg-blue-50" : undefined}>
       <Segmented
         label="Background type"
         value={bg.kind}

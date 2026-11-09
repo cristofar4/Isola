@@ -60,6 +60,20 @@ export const BATCH_WHITE = "#FFFFFF";
 export const BATCH_SOFT_GREY = "#EEEFEC";
 export const MAX_PADDING = 40;
 
+/** "Product images" in the Tools menu: one consistent look for a catalogue. */
+export const CATALOGUE_PRESET: BatchSettings = {
+  ...DEFAULT_BATCH_SETTINGS,
+  background: { kind: "color", color: BATCH_WHITE },
+  canvas: "square",
+  fit: "contain",
+  padding: 10,
+  align: { x: 0.5, y: 0.5 },
+  shadow: false,
+  format: "jpeg",
+  matte: BATCH_WHITE,
+  keepNames: true,
+};
+
 export const CANVAS_LABEL: Record<CanvasPreset, string> = {
   framing: "Original framing",
   original: "Original size, re-centred",

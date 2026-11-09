@@ -1,7 +1,7 @@
 "use client";
 
 import { ImagePlus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Sheet } from "@/components/ui/sheet";
 import { useFileDrop } from "@/components/upload/use-file-drop";
 import { cn } from "@/lib/cn";
@@ -9,6 +9,7 @@ import { importFiles, redo, resumeAfterSignIn, undo } from "@/lib/project/action
 import { useOnSignIn } from "@/lib/session-gate";
 import { useActiveImage, useProject } from "@/lib/project/store";
 import { EditorCanvas } from "./editor-canvas";
+import { ApplyEditorIntent, EditorIntentFromUrl } from "./editor-intent";
 import { useEditorUI } from "./editor-ui-store";
 import { EmptyState } from "./empty-state";
 import { ExportDialog } from "./export-dialog";
@@ -105,6 +106,10 @@ export function EditorShell() {
 
   return (
     <div className="flex h-dvh w-full max-w-[100vw] flex-col overflow-hidden bg-paper text-ink" {...drop.bind}>
+      <Suspense fallback={null}>
+        <EditorIntentFromUrl />
+      </Suspense>
+      <ApplyEditorIntent />
       <TopBar image={image} onOpenImages={() => setImagesOpen(true)} onOpenAdjust={() => setAdjustOpen(true)} />
       <div className="flex min-h-0 flex-1">
         {hasImages && (

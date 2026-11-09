@@ -3,6 +3,9 @@
 import { create } from "zustand";
 
 export type Tool = "move" | "restore" | "erase" | "crop";
+/** What the visitor came to the editor to do (from the Tools menu), shown as a hint and applied once an image is ready. */
+export type EditorIntent = "restore" | "background" | "crop";
+
 export type AspectPreset = "free" | "original" | "1:1" | "4:5" | "3:2" | "16:9" | "9:16";
 
 export type ViewCommand =
@@ -21,6 +24,11 @@ interface EditorUIState {
   aspect: AspectPreset;
   command: (ViewCommand & { nonce: number }) | null;
   exportOpen: boolean;
+  intent: EditorIntent | null;
+  /** Set when the intent still needs applying to a ready image. */
+  intentPending: boolean;
+  setIntent: (intent: EditorIntent | null) => void;
+  clearIntentPending: () => void;
   setProjectName: (name: string) => void;
   setTool: (tool: Tool) => void;
   setBrushSize: (size: number) => void;
@@ -47,6 +55,10 @@ export const useEditorUI = create<EditorUIState>((set) => ({
   aspect: "free",
   command: null,
   exportOpen: false,
+  intent: null,
+  intentPending: false,
+  setIntent: (intent) => set({ intent, intentPending: intent !== null }),
+  clearIntentPending: () => set({ intentPending: false }),
   setProjectName: (projectName) => set({ projectName }),
   setTool: (tool) => set((s) => ({ tool, compare: tool === "crop" ? false : s.compare })),
   setBrushSize: (size) => set({ brushSize: Math.round(Math.min(BRUSH_MAX, Math.max(BRUSH_MIN, size))) }),

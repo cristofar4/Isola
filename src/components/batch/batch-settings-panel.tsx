@@ -420,7 +420,7 @@ export function BatchSettingsPanel({ onApplied, inSheet }: { onApplied?: () => v
   };
   const targets = targetIds({ items, selected });
   const count = targets.length;
-  const scope = selected.length ? `${count} selected image${count === 1 ? "" : "s"}` : `all ${count} image${count === 1 ? "" : "s"}`;
+  const scope = selected.length ? `${count} selected image${count === 1 ? "" : "s"}` : count === 1 ? "1 image" : `all ${count} images`;
   const applied = draftIsApplied({ items, selected, draft });
   const unapplied = hasUnappliedEdits({ items, selected, draft, draftEdited });
   const mixed = targetsMixed({ items, selected });
@@ -491,7 +491,7 @@ export function BatchSettingsPanel({ onApplied, inSheet }: { onApplied?: () => v
             }
           }}
         >
-          {count === 0 ? "No images yet" : selected.length ? `Apply to ${count} selected` : `Apply to all ${count} images`}
+          {count === 0 ? "No images yet" : selected.length ? `Apply to ${count} selected` : count === 1 ? "Apply to 1 image" : `Apply to all ${count} images`}
         </Button>
         <button
           type="button"
