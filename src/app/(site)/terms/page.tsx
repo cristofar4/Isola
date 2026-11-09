@@ -26,8 +26,8 @@ export default function TermsPage() {
       </p>
       <h2>Pro subscriptions</h2>
       <p>
-        Pro is billed monthly in naira through Paystack. It gives full-resolution exports without a watermark and access to
-        Batch Studio for as long as it&apos;s active. You can cancel at any time; Pro then remains active until the end of
+        Pro is billed in naira through Paystack, either monthly or yearly; both give the same features. It gives
+        full-resolution exports without a watermark and access to Batch Studio for as long as it&apos;s active. You can cancel at any time; Pro then remains active until the end of
         the period you&apos;ve paid for. Prices may change in future, and you&apos;ll be told before a new price applies to
         you.
       </p>

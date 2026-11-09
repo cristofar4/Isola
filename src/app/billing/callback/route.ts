@@ -15,8 +15,8 @@ export async function GET(request: Request) {
   try {
     const auth = await getAuth();
     const session = await auth.api.getSession({ headers: request.headers });
-    await verifyAndGrant(reference, session?.user.id);
-    return to("/account?upgraded=1");
+    const result = await verifyAndGrant(reference, session?.user.id);
+    return to(`${result.returnTo ?? "/account"}?upgraded=1`);
   } catch (error) {
     const reason = error instanceof BillingError && error.status === 402 ? "incomplete" : error instanceof BillingError && error.status === 403 ? "mismatch" : "failed";
     if (!(error instanceof BillingError)) console.error("[billing] callback failed:", error instanceof Error ? error.message : error);

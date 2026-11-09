@@ -1,7 +1,10 @@
 import { canvasToBlob, createCanvas, get2d } from "@/lib/image/decode";
+import { checkExportSize } from "@/lib/editor/export";
 import { blurInPlace } from "@/lib/editor/mask-ops";
+import { drawWatermark } from "@/lib/editor/watermark";
 import type { Rect } from "@/lib/editor/geometry";
-import { BATCH_WHITE, canvasSize, placement, type BatchSettings } from "./settings";
+import { applyPolicySize, type ExportPolicy } from "@/lib/plan-policy";
+import { canvasSize, exportMime, placement, type BatchSettings } from "./settings";
 
 type AnyCanvas = OffscreenCanvas | HTMLCanvasElement;
 type AnyContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -61,19 +64,16 @@ export function drawBatch(ctx: AnyContext, sources: BatchSources, settings: Batc
   ctx.imageSmoothingQuality = "high";
 
   const bg = settings.background;
+  // JPEG has no alpha channel, so it always starts from the chosen opaque colour.
+  if (settings.format === "jpeg") {
+    ctx.fillStyle = settings.matte;
+    ctx.fillRect(0, 0, W, H);
+  }
   if (bg.kind === "color") {
     ctx.fillStyle = bg.color;
     ctx.fillRect(0, 0, W, H);
   } else if (bg.kind === "image" && sources.backgroundImage) {
-    if (settings.format === "jpeg") {
-      ctx.fillStyle = BATCH_WHITE;
-      ctx.fillRect(0, 0, W, H);
-    }
     drawCover(ctx, sources.backgroundImage, W, H);
-  } else if (settings.format === "jpeg") {
-    // JPEG has no alpha channel: transparent areas become white.
-    ctx.fillStyle = BATCH_WHITE;
-    ctx.fillRect(0, 0, W, H);
   }
 
   // Image pixels → output pixels.
@@ -94,23 +94,58 @@ export function drawBatch(ctx: AnyContext, sources: BatchSources, settings: Batc
   ctx.drawImage(sources.cutout, dx, dy, dw, dh);
 }
 
-export async function renderBatchBlob(sources: BatchSources, settings: BatchSettings): Promise<Blob> {
-  const size = canvasSize(settings, sources.width, sources.height);
-  let canvas: AnyCanvas;
-  try {
-    canvas = createCanvas(size.width, size.height);
-  } catch {
-    throw new Error("This browser can't create an image that large.");
+export class BatchRenderError extends Error {}
+
+function assertBackground(sources: BatchSources, settings: BatchSettings) {
+  if (settings.background.kind === "image" && !sources.backgroundImage) {
+    throw new BatchRenderError(`The background image "${settings.background.name}" isn't loaded any more. Choose a background again.`);
   }
-  drawBatch(get2d(canvas, { alpha: settings.format !== "jpeg" }), sources, settings, 1);
-  return canvasToBlob(canvas, settings.format === "jpeg" ? "image/jpeg" : "image/png", settings.format === "jpeg" ? 0.92 : undefined);
 }
 
-/** Small preview for cards, using the low-resolution cutout. */
-export async function renderBatchPreview(sources: BatchSources, settings: BatchSettings, maxSide = 480): Promise<Blob> {
+/**
+ * Full-resolution export. The plan policy (watermark, size limit) is applied
+ * here, so single downloads and ZIPs follow the same rules.
+ */
+export async function renderBatchBlob(
+  sources: BatchSources,
+  settings: BatchSettings,
+  policy: ExportPolicy,
+): Promise<{ blob: Blob; width: number; height: number }> {
+  assertBackground(sources, settings);
+  const size = canvasSize(settings, sources.width, sources.height);
+  const out = applyPolicySize(size.width, size.height, policy);
+  const check = checkExportSize(out.width, out.height);
+  if (!check.ok) throw new BatchRenderError(check.message);
+  let canvas: AnyCanvas;
+  try {
+    canvas = createCanvas(out.width, out.height);
+  } catch {
+    throw new BatchRenderError("This browser can't create an image that large. Try a smaller canvas size.");
+  }
+  const ctx = get2d(canvas, { alpha: settings.format !== "jpeg" });
+  drawBatch(ctx, sources, settings, out.width / size.width);
+  if (policy.watermark) drawWatermark(ctx, out.width, out.height);
+  let blob: Blob;
+  try {
+    blob = await canvasToBlob(canvas, exportMime(settings), settings.format === "jpeg" ? 0.92 : undefined);
+  } catch {
+    throw new BatchRenderError("The browser couldn't encode an image this large. Try a smaller canvas size.");
+  }
+  return { blob, width: out.width, height: out.height };
+}
+
+/**
+ * Card preview, drawn by the same function as the export (from a smaller
+ * cutout), including the watermark when the plan adds one.
+ */
+export async function renderBatchPreview(sources: BatchSources, settings: BatchSettings, policy: ExportPolicy, maxSide = 520): Promise<Blob> {
   const size = canvasSize(settings, sources.width, sources.height);
   const k = Math.min(1, maxSide / Math.max(size.width, size.height));
-  const canvas = createCanvas(Math.max(1, Math.round(size.width * k)), Math.max(1, Math.round(size.height * k)));
-  drawBatch(get2d(canvas), sources, settings, k);
+  const w = Math.max(1, Math.round(size.width * k));
+  const h = Math.max(1, Math.round(size.height * k));
+  const canvas = createCanvas(w, h);
+  const ctx = get2d(canvas);
+  drawBatch(ctx, sources, settings, k);
+  if (policy.watermark) drawWatermark(ctx, w, h);
   return canvasToBlob(canvas, "image/png");
 }

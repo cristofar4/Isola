@@ -238,7 +238,13 @@ function PlanCard({ user, billingAvailable }: { user: CurrentUser; billingAvaila
     <Card
       icon={<Sparkles className="size-4" />}
       title="Plan"
-      description={plan.pro ? `Pro · ${formatNaira(planConfig.proPriceNgn)}/month` : "Free"}
+      description={
+        plan.pro
+          ? plan.interval === "yearly"
+            ? `Pro · ${formatNaira(planConfig.proYearlyPriceNgn)}/year`
+            : `Pro · ${formatNaira(planConfig.proPriceNgn)}/month`
+          : "Free"
+      }
     >
       <div className="grid gap-4">
         {upgraded && plan.pro && <FormAlert tone="success">Payment confirmed. Welcome to Pro.</FormAlert>}
@@ -246,7 +252,7 @@ function PlanCard({ user, billingAvailable }: { user: CurrentUser; billingAvaila
         {plan.pro ? (
           <>
             <p className="text-sm leading-relaxed text-ink-3">
-              Full-resolution exports without a watermark, and Batch Studio. Active until{" "}
+              Full-resolution HD exports without a watermark, and Batch Studio. Billed {plan.interval === "yearly" ? "yearly" : "monthly"}. Active until{" "}
               <span className="font-semibold text-ink">{until}</span>.{" "}
               {plan.renews ? "Renews automatically." : "It won't renew on its own; pay again before then to keep Pro."}
             </p>
@@ -259,7 +265,9 @@ function PlanCard({ user, billingAvailable }: { user: CurrentUser; billingAvaila
                   Manage subscription
                 </a>
               ) : (
-                !plan.renews && <UpgradeButton available={billingAvailable} size="md" className="w-auto" returnTo="/account" />
+                !plan.renews && (
+                  <UpgradeButton available={billingAvailable} size="md" className="w-auto" returnTo="/account" interval={plan.interval ?? "monthly"} />
+                )
               )}
             </div>
           </>
@@ -268,9 +276,12 @@ function PlanCard({ user, billingAvailable }: { user: CurrentUser; billingAvaila
             <p className="text-sm leading-relaxed text-ink-3">
               Free exports include an ISOLA watermark and are limited to {planConfig.freeMaxExportSide.toLocaleString("en-US")}px.
               Pro removes the watermark, exports at full resolution and unlocks Batch Studio (up to {uploadLimits.maxBatchFiles}{" "}
-              images at a time) for {formatNaira(planConfig.proPriceNgn)}/month.
+              images at a time) for {formatNaira(planConfig.proPriceNgn)}/month or {formatNaira(planConfig.proYearlyPriceNgn)}/year.
             </p>
-            <UpgradeButton available={billingAvailable} size="md" className="w-auto sm:max-w-xs" returnTo="/account" />
+            <div className="flex flex-wrap gap-2">
+              <UpgradeButton available={billingAvailable} size="md" className="w-auto" returnTo="/account" interval="monthly" label={`Monthly · ${formatNaira(planConfig.proPriceNgn)}`} />
+              <UpgradeButton available={billingAvailable} size="md" className="w-auto" returnTo="/account" interval="yearly" label={`Yearly · ${formatNaira(planConfig.proYearlyPriceNgn)}`} />
+            </div>
           </>
         )}
       </div>

@@ -455,6 +455,12 @@ export function PropertiesPanel({ image }: { image: ProjectImage }) {
   return (
     <div className="flex h-full flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {image.batchItemId && (
+          <p className="mx-4 mt-4 rounded-[10px] border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-ink-3">
+            <span className="font-semibold text-ink">From Batch Studio.</span> Brush and edge changes and the background go back to
+            this image in the batch automatically. Canvas size, layout and file format are set in Batch Studio.
+          </p>
+        )}
         <EngineSection image={image} />
         {ready ? (
           <>

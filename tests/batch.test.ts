@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { reviewMask } from "@/lib/batch/review";
-import { DEFAULT_BATCH_SETTINGS, canvasSize, exportName, placement, type BatchSettings } from "@/lib/batch/settings";
+import {
+  DEFAULT_BATCH_SETTINGS,
+  canvasSize,
+  customSizeError,
+  exportName,
+  normaliseSettings,
+  placement,
+  safeFileStem,
+  sameSettings,
+  type BatchSettings,
+} from "@/lib/batch/settings";
+import { applyPolicySize, exportPolicy } from "@/lib/plan-policy";
 
 const s = (patch: Partial<BatchSettings>): BatchSettings => ({ ...DEFAULT_BATCH_SETTINGS, ...patch });
 
@@ -47,6 +58,61 @@ describe("exportName", () => {
     expect(exportName("Sneakers.JPG", s({ keepNames: true }), used)).toBe("Sneakers.png");
     expect(exportName("sneakers.webp", s({ keepNames: true }), used)).toBe("sneakers-2.png");
     expect(exportName("bag.jpg", s({ keepNames: false, format: "jpeg" }), used)).toBe("bag-isola.jpg");
+  });
+});
+
+describe("naming patterns", () => {
+  it("fills {name}, {n} and {project}, padding the number", () => {
+    const settings = s({ keepNames: false, namePattern: "{project}-{n}-{name}" });
+    expect(exportName("bag.jpg", settings, new Set(), { index: 3, total: 12, project: "Spring sale" })).toBe("Spring sale-03-bag.png");
+  });
+  it("falls back to the default pattern when empty", () => {
+    expect(exportName("bag.jpg", s({ keepNames: false, namePattern: "  " }), new Set())).toBe("bag-isola.png");
+  });
+  it("makes names safe without dropping non-Latin letters", () => {
+    expect(safeFileStem('a/b:c*?"<>|d')).toBe("a b c d");
+    expect(safeFileStem("café façade")).toBe("café façade");
+    expect(safeFileStem("CON")).toBe("CON-image");
+    expect(safeFileStem("...")).toBe("image");
+  });
+  it("treats names case-insensitively when avoiding collisions", () => {
+    const used = new Set<string>();
+    expect(exportName("A.jpg", s({}), used)).toBe("A.png");
+    expect(exportName("a.png", s({}), used)).toBe("a-2.png");
+  });
+});
+
+describe("settings", () => {
+  it("validates custom dimensions", () => {
+    expect(customSizeError({ width: 2000, height: 2000 })).toBeNull();
+    expect(customSizeError({ width: 8, height: 2000 })).toMatch(/at least 16px/);
+    expect(customSizeError({ width: 2000, height: 9000 })).toMatch(/at most 8,000px/);
+    expect(customSizeError({ width: Number.NaN, height: 100 })).toMatch(/Width/);
+  });
+  it("fills in fields missing from older saved settings", () => {
+    const old = { background: { kind: "transparent" }, canvas: "square", padding: 99 } as unknown as BatchSettings;
+    const n = normaliseSettings(old);
+    expect(n.matte).toBe("#FFFFFF");
+    expect(n.namePattern).toBe("{name}-isola");
+    expect(n.padding).toBe(40);
+    expect(sameSettings(n, normaliseSettings(n))).toBe(true);
+  });
+  it("square canvases with padding place the subject inside the margin", () => {
+    const p = placement(s({ canvas: "square", padding: 10, align: { x: 0.5, y: 1 } }), 1600, 1280, { x: 400, y: 300, w: 800, h: 600 });
+    // canvas 1600², margin 160, subject scaled to fit 1280² → bottom edge at 1440 (90%).
+    expect(p.ty + (300 + 600) * p.s).toBeCloseTo(1440);
+  });
+});
+
+describe("plan policy", () => {
+  it("caps free exports and adds the watermark; Pro is untouched", () => {
+    const free = exportPolicy(false);
+    expect(free.watermark).toBe(true);
+    expect(applyPolicySize(1600, 1280, free)).toMatchObject({ width: 1000, height: 800, limited: true });
+    expect(applyPolicySize(800, 600, free)).toMatchObject({ width: 800, height: 600, limited: false });
+    const pro = exportPolicy(true);
+    expect(pro.watermark).toBe(false);
+    expect(applyPolicySize(6000, 4000, pro)).toMatchObject({ width: 6000, height: 4000, scale: 1 });
   });
 });
 

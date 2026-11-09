@@ -158,6 +158,8 @@ async function fetchModel(url: string, model: ModelSpec): Promise<Uint8Array> {
     );
   }
   post({ type: "download-progress", loaded, total });
+  // Verifying 170+ MB takes a moment; report it as engine start-up, not as a stalled download.
+  post({ type: "initialising" });
   const digest = await sha256Hex(buffer);
   if (digest !== model.sha256) {
     throw new WorkerFailure("model-integrity", "The downloaded model failed its integrity check.", `SHA-256 ${digest}`);

@@ -6,7 +6,7 @@ type Variant = "primary" | "secondary" | "ghost" | "dark" | "outline-blue" | "da
 type Size = "sm" | "md" | "lg";
 
 const base =
-  "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[10px] font-semibold transition-[background-color,color,box-shadow,transform,border-color] duration-200 ease-[var(--ease-out)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45";
+  "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[10px] font-semibold [&>svg]:shrink-0 transition-[background-color,color,box-shadow,transform,border-color] duration-200 ease-[var(--ease-out)] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45";
 
 const variants: Record<Variant, string> = {
   primary: "bg-blue text-white shadow-[var(--shadow-blue)] hover:bg-blue-600",

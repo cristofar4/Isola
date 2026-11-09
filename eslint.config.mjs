@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // ONNX Runtime Web, copied from node_modules by `npm install` (vendored, minified).
+    "public/ort/**",
   ]),
 ]);
 

@@ -6,7 +6,7 @@ import { readRect, writeRect, type Rect } from "@/lib/editor/geometry";
 import { ImageLayers } from "@/lib/editor/layers";
 import type { CompositeSources } from "@/lib/editor/compose";
 import type { HistoryEntry } from "@/lib/editor/history";
-import type { EditSettings } from "@/lib/editor/types";
+import { DEFAULT_SETTINGS, type EditSettings } from "@/lib/editor/types";
 import { getEngine } from "@/lib/processing/registry";
 import { EngineError, isCancellation, looksEmpty } from "@/lib/processing/types";
 import { uploadLimits } from "@/lib/config";
@@ -202,12 +202,30 @@ export function removeImage(id: string) {
   store().dropImage(id);
 }
 
-/** Add an image whose mask already exists (e.g. from the batch studio). */
-export async function importWithMask(file: File, mask: Uint8Array, meta: { engineId: string; backend: string; durationMs: number }) {
+/**
+ * Add an image whose mask already exists (from Batch Studio). With
+ * `batchItemId`, the editor image stays linked to that batch item so edits
+ * can flow back to it.
+ */
+export async function importWithMask(
+  file: File,
+  mask: Uint8Array,
+  meta: { engineId: string; backend: string; durationMs: number },
+  options: { batchItemId?: string; background?: EditSettings["background"] } = {},
+) {
   const id = uid();
   const assets = createImageAssets(file);
   imageAssets.set(id, assets);
-  store().addImage(newImage({ id, name: file.name, size: file.size, mime: file.type }));
+  store().addImage(
+    newImage({
+      id,
+      name: file.name,
+      size: file.size,
+      mime: file.type,
+      batchItemId: options.batchItemId ?? null,
+      settings: options.background ? { ...DEFAULT_SETTINGS, background: options.background } : DEFAULT_SETTINGS,
+    }),
+  );
   store().setActive(id);
   const ok = await decodeInto(id);
   if (!ok || !assets.decoded) return id;
@@ -373,7 +391,8 @@ export function maskSnapshot(id: string, rect: Rect): Uint8Array | null {
 
 /* --------------------------------------------------------- backgrounds ---- */
 
-export async function addBackgroundImage(file: File): Promise<{ id: string } | { error: string }> {
+export async function addBackgroundImage(file: File, options: { id?: string } = {}): Promise<{ id: string } | { error: string }> {
+  if (options.id && backgroundAssets.has(options.id)) return { id: options.id };
   const validation = await validateImageFile(file, uploadLimits);
   if (!validation.ok) return { error: validation.error.message };
   try {
@@ -390,7 +409,7 @@ export async function addBackgroundImage(file: File): Promise<{ id: string } | {
         : bitmap;
     if (sized !== bitmap) bitmap.close();
     const thumb = await makeThumbnail(sized, 160, "image/jpeg");
-    const id = uid();
+    const id = options.id ?? uid();
     const thumbUrl = URL.createObjectURL(thumb);
     backgroundAssets.set(id, { bitmap: sized, name: file.name, thumbUrl });
     store().addBackground({ id, name: file.name, thumbUrl });

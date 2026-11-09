@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { DropdownMenu } from "radix-ui";
-import { ChevronDown, Columns2, Download, Images, Redo2, SlidersHorizontal, Undo2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, Columns2, Download, Images, Redo2, SlidersHorizontal, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { LogoMark } from "@/components/ui/logo";
@@ -40,6 +40,17 @@ export function TopBar({
         <span className="hidden font-display text-[17px] font-extrabold tracking-[0.06em] sm:inline">ISOLA</span>
       </Link>
       <span className="mx-1 hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
+      {image?.batchItemId && (
+        <Link
+          href="/batch"
+          title="Your edits to this image are kept in Batch Studio"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2.5 text-[13px] font-semibold text-blue-700 hover:bg-blue-100"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Back to Batch Studio</span>
+          <span className="sm:hidden">Batch</span>
+        </Link>
+      )}
       <label className="sr-only" htmlFor="project-name">
         Project name
       </label>

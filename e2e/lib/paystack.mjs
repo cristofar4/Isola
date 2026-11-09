@@ -70,6 +70,15 @@ export async function startFakePaystack({ port = Number(process.env.PAYSTACK_TES
   return {
     base,
     txs,
+    /**
+     * A successful charge Paystack made on its own, like a subscription
+     * renewal: no checkout metadata, just the plan and the customer.
+     */
+    charge({ amount, plan, email, customer_code, currency = "NGN" }) {
+      const reference = `renewal_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      txs.set(reference, { reference, amount, currency, email, plan, customer_code, metadata: null, status: "success", paid_at: new Date().toISOString() });
+      return reference;
+    },
     /** Mark a transaction paid without going through the browser redirect. */
     complete(reference, patch = {}) {
       Object.assign(txs.get(reference), { status: "success", paid_at: new Date().toISOString() }, patch);

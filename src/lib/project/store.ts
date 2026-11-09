@@ -34,6 +34,8 @@ export interface ProjectImage {
   settings: EditSettings;
   /** Bumped whenever pixels shown on the canvas change. */
   revision: number;
+  /** Set when the image was opened from Batch Studio; edits flow back to that item. */
+  batchItemId: string | null;
   history: { canUndo: boolean; canRedo: boolean; undoLabel?: string; redoLabel?: string };
 }
 
@@ -56,7 +58,7 @@ interface ProjectState {
   addBackground: (option: BackgroundOption) => void;
 }
 
-export function newImage(partial: Pick<ProjectImage, "id" | "name" | "size" | "mime">): ProjectImage {
+export function newImage(partial: Pick<ProjectImage, "id" | "name" | "size" | "mime"> & Partial<Pick<ProjectImage, "batchItemId" | "settings">>): ProjectImage {
   return {
     width: 0,
     height: 0,
@@ -71,6 +73,7 @@ export function newImage(partial: Pick<ProjectImage, "id" | "name" | "size" | "m
     settings: DEFAULT_SETTINGS,
     revision: 0,
     history: { canUndo: false, canRedo: false },
+    batchItemId: null,
     ...partial,
   };
 }

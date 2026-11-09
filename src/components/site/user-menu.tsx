@@ -1,11 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
 import { LogOut, UserRound, Wand2 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { signInHref } from "@/lib/session-gate";
+
+/** Signing in from a workspace page brings you back to it (the batch itself is kept in the browser). */
+function useSignInHref() {
+  const pathname = usePathname();
+  return pathname === "/batch" || pathname === "/editor" ? signInHref(pathname) : "/sign-in";
+}
 
 function initials(name: string, email: string) {
   const source = name.trim() || email;
@@ -27,6 +34,7 @@ export function Avatar({ name, email, size = "md" }: { name: string; email: stri
 /** Desktop header actions: sign-in links when signed out, account menu when signed in. */
 export function UserMenu() {
   const router = useRouter();
+  const signIn = useSignInHref();
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) return <span className="inline-block h-9 w-[180px]" aria-hidden="true" />;
@@ -34,7 +42,7 @@ export function UserMenu() {
   if (!session) {
     return (
       <>
-        <Link href="/sign-in" className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-ink hover:bg-ink/5">
+        <Link href={signIn} className="inline-flex h-9 items-center rounded-lg px-3 text-sm font-medium text-ink hover:bg-ink/5">
           Sign in
         </Link>
         <ButtonLink href="/editor" size="md">
@@ -97,12 +105,13 @@ export function UserMenu() {
 /** Account links inside the mobile menu sheet. */
 export function MobileUserLinks({ onNavigate }: { onNavigate: () => void }) {
   const router = useRouter();
+  const signIn = useSignInHref();
   const { data: session, isPending } = authClient.useSession();
   if (isPending) return null;
   if (!session) {
     return (
       <>
-        <Link href="/sign-in" className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
+        <Link href={signIn} className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
           Sign in
         </Link>
         <Link href="/sign-up" className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">

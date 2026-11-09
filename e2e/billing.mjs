@@ -3,7 +3,8 @@
  * upgrading through Paystack checkout, and the safety checks around payments.
  *
  *   SMTP_URL=smtp://127.0.0.1:2525 PAYSTACK_SECRET_KEY=sk_test_isola_e2e \
- *   PAYSTACK_API_BASE=http://127.0.0.1:4010 npm start
+ *   PAYSTACK_API_BASE=http://127.0.0.1:4010 PAYSTACK_PLAN_CODE=PLN_isola_monthly_e2e \
+ *   PAYSTACK_YEARLY_PLAN_CODE=PLN_isola_yearly_e2e npm start
  *   BASE_URL=http://localhost:3000 npm run test:billing
  *
  * Paystack itself isn't reachable from tests, so e2e/lib/paystack.mjs stands in
@@ -21,6 +22,8 @@ const OUT = join(process.cwd(), "e2e", "output");
 mkdirSync(OUT, { recursive: true });
 const FIXTURE = join(process.cwd(), "e2e", "fixtures", "product.jpg");
 const DAY = 24 * 60 * 60 * 1000;
+const MONTHLY_PLAN = "PLN_isola_monthly_e2e";
+const YEARLY_PLAN = "PLN_isola_yearly_e2e";
 let failures = 0;
 let total = 0;
 function check(name, ok, detail = "") {
@@ -75,6 +78,8 @@ const browser = await chromium.launch();
   check("Pricing shows Pro at ₦14,000 a month", (await visible(page.getByText("₦14,000")).count()) > 0 && (await visible(page.getByText("/ month")).isVisible()));
   const upgrade = page.getByRole("link", { name: "Upgrade to Pro" });
   check("Signed-out visitors are sent to create an account to upgrade", (await upgrade.getAttribute("href"))?.startsWith("/sign-up"));
+  await page.getByRole("radio", { name: /Yearly/ }).click();
+  check("The yearly toggle shows ₦140,000 a year", (await visible(page.getByText("₦140,000")).count()) > 0 && (await visible(page.getByText("/ year")).isVisible()));
   await page.screenshot({ path: join(OUT, "pricing.png"), fullPage: true });
   await anon.close();
 }
@@ -111,6 +116,7 @@ const until1 = await proUntil(context, BASE);
 check("Pro lasts one month from payment", until1 && Math.abs(until1 - Date.now() - 30 * DAY) < 60_000);
 const sentAmount = [...paystack.txs.values()].at(-1);
 check("Checkout charges ₦14,000 in kobo, in naira", sentAmount.amount === 1_400_000 && sentAmount.currency === "NGN", `${sentAmount.amount} ${sentAmount.currency}`);
+check("Checkout subscribes to the monthly Paystack plan", sentAmount.plan === MONTHLY_PLAN, String(sentAmount.plan));
 
 // Pro: no watermark, full resolution, batches work.
 // Coming back from checkout is a full page load, so the editor starts empty again.
@@ -149,17 +155,49 @@ check("A payment below the Pro price is refused", (shortRes.headers().location ?
 // Webhooks: forged ones are rejected, renewals extend Pro once.
 const forged = await paystack.webhook(BASE, { event: "charge.success", data: { reference: firstReference } }, "not-a-real-signature");
 check("Webhooks with a bad signature are rejected", forged.status === 401, `HTTP ${forged.status}`);
-const renewal = await (await context.request.post(`${BASE}/api/billing/checkout`, { headers: { origin: BASE } })).json();
-const renewalRef = new URL(renewal.url).pathname.split("/").pop();
-paystack.complete(renewalRef);
+const customer = paystack.txs.get(firstReference).customer_code;
+// A real renewal: Paystack charges the saved card itself, so there's no checkout metadata, only the plan and customer.
+const renewalRef = paystack.charge({ amount: 1_400_000, plan: MONTHLY_PLAN, email: account.email, customer_code: customer });
 const hook = await paystack.webhook(BASE, { event: "charge.success", data: { reference: renewalRef } });
 const until2 = await proUntil(context, BASE);
-check("A renewal payment extends Pro by a month", hook.status === 200 && until2 && Math.abs(until2 - until1 - 30 * DAY) < 60_000);
+check("An automatic renewal extends Pro by a month", hook.status === 200 && until2 && Math.abs(until2 - until1 - 30 * DAY) < 60_000);
 await paystack.webhook(BASE, { event: "charge.success", data: { reference: renewalRef } });
 check("Repeated webhooks don't extend Pro again", (await proUntil(context, BASE)) === until2);
+const strangerRef = paystack.charge({ amount: 1_400_000, plan: "PLN_someone_else", email: account.email, customer_code: customer });
+await paystack.webhook(BASE, { event: "charge.success", data: { reference: strangerRef } });
+check("Charges for other Paystack plans are ignored", (await proUntil(context, BASE)) === until2);
+const cheapRef = paystack.charge({ amount: 500_000, plan: MONTHLY_PLAN, email: account.email, customer_code: customer });
+await paystack.webhook(BASE, { event: "charge.success", data: { reference: cheapRef } });
+check("A renewal below the plan price is ignored", (await proUntil(context, BASE)) === until2);
+
+// Yearly: ₦140,000, a year of Pro, and back to where checkout started.
+{
+  const payer = await createConfirmedAccount(browser, BASE, mailbox, { name: "Yearly Payer" });
+  const yearly = await browser.newContext();
+  await signInContext(yearly, BASE, payer);
+  const short = await (await yearly.request.post(`${BASE}/api/billing/checkout`, { headers: { origin: BASE }, data: { interval: "yearly" } })).json();
+  const shortYearRef = new URL(short.url).pathname.split("/").pop();
+  paystack.complete(shortYearRef, { amountPaid: 1_400_000 });
+  const shortYear = await yearly.request.get(`${BASE}/billing/callback?reference=${shortYearRef}`, { maxRedirects: 0 });
+  check("A monthly amount can't buy a year", (shortYear.headers().location ?? "").includes("payment=incomplete") && (await proUntil(yearly, BASE)) === null);
+  const res = await yearly.request.post(`${BASE}/api/billing/checkout`, { headers: { origin: BASE }, data: { interval: "yearly", returnTo: "/batch" } });
+  const { url } = await res.json();
+  const tx = paystack.txs.get(new URL(url).pathname.split("/").pop());
+  check("Yearly checkout charges ₦140,000 on the yearly plan", tx.amount === 14_000_000 && tx.currency === "NGN" && tx.plan === YEARLY_PLAN, `${tx.amount} ${tx.currency} ${tx.plan}`);
+  const final = await yearly.request.get(url);
+  const landed = new URL(final.url());
+  check("After paying, the payer returns to the page they started from", landed.pathname === "/batch" && landed.searchParams.get("upgraded") === "1", landed.pathname + landed.search);
+  const until = await proUntil(yearly, BASE);
+  check("Yearly Pro lasts a year", until && Math.abs(until - Date.now() - 365 * DAY) < 120_000);
+  const yp = await yearly.newPage();
+  await yp.goto(`${BASE}/account`, { waitUntil: "networkidle" });
+  check("The account page shows the yearly plan", await visible(yp.getByText("Pro · ₦140,000/year")).isVisible());
+  const bad = await yearly.request.post(`${BASE}/api/billing/checkout`, { headers: { origin: BASE }, data: { interval: "weekly" } });
+  check("Unknown billing periods are refused", bad.status() === 400, `HTTP ${bad.status()}`);
+  await yearly.close();
+}
 
 // Subscription management.
-const customer = paystack.txs.get(renewalRef).customer_code;
 await paystack.webhook(BASE, { event: "subscription.create", data: { subscription_code: "SUB_e2e", customer: { customer_code: customer, email: account.email } } });
 await page.goto(`${BASE}/account`, { waitUntil: "networkidle" });
 const manage = visible(page.getByRole("link", { name: "Manage subscription" }));

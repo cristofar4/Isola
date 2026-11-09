@@ -44,11 +44,26 @@ export const exportLimits = {
   maxDimension: positiveNumber(process.env.NEXT_PUBLIC_ISOLA_MAX_EXPORT_DIMENSION, 12000),
 } as const;
 
-/** Free plan: exports are watermarked and limited to this longest side (px). Pro removes both limits. */
+/**
+ * Plans. Free exports are watermarked and limited to `freeMaxExportSide` on the
+ * longest side; Pro (monthly or yearly) exports at full resolution without a
+ * watermark. The export rules themselves live in src/lib/plan-policy.ts.
+ */
 export const planConfig = {
   freeMaxExportSide: positiveNumber(process.env.NEXT_PUBLIC_ISOLA_FREE_MAX_EXPORT_SIDE, 1000),
+  /** Pro, billed monthly, in naira. */
   proPriceNgn: positiveNumber(process.env.NEXT_PUBLIC_ISOLA_PRO_PRICE_NGN, 14000),
+  /** Pro, billed yearly, in naira. */
+  proYearlyPriceNgn: positiveNumber(process.env.NEXT_PUBLIC_ISOLA_PRO_YEARLY_PRICE_NGN, 140000),
 } as const;
+
+export type BillingInterval = "monthly" | "yearly";
+
+/** Whole-percent saving of the yearly price over twelve monthly payments (0 if none). */
+export function yearlySavingPercent() {
+  const full = planConfig.proPriceNgn * 12;
+  return Math.max(0, Math.round(((full - planConfig.proYearlyPriceNgn) / full) * 100));
+}
 
 export function formatNaira(amount: number) {
   return `₦${amount.toLocaleString("en-NG")}`;

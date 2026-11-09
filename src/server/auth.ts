@@ -72,6 +72,8 @@ const planFields = {
   plan: { type: "string", required: false, defaultValue: "free", input: false },
   proUntil: { type: "date", required: false, input: false },
   proRenews: { type: "boolean", required: false, defaultValue: false, input: false },
+  /** "monthly" or "yearly": how the latest Pro payment was billed. */
+  proInterval: { type: "string", required: false, input: false },
   paystackCustomerCode: { type: "string", required: false, input: false, returned: false },
   paystackSubscriptionCode: { type: "string", required: false, input: false, returned: false },
 } as const;
@@ -235,7 +237,7 @@ export interface CurrentUser {
   createdAt: string;
   /** Linked sign-in methods, e.g. ["credential", "google"]. */
   providers: string[];
-  plan: { pro: boolean; proUntil: string | null; renews: boolean; hasSubscription: boolean };
+  plan: { pro: boolean; proUntil: string | null; renews: boolean; hasSubscription: boolean; interval: "monthly" | "yearly" | null };
 }
 
 /** Data Access Layer: the signed-in user, or null. Reads the request, so call it inside <Suspense>. */
@@ -247,7 +249,12 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (!session) return null;
   const accounts = await auth.api.listUserAccounts({ headers: requestHeaders });
   const ctx = await auth.$context;
-  const row = await ctx.adapter.findOne<{ proUntil?: Date | string | null; proRenews?: boolean | null; paystackSubscriptionCode?: string | null }>({
+  const row = await ctx.adapter.findOne<{
+    proUntil?: Date | string | null;
+    proRenews?: boolean | null;
+    proInterval?: string | null;
+    paystackSubscriptionCode?: string | null;
+  }>({
     model: "user",
     where: [{ field: "id", value: session.user.id }],
   });
@@ -265,6 +272,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       proUntil: until ? until.toISOString() : null,
       renews: pro && Boolean(row?.proRenews),
       hasSubscription: Boolean(row?.paystackSubscriptionCode),
+      interval: pro ? (row?.proInterval === "yearly" ? "yearly" : "monthly") : null,
     },
   };
 }

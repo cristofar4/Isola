@@ -15,7 +15,6 @@ import { createConfirmedAccount, signInContext } from "./lib/accounts.mjs";
 import { startMailbox } from "./lib/mail.mjs";
 import { startFakePaystack, upgradeToPro } from "./lib/paystack.mjs";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { unzipSync } from "fflate";
 import { join } from "node:path";
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";
@@ -297,81 +296,7 @@ check("24 MP image processes and exports at full size", img.width === 6000 && im
 await page.screenshot({ path: join(OUT, "editor-multi.png") });
 await context.close();
 
-/* 12. Batch studio: failures, retry, concurrency, settings, ZIP, refine -- */
-{
-  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
-  const p = await ctx.newPage();
-  await p.goto(`${BASE}/batch`, { waitUntil: "networkidle" });
-  check("Batch Studio asks signed-out visitors to sign in", await p.getByText("Sign in to remove backgrounds").filter({ visible: true }).isVisible());
-  await signInContext(ctx, BASE, account);
-  await ctx.route("**/api/models/**", (route) => route.fulfill({ status: 404, contentType: "application/json", body: '{"code":"model-missing"}' }));
-  await p.reload({ waitUntil: "networkidle" });
-  const status = p.locator("[data-batch-status]");
-  const samples = [SAMPLE, ...["serum-bottle.jpg", "portrait-curly.jpg", "sky.jpg"].map((f) => join(process.cwd(), "public", "samples", f))];
-  await p.locator("#batch-files").setInputFiles([...samples, join(OUT, "not-an-image.png")]);
-  await p.getByRole("alert").filter({ hasText: "not-an-image.png" }).waitFor();
-  check("Batch rejects invalid files individually", true);
-  await status.getByText("4 failed or cancelled").waitFor({ timeout: 60_000 });
-  check("Batch items fail honestly when the model is missing", true);
-  await ctx.unroute("**/api/models/**");
-  await p.getByRole("button", { name: "Retry failed" }).click();
-  let maxProcessing = 0;
-  const deadline = Date.now() + 240_000;
-  let summary = "";
-  while (Date.now() < deadline) {
-    summary = await status.innerText();
-    const m = summary.match(/(\d+) processing/);
-    if (m) maxProcessing = Math.max(maxProcessing, Number(m[1]));
-    if (/3 ready · 1 needs review/.test(summary)) break;
-    await p.waitForTimeout(250);
-  }
-  check("Batch retry processes every item", /3 ready · 1 needs review/.test(summary), summary.replace(/\s+/g, " "));
-  check("Batch respects the concurrency limit", maxProcessing <= 1, `max ${maxProcessing} at once`);
-  check("A photo with no subject is flagged for review", await p.getByRole("button", { name: "Refine" }).isVisible());
-
-  // Default export: original framing, transparent PNG, original names.
-  let download = p.waitForEvent("download");
-  await p.getByRole("button", { name: "Export all" }).click();
-  let zipPath = join(OUT, "batch.zip");
-  await (await download).saveAs(zipPath);
-  let entries = unzipSync(readFileSync(zipPath));
-  let names = Object.keys(entries).sort();
-  check("ZIP contains one file per finished image, with original names", names.join() === "portrait-curly.png,product.png,serum-bottle.png,sky.png", names.join(", "));
-  writeFileSync(join(OUT, "batch-product.png"), entries["product.png"]);
-  let z = await decode(p, join(OUT, "batch-product.png"), [[10, 10], [760, 600]]);
-  check("Batch PNGs are full size with real alpha", z.width === 1600 && z.height === 1280 && z.samples[0][3] === 0 && z.samples[1][3] === 255, `${z.width}×${z.height}`);
-
-  // Apply settings to a selection: soft grey square canvas, JPEG, suffixed names.
-  await p.getByLabel("Select product.jpg").check();
-  await p.getByLabel("Select serum-bottle.jpg").check();
-  await p.getByRole("radio", { name: "Soft grey" }).click();
-  await p.getByRole("button", { name: "Square 1:1" }).click();
-  await p.getByLabel("Export format").selectOption("jpeg");
-  await p.getByRole("switch", { name: "Keep original filenames" }).click();
-  await p.getByRole("button", { name: "Apply to 2 images" }).click();
-  await p.getByText("Applied to 2 images.").waitFor();
-  download = p.waitForEvent("download");
-  await p.getByRole("button", { name: "Download selected ZIP" }).click();
-  zipPath = join(OUT, "batch-selected.zip");
-  await (await download).saveAs(zipPath);
-  entries = unzipSync(readFileSync(zipPath));
-  names = Object.keys(entries).sort();
-  check("Selected ZIP contains only the selection, renamed", names.join() === "product-isola.jpg,serum-bottle-isola.jpg", names.join(", "));
-  writeFileSync(join(OUT, "batch-product-square.jpg"), entries["product-isola.jpg"]);
-  z = await decode(p, join(OUT, "batch-product-square.jpg"), [[5, 5]]);
-  check("Applied settings change the export (square canvas, soft grey JPEG)", z.width === 1600 && z.height === 1600 && Math.abs(z.samples[0][0] - 238) < 4 && z.samples[0][3] === 255, `${z.width}×${z.height}, corner ${z.samples[0]}`);
-  writeFileSync(join(OUT, "batch-bottle-square.jpg"), entries["serum-bottle-isola.jpg"]);
-  z = await decode(p, join(OUT, "batch-bottle-square.jpg"));
-  check("Presets keep each photo's longest side", z.width === 1800 && z.height === 1800, `${z.width}×${z.height}`);
-  await p.screenshot({ path: join(OUT, "batch.png") });
-
-  // Refine the flagged image in the editor.
-  await p.getByRole("button", { name: "Refine" }).click();
-  await p.waitForURL("**/editor");
-  await waitReady(p, 30_000);
-  check("Flagged result opens in the editor for refining", true);
-  await ctx.close();
-}
+/* 12. Batch Studio has its own suite: npm run test:batch (e2e/batch.mjs). */
 
 /* 13. Mobile layout --------------------------------------------------- */
 {

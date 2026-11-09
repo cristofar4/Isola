@@ -27,8 +27,9 @@ export default function PrivacyPage() {
         provider&apos;s own privacy policy applies to what it receives.
       </p>
       <p>
-        Projects exist only in the open tab, whether or not you&apos;re signed in. Closing or reloading the page discards
-        them.
+        Editor projects exist only in the open tab, whether or not you&apos;re signed in; closing or reloading the page
+        discards them. The current Batch Studio batch is kept in your browser&apos;s own storage (see below) and is never
+        uploaded or stored in your account.
       </p>
 
       <h2>Accounts</h2>
@@ -66,7 +67,10 @@ export default function PrivacyPage() {
         ISOLA sets cookies only when you sign in: a session cookie that keeps you signed in, plus short-lived cookies used
         during Google or GitHub sign-in. They are strictly necessary for accounts and aren&apos;t used for tracking. ISOLA
         includes no analytics or advertising scripts. Your browser also keeps the downloaded model in Cache Storage, which
-        you can clear from your browser settings.
+        you can clear from your browser settings. Batch Studio keeps the images in your current batch (originals, cutout
+        masks, settings and any background images you upload) in your browser&apos;s IndexedDB, so the batch survives a
+        reload, signing in or paying. It stays on your device until you remove the images or choose{" "}
+        <strong>Clear batch</strong>, or clear site data in your browser.
       </p>
 
       <h2>Server logs</h2>

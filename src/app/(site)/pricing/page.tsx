@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { Check, Minus } from "lucide-react";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
+import { IntervalToggle, ProPrice } from "@/components/pricing/billing-interval";
 import { PaymentNotice } from "@/components/pricing/payment-notice";
 import { PricingCta } from "@/components/pricing/pricing-cta";
 import { PricingFaq } from "@/components/pricing/pricing-faq";
@@ -15,10 +16,11 @@ import { billingConfigured, renewsAutomatically } from "@/server/billing";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: `Free background removal with watermarked previews, or Pro for ${formatNaira(planConfig.proPriceNgn)} a month.`,
+  description: `Free background removal with watermarked previews, or Pro for ${formatNaira(planConfig.proPriceNgn)} a month or ${formatNaira(planConfig.proYearlyPriceNgn)} a year.`,
 };
 
 const price = formatNaira(planConfig.proPriceNgn);
+const yearlyPrice = formatNaira(planConfig.proYearlyPriceNgn);
 const cap = planConfig.freeMaxExportSide.toLocaleString("en-US");
 
 function Feature({ children }: { children: React.ReactNode }) {
@@ -55,7 +57,9 @@ async function RenewalNote() {
   if (!billingConfigured()) return null;
   return (
     <p className="mt-3 text-xs text-muted">
-      {renewsAutomatically() ? "Billed monthly through Paystack. Cancel any time." : "Paid through Paystack. Each payment adds a month of Pro."}
+      {renewsAutomatically("monthly") || renewsAutomatically("yearly")
+        ? "Paid through Paystack and renewed automatically. Cancel any time."
+        : "Paid through Paystack. Each payment adds a month (or a year) of Pro; it doesn't renew on its own."}
     </p>
   );
 }
@@ -71,7 +75,11 @@ const faq = [
   },
   {
     q: "Can I change my plan?",
-    a: "Pro is paid monthly through Paystack. Subscribers can update their card or cancel from Manage subscription on the Account page; Pro stays active until the end of the month you've paid for, then your account returns to Free.",
+    a: `Pro is paid through Paystack, either ${price} a month or ${yearlyPrice} a year. Both include exactly the same Pro features. Subscribers can update their card or cancel from Manage subscription on the Account page; Pro stays active until the end of the period you've paid for, then your account returns to Free.`,
+  },
+  {
+    q: "What do I get on Pro?",
+    a: "Every export at the full resolution of your photo (or the size you choose), with no watermark, plus Batch Studio. Monthly and yearly Pro are the same plan; yearly just costs less over twelve months.",
   },
   {
     q: "What happens to my uploaded images?",
@@ -82,7 +90,7 @@ const faq = [
 const rows: Array<{ feature: string; free: boolean; pro: boolean; studio: boolean | "planned" }> = [
   { feature: "Background removal", free: true, pro: true, studio: true },
   { feature: "Single image editor", free: true, pro: true, studio: true },
-  { feature: "Full-resolution export", free: false, pro: true, studio: true },
+  { feature: "Full-resolution (HD) export", free: false, pro: true, studio: true },
   { feature: "No watermark", free: false, pro: true, studio: true },
   { feature: `Batch Studio (up to ${uploadLimits.maxBatchFiles} images)`, free: false, pro: true, studio: true },
   { feature: "Team workspace", free: false, pro: false, studio: "planned" },
@@ -105,9 +113,10 @@ export default function PricingPage() {
         <p className="eyebrow text-blue-700">Plans for every workflow</p>
         <h1 className="display mx-auto mt-3 max-w-2xl text-balance text-[44px] sm:text-[60px]">Make room for your best work.</h1>
         <p className="mt-4 text-[17px] text-ink-3">Start with a single image. Grow into a complete workflow.</p>
-        <p className="mt-5 inline-flex rounded-full border border-line bg-surface px-4 py-1.5 text-[13px] font-medium text-ink-3">
-          Billed monthly · Prices in Nigerian naira
-        </p>
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <IntervalToggle />
+          <p className="text-[13px] text-muted">Prices in Nigerian naira</p>
+        </div>
       </header>
 
       <div className="mt-10">
@@ -135,10 +144,7 @@ export default function PricingPage() {
               For regular creators
             </span>
             <h2 className="mt-3 text-lg font-extrabold tracking-wide text-ink">PRO</h2>
-            <p className="mt-2 flex items-baseline gap-1.5">
-              <span className="font-display text-[40px] font-extrabold leading-none tracking-tight">{price}</span>
-              <span className="text-[15px] text-muted">/ month</span>
-            </p>
+            <ProPrice />
             <p className="mt-2 text-[15px] text-muted">For creators and online sellers</p>
             <div className="mt-6">
               <Suspense fallback={<div className="h-12 animate-pulse rounded-[10px] bg-blue-50" />}>
@@ -146,7 +152,7 @@ export default function PricingPage() {
               </Suspense>
             </div>
             <ul className="mt-6 grid gap-3">
-              <Feature>Full-resolution exports</Feature>
+              <Feature>Full-resolution HD exports, up to the photo&apos;s own size</Feature>
               <Feature>No watermark</Feature>
               <Feature>Batch Studio, up to {uploadLimits.maxBatchFiles} images at a time</Feature>
               <Feature>Custom backgrounds and shadows</Feature>

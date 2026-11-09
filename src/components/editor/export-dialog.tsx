@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/cn";
 import { formatBytes, formatNaira, planConfig } from "@/lib/config";
 import { usePlan } from "@/lib/plan";
+import { applyPolicySize, exportPolicy } from "@/lib/plan-policy";
 import { checkExportSize, downloadBlob, exportFileName, renderExport, type ExportFormat } from "@/lib/editor/export";
 import { cropOf, outputSizeOf, type BackgroundSpec } from "@/lib/editor/types";
 import { compositeSources, updateSettings } from "@/lib/project/actions";
@@ -44,14 +45,11 @@ function ExportForm({ image }: { image: ProjectImage }) {
   const [state, setState] = useState<{ kind: "idle" } | { kind: "rendering" } | { kind: "done"; name: string; bytes: number } | { kind: "error"; message: string }>({ kind: "idle" });
   const ids = { w: useId(), h: useId() };
   const plan = usePlan();
-  // Free plan: watermarked, and scaled down to fit the preview size.
-  const limited = !plan.pro;
-  const cap = planConfig.freeMaxExportSide;
-  const capScale = limited ? Math.min(1, cap / Math.max(size.width, size.height)) : 1;
-  const out = {
-    width: Math.max(1, Math.round(size.width * capScale)),
-    height: Math.max(1, Math.round(size.height * capScale)),
-  };
+  // Free plan: watermarked, and scaled down to fit the preview size (see plan-policy.ts).
+  const policy = exportPolicy(plan.pro);
+  const limited = policy.watermark;
+  const cap = policy.maxSide ?? planConfig.freeMaxExportSide;
+  const out = applyPolicySize(size.width, size.height, policy);
 
   const editorBackground = settings.background.kind !== "transparent";
   const background: BackgroundSpec = editorBackground ? settings.background : { kind: "color", color: matte };
@@ -84,7 +82,7 @@ function ExportForm({ image }: { image: ProjectImage }) {
         height: out.height,
         background,
         quality: quality / 100,
-        watermark: limited,
+        watermark: policy.watermark,
       });
       downloadBlob(blob, fileName);
       setState({ kind: "done", name: fileName, bytes: blob.size });

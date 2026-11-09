@@ -53,7 +53,8 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling |
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`; start it with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:auth` | Account journey including email confirmation (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
-| `npm run test:billing` | Plans and payments against a local Paystack stand-in (start the app with `PAYSTACK_SECRET_KEY=sk_test_isola_e2e PAYSTACK_API_BASE=http://127.0.0.1:4010`) |
+| `npm run test:batch` | Batch Studio end to end with real processing; opens every download (start the app with `SMTP_URL=smtp://127.0.0.1:2525 PAYSTACK_SECRET_KEY=sk_test_isola_e2e PAYSTACK_API_BASE=http://127.0.0.1:4010`) |
+| `npm run test:billing` | Plans and payments against a local Paystack stand-in (start the app as for `test:batch`, plus `PAYSTACK_PLAN_CODE=PLN_isola_monthly_e2e PAYSTACK_YEARLY_PLAN_CODE=PLN_isola_yearly_e2e`) |
 | `npm run test:reset` | Password reset through a real SMTP hop (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 
 `node e2e/a11y.mjs` runs an axe-core audit (install with `npm i --no-save axe-core`).
@@ -99,9 +100,11 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `SMTP_URL` *or* `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_SECURE` | — | Send email over SMTP |
 | `RESEND_API_KEY` | — | Send email with Resend's API (used if SMTP isn't set) |
 | `NEXT_PUBLIC_ISOLA_PRO_PRICE_NGN` | `14000` | Pro price in naira per month |
+| `NEXT_PUBLIC_ISOLA_PRO_YEARLY_PRICE_NGN` | `140000` | Pro price in naira per year |
 | `NEXT_PUBLIC_ISOLA_FREE_MAX_EXPORT_SIDE` | `1000` | Longest side of free-plan exports, px |
 | `PAYSTACK_SECRET_KEY` | — | Enables upgrading to Pro (**server only**) |
 | `PAYSTACK_PLAN_CODE` | — | Monthly Paystack plan for auto-renewal; without it each payment buys a month |
+| `PAYSTACK_YEARLY_PLAN_CODE` | — | Yearly Paystack plan for auto-renewal; without it each yearly payment buys a year |
 | `PAYSTACK_API_BASE` | `https://api.paystack.co` | Only changed for tests |
 | `NEXT_PUBLIC_ISOLA_SOCIAL_GITHUB` / `_X` / `_INSTAGRAM` / `_LINKEDIN` / `_YOUTUBE` | GitHub: this repo | Footer social links; unset ones aren't shown |
 | `NEXT_PUBLIC_ISOLA_SUPPORT_EMAIL` | — | Shows a contact link in the footer and help pages |
@@ -196,43 +199,111 @@ Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
 - Pages read the session behind `<Suspense>` (Cache Components), so the rest
   of each page still prerenders.
 
-Not built yet: changing the email address, saving projects to an account, and
-yearly billing.
+Not built yet: changing the email address and saving projects to an account.
 
 ## Plans and payments
 
-| | Free | Pro — ₦14,000/month |
+| | Free | Pro — ₦14,000/month or ₦140,000/year |
 | --- | --- | --- |
 | Background removal (account required) | ✓ | ✓ |
 | Single-image editor | ✓ | ✓ |
-| Export size | Up to 1,000px on the longest side | Full resolution |
+| Export size | Up to 1,000px on the longest side | Full resolution (HD and beyond) |
 | Watermark | "ISOLA" tiled across exports | None |
 | Batch Studio | — | ✓ |
+
+Monthly and yearly Pro are the same plan with the same features; the pricing
+page has a Monthly/Yearly toggle (yearly saves about 17%).
 
 - **Payments** go through [Paystack](https://paystack.com) in naira. "Upgrade
   to Pro" opens Paystack's hosted checkout; when the payer returns,
   `/billing/callback` verifies the transaction with Paystack's API (status,
-  ₦14,000 in kobo, NGN, and that it belongs to the signed-in account) before
-  granting a month of Pro. Payments are recorded by reference, so a callback
-  and a webhook for the same charge only count once.
-- **Renewal:** set `PAYSTACK_PLAN_CODE` to a monthly ₦14,000 plan created in
-  the Paystack dashboard and checkout starts a subscription; each renewal
-  charge (delivered to `/api/billing/webhook`, signature-checked with your
-  secret key) adds another month. Subscribers get "Manage subscription" on the
-  Account page, which opens Paystack's page to change card or cancel; Pro then
-  lasts until the end of the paid month. Without a plan code, each payment buys
-  one month and doesn't renew.
-- **Set up:** add `PAYSTACK_SECRET_KEY` (and optionally `PAYSTACK_PLAN_CODE`),
+  the full price in kobo for the chosen period, NGN, and that it belongs to the
+  signed-in account) before granting 30 days (monthly) or 365 days (yearly) of
+  Pro. Payments are recorded by reference, so a callback and a webhook for the
+  same charge only count once. Checkout started from Batch Studio returns the
+  payer to Batch Studio, where waiting images then start.
+- **Renewal:** set `PAYSTACK_PLAN_CODE` (₦14,000 monthly) and
+  `PAYSTACK_YEARLY_PLAN_CODE` (₦140,000 annually) to plans created in the
+  Paystack dashboard and checkout starts a subscription. Renewal charges reach
+  `/api/billing/webhook` (signature-checked with your secret key) without
+  ISOLA's checkout metadata, so they're matched by plan code and Paystack
+  customer, re-verified with the API, and add one more period. Charges for other
+  plans or below the plan price are ignored. Subscribers get "Manage
+  subscription" on the Account page, which opens Paystack's page to change card
+  or cancel; Pro then lasts until the end of the paid period. Without plan
+  codes, each payment buys one period and doesn't renew.
+- **Set up:** add `PAYSTACK_SECRET_KEY` (and optionally the two plan codes),
   and set the webhook URL in the Paystack dashboard to
   `{BETTER_AUTH_URL}/api/billing/webhook`. Without a key, the Upgrade button
   says payments aren't set up yet and everyone stays on Free.
 - **How limits are enforced:** Pro status is stored on the server and only the
-  server can change it. Because background removal and export run in the
-  browser (images are never uploaded), the watermark and export size are
-  applied by the app in the browser; a technically skilled user could get
-  around them. Server-side rendering of exports would be needed for strict
-  enforcement.
-- **Yearly billing** isn't offered yet; the pricing page shows monthly only.
+  server can change it. The watermark and size rules live in one place,
+  `src/lib/plan-policy.ts`, used by the editor's export and by every Batch
+  Studio download and ZIP. Because background removal and export run in the
+  browser (images are never uploaded), those rules are applied in the browser;
+  a technically skilled user could get around them. Server-side rendering of
+  exports would be needed for strict enforcement.
+
+## Batch Studio
+
+Batch Studio is part of Pro. Images processed there never leave the browser.
+
+- **Adding images:** choose files, drag and drop, or add more at any time (up
+  to 50). Each file is checked by content, size and dimensions; a rejected file
+  is listed with its reason and the rest are added. The app keeps its own copy
+  of each original, so moving or overwriting the file on disk doesn't break the
+  batch.
+- **Kept in this browser:** the batch (originals, masks, settings, uploaded
+  backgrounds and the batch name) is stored in IndexedDB. It survives a reload,
+  signing in (including Google/GitHub and email links), and paying through
+  Paystack, and stays until you remove the images or choose **Clear batch**.
+  If the browser refuses storage (some private modes) or is full, the page says
+  so and the batch then lasts only until the tab closes.
+- **Processing:** one shared on-device engine; the model loads once and is
+  reused. Images are processed one at a time by default
+  (`NEXT_PUBLIC_ISOLA_BATCH_CONCURRENCY`, up to 4). Each image moves through
+  queued → processing → ready, or failed / cancelled, with the engine's real
+  phases (downloading the model with measured progress, starting the engine,
+  removing the background, building the full-resolution mask). An image is
+  only marked ready once its mask and preview exist. One failure doesn't stop
+  the rest; cancelling a running image stops only that image (the worker is
+  restarted and the model reloads from Cache Storage) and the queue carries on.
+  Images added while signed out or on Free wait with "Sign in required" /
+  "Pro required" and start on their own after signing in or upgrading.
+- **Selection** is separate from status. Select all respects the search filter
+  and shows an indeterminate state. The toolbar's Remove background, Retry
+  failed and More (cancel processing, clear selection, remove selected) act on
+  the selection, and explain why they're disabled.
+- **Settings** (Background, Layout and Export tabs) are a draft until applied.
+  With images selected, **Apply** changes only those; with none selected it
+  changes every image, and the button says which. Unapplied edits are flagged
+  in the panel and the export bar, and downloads always use each image's
+  applied settings. Applying never reprocesses: the stored mask is reused.
+  - Background: transparent, white, soft grey, custom colour, or an uploaded image.
+  - Layout: original framing, original size re-centred, square 1:1, portrait 4:5,
+    landscape 3:2, or custom dimensions (16–8,000px, validated); contain or
+    cover; padding as a percentage of the canvas's shorter side; 3×3 alignment;
+    soft shadow.
+  - Export: transparent PNG, PNG with background, or JPEG with an explicit fill
+    colour for transparent areas; original file names or a pattern using
+    `{name}`, `{n}` and `{project}`. Names are made safe for every OS and
+    duplicates get `-2`, `-3`…
+- **Downloads:** every ready image has its own Refine and Download buttons. The
+  export bar at the bottom (always on screen, also on phones) has **Download
+  selected** (a single file for one image, a ZIP for several; only selected,
+  finished images) and **Export all ready** (every finished image, whatever is
+  selected). Unfinished and failed images are left out and listed by name and
+  reason; an image that fails to render is reported and the rest are still
+  delivered. Exports are rendered at full resolution one image at a time, with
+  progress, and only one export runs at a time. Card previews are drawn by the
+  same function as the exported files, from a smaller cutout.
+- **Refine:** opens that exact image (original plus mask) in the editor, reusing
+  the same editor image on later clicks. Brush work, edge refinement and the
+  background flow back to the batch item automatically (marked "Edited");
+  "Back to Batch Studio" returns you with everything as you left it. Canvas,
+  layout and format stay Batch Studio settings.
+- **Review flags:** "Check edges" is a real check of the mask: no clear subject,
+  almost everything kept, or large partly transparent areas.
 
 ## Editing model
 
@@ -286,8 +357,8 @@ Run against a production build in this repository's sandbox, starting from an
 empty model folder (so the automatic download is exercised) and with
 `SMTP_URL=smtp://127.0.0.1:2525` so emails land in the tests' local mailbox:
 
-- **Unit tests:** 24/24 passing.
-- **End-to-end (`npm run test:e2e`): 40/40 checks passing**, including: the
+- **Unit tests:** 32/32 passing.
+- **End-to-end (`npm run test:e2e`): 28/28 checks passing**, including: the
   model is refused to signed-out requests; a signed-out upload waits with a
   sign-in prompt and is processed after signing in; real on-device removal;
   exported PNGs are RGBA with fully transparent background pixels and original
@@ -295,25 +366,45 @@ empty model folder (so the automatic download is exercised) and with
   undo/redo; comparison divider keyboard control; colour backgrounds in PNG and
   JPEG; shadows; crop and resize dimensions; invalid and oversized files rejected
   before decoding; transparent input; a 24 MP image; retry after a missing-model
-  failure; batch sign-in prompt, failure → retry, concurrency limit, needs-review
-  flag, ZIPs of all and of the selection, applied canvas/background/format/name
-  settings, refine in editor; mobile toolbar and bottom sheet.
+  failure; mobile toolbar and bottom sheet.
+- **Batch Studio (`npm run test:batch`): 39/39**, with real processing of a
+  product photo, a bottle, a portrait with fine hair, a PNG with transparency,
+  a corrupt PNG and a non-image, opening every downloaded file: the batch
+  survives signing in and a reload after upgrading; the invalid file is
+  rejected alone; images finish independently while the corrupt one fails with
+  a message; at most one image processes at a time; every ready image has a
+  visible Download button; single downloads have the original name, full size
+  and real alpha (transparent source areas stay transparent); the selected ZIP
+  holds only selected finished images and lists the failed one as left out;
+  Export all ready includes every finished image regardless of selection;
+  editor brush work comes back to the batch and re-opening reuses the same
+  editor image; unapplied settings don't affect downloads; applied settings
+  change only the selection (square canvas, soft grey JPEG, padding and bottom
+  alignment measured in the file); the card preview matches the export within
+  0.3%; the shadow appears in both export and preview; cancelling one image
+  doesn't stop the queue and it can be retried; results and edits survive a
+  reload; on a phone the export bar stays on screen without covering the last
+  image, Export all ready works and settings open in a drawer.
 - **Accounts (`npm run test:auth`): 20/20**, including confirmation email, no
   session before confirming, blocked sign-in with a fresh link, bad links, the
   original tab carrying on, duplicate sign-up revealing nothing while emailing
   the owner, profile, sign out, password change and account deletion.
 - **Password reset (`npm run test:reset`): 13/13**, through a real SMTP hop.
-- **Plans and payments (`npm run test:billing`): 22/22**, including the price
-  and amount sent to checkout, free exports capped at 1,000px with a
-  watermark, Batch Studio blocked on Free, upgrade through checkout, Pro
-  exports at full resolution without a watermark, refusing replayed,
-  underpaid and other-account payments, rejecting forged webhooks, renewals
-  extending Pro once, and subscription management.
+- **Plans and payments (`npm run test:billing`): 32/32**, including the price
+  and amount sent to checkout, the yearly toggle, free exports capped at
+  1,000px with a watermark, Batch Studio blocked on Free, upgrade through
+  checkout, Pro exports at full resolution without a watermark, refusing
+  replayed, underpaid and other-account payments, rejecting forged webhooks,
+  automatic renewals (no checkout metadata) extending Pro once, ignoring
+  renewals for other plans or below the price, yearly checkout (₦140,000 on the
+  yearly plan, a year of Pro, a monthly amount refused, return to Batch Studio)
+  and subscription management.
 - **Google/GitHub (`node e2e/oauth.mjs`):** both buttons start a real OAuth
   redirect with the right callback URL (completing it needs real credentials).
-- **Accessibility:** axe-core reports 0 violations on 15 pages and states,
-  including the editor with an image, the export dialog, the account page and
-  the auth screens.
+- **Accessibility:** axe-core reports 0 violations on 18 pages and states,
+  including the editor with an image, the export dialog, the account page, the
+  auth screens, and Batch Studio with images, the Export tab and the mobile
+  settings drawer.
 
 Not verified here: WebGPU (unavailable in the headless sandbox, so the High detail
 model has only been validated with native ONNX Runtime), Safari and Firefox,
@@ -339,25 +430,15 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 - Crop with aspect presets and fit-to-subject; resize on export.
 - Export to transparent PNG, PNG with background, or JPEG at the chosen
   resolution, with dimensions shown before download.
-- Batch studio: selectable grid/list with adjustable thumbnails, per-item
-  states (queued, processing, ready, needs review, failed), "Remove
-  background" and "Retry failed" on a selection, and batch settings applied to
-  selected images: background (transparent, white, soft grey, custom colour or
-  uploaded image), canvas (original framing, original size, square, portrait,
-  landscape, custom), fit, padding, 3×3 alignment, soft shadow, PNG/JPEG and
-  original or suffixed file names. Export all or only the selection as a ZIP,
-  rendered at full resolution one image at a time.
-- "Needs review" is a real check of the mask, not a guess: no clear subject,
-  almost everything kept, or large partly transparent areas (thresholds
-  calibrated on real model output). "Refine" opens the image in the editor.
+- Batch Studio (Pro): see [Batch Studio](#batch-studio) below.
 - Responsive layouts (bottom toolbar and sheets on phones), keyboard shortcuts,
   focus management, reduced-motion support.
 
 **Not yet built / needs integration**
 
-- **Billing:** Pro at ₦14,000/month through Paystack is built and tested
-  against a local stand-in for Paystack's API; it hasn't been run against live
-  Paystack from here. Studio (team workspace, centralised billing) is planned
+- **Billing:** Pro at ₦14,000/month or ₦140,000/year through Paystack is built
+  and tested against a local stand-in for Paystack's API; it hasn't been run
+  against live Paystack from here. Studio (team workspace, centralised billing) is planned
   and marked as such.
 - **Account email flows:** confirmation and password reset are done; changing
   the email address isn't built yet. Projects aren't saved to accounts.
@@ -365,9 +446,20 @@ sandbox; the route's validation, rate limiting and error paths were tested).
   two routes that exist.
 - **Server rate limiting** is in memory per instance; use a shared store for
   multi-instance deployments.
-- **Project persistence:** projects live in the tab and are lost on reload.
+- **Project persistence:** editor projects live in the tab and are lost on
+  reload. The current Batch Studio batch is kept in the browser (IndexedDB),
+  not in the account, so it doesn't follow you to another device.
 - **Model hosting:** the ~179–224 MB model files must be served by your host or a
-  CDN; some platforms cap static file sizes.
+  CDN. The built-in `/api/models/` route streams them from the Node server
+  (downloading them once on first use), which needs a long-running Node host
+  (a VPS, Docker, Render, Railway, Fly.io…) with ~450 MB of disk. Serverless
+  functions with response-size or time limits (Vercel functions, for example)
+  can't stream a file that size, and every batch item then fails with "The
+  model couldn't be downloaded". On such platforms, put the `.onnx` files on a
+  CDN or object storage that sends CORS and
+  `Cross-Origin-Resource-Policy: cross-origin`, and set
+  `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` to it (the sign-in requirement is then
+  enforced by the app UI only).
 - **Large images on phones:** iOS Safari limits canvas size (~16.7 MP), so big
   exports may need a smaller output size there.
 - Terms of use are a starting template that should be reviewed.
