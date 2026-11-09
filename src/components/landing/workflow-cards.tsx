@@ -55,7 +55,7 @@ export function WorkflowCards() {
             <ButtonLink href="/developers" icon={<Code2 className="size-4" aria-hidden="true" />}>
               Developer docs
             </ButtonLink>
-            <ButtonLink href="/developers#adapter" variant="outline-blue" icon={<BookOpen className="size-4" aria-hidden="true" />}>
+            <ButtonLink href="/developers/engine-adapter" variant="outline-blue" icon={<BookOpen className="size-4" aria-hidden="true" />}>
               Engine adapter
             </ButtonLink>
           </div>

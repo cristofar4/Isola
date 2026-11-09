@@ -39,9 +39,16 @@ export function SiteHeader() {
       )}
     >
       <div className="mx-auto flex h-16 max-w-[1240px] items-center gap-6 px-4 sm:px-6 lg:px-8">
-        <Link href="/" aria-label="ISOLA home" className="rounded-md">
-          <Logo />
-        </Link>
+        <div className="flex items-center gap-2.5">
+          <Link href="/" aria-label="ISOLA home" className="rounded-md">
+            <Logo />
+          </Link>
+          {pathname.startsWith("/developers") && (
+            <Link href="/developers" aria-label="ISOLA Developers" className="hidden font-display text-[21px] font-medium tracking-[0.06em] text-ink-3 hover:text-ink sm:inline">
+              DEVELOPERS
+            </Link>
+          )}
+        </div>
 
         <MainNav pathname={pathname} links={links} />
 

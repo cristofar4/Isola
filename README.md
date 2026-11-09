@@ -53,6 +53,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling |
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`; start it with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:auth` | Account journey including email confirmation (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
+| `npm run test:docs` | Developer docs: pages, anchors, search, copy, browser check, feedback, mobile menu |
 | `npm run test:nav` | Tools menu, its destinations and the mobile menu (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:batch` | Batch Studio end to end with real processing; opens every download (start the app with `SMTP_URL=smtp://127.0.0.1:2525 PAYSTACK_SECRET_KEY=sk_test_isola_e2e PAYSTACK_API_BASE=http://127.0.0.1:4010`) |
 | `npm run test:billing` | Plans and payments against a local Paystack stand-in (start the app as for `test:batch`, plus `PAYSTACK_PLAN_CODE=PLN_isola_monthly_e2e PAYSTACK_YEARLY_PLAN_CODE=PLN_isola_yearly_e2e`) |
@@ -368,6 +369,13 @@ empty model folder (so the automatic download is exercised) and with
   JPEG; shadows; crop and resize dimensions; invalid and oversized files rejected
   before decoding; transparent input; a 24 MP image; retry after a missing-model
   failure; mobile toolbar and bottom sheet.
+- **Developer docs (`npm run test:docs`): 29/29**: the introduction as
+  designed, the copy button putting the real code on the clipboard, "On this
+  page" following the scroll, every page active in the sidebar with every
+  section anchor present and previous/next in order, search ("/" to focus,
+  Enter opens the section), the live browser check, troubleshooting entries,
+  all 20 error codes listed, feedback stored (and refused for unknown pages or
+  other origins), footer links, and the mobile guide menu.
 - **Navigation (`npm run test:nav`): 28/28**: every Tools menu link points
   where it says, hover/click/Escape/keyboard behaviour, no axe violations with
   the menu open, the editor hints and preselected tools (restore brush after
@@ -407,7 +415,8 @@ empty model folder (so the automatic download is exercised) and with
   and subscription management.
 - **Google/GitHub (`node e2e/oauth.mjs`):** both buttons start a real OAuth
   redirect with the right callback URL (completing it needs real credentials).
-- **Accessibility:** axe-core reports 0 violations on 18 pages and states,
+- **Accessibility:** axe-core reports 0 violations on 25 pages and states
+  (including all seven developer docs pages and /tools),
   including the editor with an image, the export dialog, the account page, the
   auth screens, and Batch Studio with images, the Export tab and the mobile
   settings drawer.
@@ -422,6 +431,17 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 
 **Working**
 
+- Developer docs from the reference design (`/developers`): a three-column
+  guide with a sidebar (search with "/" or Ctrl/⌘ K, seven pages), the content,
+  and "On this page" that follows your scroll. Pages: Introduction, How
+  processing works, Browser requirements (with a live check of the visitor's
+  browser), Engine adapter (the full interface and an example custom engine),
+  Server endpoints, Errors & limits (every upload and engine error code, plus
+  troubleshooting) and Privacy & storage. Code blocks are highlighted, with
+  line numbers and a copy button; headings have shareable anchors; every page
+  has previous/next links and "Was this page helpful?", whose answers are
+  stored by `POST /api/docs/feedback` (page, yes/no, time; nothing about the
+  person). Everything documented exists in this codebase.
 - Tools menu from the reference design: Edit an image (background remover,
   restore & erase, change background, resize & crop), Work with more (Batch
   Studio, product images), Learn & build (help centre, developer docs), a

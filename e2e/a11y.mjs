@@ -18,7 +18,7 @@ async function audit(label) {
   console.log(`${label}: ${result.length} violation(s)`);
   for (const v of result) console.log(`  [${v.impact}] ${v.id}: ${v.help}\n     ${v.nodes.join("\n     ")}`);
 }
-for (const route of ["/", "/batch", "/developers", "/support", "/privacy", "/pricing", "/sign-in", "/sign-up", "/forgot-password", "/verify-email?error=INVALID_TOKEN", "/editor"]) {
+for (const route of ["/", "/batch", "/developers", "/developers/processing", "/developers/browser-requirements", "/developers/engine-adapter", "/developers/server-endpoints", "/developers/errors-limits", "/developers/privacy-storage", "/tools", "/support", "/privacy", "/pricing", "/sign-in", "/sign-up", "/forgot-password", "/verify-email?error=INVALID_TOKEN", "/editor"]) {
   await page.goto(BASE + route, { waitUntil: "networkidle" });
   await page.waitForTimeout(600);
   await audit(route);

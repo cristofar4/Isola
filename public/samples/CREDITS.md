@@ -21,3 +21,7 @@ post-processing the app uses:
 
 They illustrate the landing page only. Choosing a sample on the site runs the
 model live in your browser; it never shows these pre-rendered files as a result.
+
+`showcase/sneaker-white-mask.webp` is the alpha channel of
+`sneaker-white-cutout.webp` saved as a greyscale image, used on the developer
+docs to show the mask step.

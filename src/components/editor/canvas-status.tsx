@@ -92,7 +92,7 @@ export function CanvasStatus({ image }: { image: ProjectImage }) {
           {missing && (
             <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
               Background removal needs a segmentation model that this deployment doesn&apos;t serve yet.{" "}
-              <Link href="/developers#models" className="font-medium text-blue-700 underline underline-offset-2">
+              <Link href="/developers/processing#models" className="font-medium text-blue-700 underline underline-offset-2">
                 How to install it
               </Link>
             </p>

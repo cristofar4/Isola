@@ -73,6 +73,12 @@ export default function PrivacyPage() {
         <strong>Clear batch</strong>, or clear site data in your browser.
       </p>
 
+      <h2>Documentation feedback</h2>
+      <p>
+        If you answer &quot;Was this page helpful?&quot; on the developer docs, ISOLA stores the page, your yes/no answer and
+        the time. It doesn&apos;t store who answered, your account or your IP address with it.
+      </p>
+
       <h2>Server logs</h2>
       <p>
         Like any website, the server that hosts ISOLA may record standard request logs (such as IP address, requested URL,

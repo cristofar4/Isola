@@ -43,6 +43,11 @@ class MemoryLimiter implements UsageLimiter {
   }
 }
 
+/** A separate in-memory limiter, e.g. for low-stakes forms. */
+export function memoryLimiter(limit: number, windowMs: number): UsageLimiter {
+  return new MemoryLimiter(limit, windowMs);
+}
+
 const perHour = Number(process.env.ISOLA_REMOTE_RATE_LIMIT_PER_HOUR || 30);
 export const limiter: UsageLimiter = new MemoryLimiter(
   Number.isFinite(perHour) && perHour > 0 ? perHour : 30,

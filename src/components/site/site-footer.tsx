@@ -16,8 +16,8 @@ const columns = [
     title: "Developers",
     links: [
       { href: "/developers", label: "Developer docs" },
-      { href: "/developers#adapter", label: "Engine adapter" },
-      { href: "/developers#endpoints", label: "Server endpoints" },
+      { href: "/developers/engine-adapter", label: "Engine adapter" },
+      { href: "/developers/server-endpoints", label: "Server endpoints" },
     ],
   },
   {

@@ -94,6 +94,20 @@ const billingTables = {
   },
 } satisfies BetterAuthPlugin;
 
+/** Answers to "Was this page helpful?" on the developer docs: the page, yes/no and when. Nothing about the person. */
+const docsTables = {
+  id: "isola-docs",
+  schema: {
+    docFeedback: {
+      fields: {
+        page: { type: "string", required: true },
+        helpful: { type: "boolean", required: true },
+        createdAt: { type: "date", required: true },
+      },
+    },
+  },
+} satisfies BetterAuthPlugin;
+
 function createDatabase(): BetterAuthOptions["database"] {
   const url = process.env.DATABASE_URL;
   if (url && /^postgres(ql)?:\/\//.test(url)) {
@@ -198,7 +212,7 @@ function createOptions(): BetterAuthOptions {
       },
     },
     trustedOrigins: list(process.env.ISOLA_TRUSTED_ORIGINS),
-    plugins: [nextCookies(), billingTables],
+    plugins: [nextCookies(), billingTables, docsTables],
   };
 }
 

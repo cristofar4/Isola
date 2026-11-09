@@ -119,7 +119,7 @@ export default function SupportPage() {
       <h3>The model isn&apos;t installed</h3>
       <p>
         This means the site you&apos;re using hasn&apos;t published the model files. If you run the deployment, see the{" "}
-        <a href="/developers#models">developer docs</a>.
+        <a href="/developers/processing#models">developer docs</a>.
       </p>
       <h3>The cutout missed something</h3>
       <p>
