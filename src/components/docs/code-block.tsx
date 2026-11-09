@@ -1,9 +1,11 @@
 import { cn } from "@/lib/cn";
 import { CopyButton } from "./copy-button";
 
-export type CodeLanguage = "ts" | "json" | "bash" | "http";
+export type CodeLanguage = "ts" | "js" | "json" | "bash" | "http" | "python";
 
-const LABEL: Record<CodeLanguage, string> = { ts: "TypeScript", json: "JSON", bash: "Shell", http: "HTTP" };
+const LABEL: Record<CodeLanguage, string> = { ts: "TypeScript", js: "JavaScript", json: "JSON", bash: "Shell", http: "HTTP", python: "Python" };
+
+const PY_KEYWORDS = new Set("import from as with def return if elif else for in while try except raise True False None and or not print open".split(" "));
 
 const KEYWORDS = new Set(
   "interface type export import from const let var async await return new class implements readonly extends function if else throw private public void null true false undefined of in for while case switch default break try catch finally".split(
@@ -27,7 +29,8 @@ const COLOR: Record<Token["kind"], string> = {
 };
 
 /** A small, dependency-free highlighter: enough for the snippets in these docs. */
-function tokenize(line: string, lang: CodeLanguage): Token[] {
+function tokenize(line: string, language: CodeLanguage): Token[] {
+  const lang = language === "js" ? "ts" : language;
   const out: Token[] = [];
   const push = (kind: Token["kind"], text: string) => {
     if (!text) return;
@@ -53,7 +56,7 @@ function tokenize(line: string, lang: CodeLanguage): Token[] {
       push("comment", rest);
       break;
     }
-    if ((lang === "bash" || lang === "http") && /^#/.test(rest) && (i === 0 || /\s/.test(line[i - 1]))) {
+    if ((lang === "bash" || lang === "http" || lang === "python") && /^#/.test(rest) && (i === 0 || /\s/.test(line[i - 1]))) {
       push("comment", rest);
       break;
     }
@@ -79,6 +82,8 @@ function tokenize(line: string, lang: CodeLanguage): Token[] {
       if (lang === "ts" && KEYWORDS.has(word)) push("keyword", word);
       else if (lang === "json" && (word === "true" || word === "false" || word === "null")) push("keyword", word);
       else if (lang === "bash" && i === line.search(/\S/)) push("fn", word);
+      else if (lang === "python" && PY_KEYWORDS.has(word)) push("keyword", word);
+      else if (lang === "python" && /^\s*\(/.test(after)) push("fn", word);
       else if (lang === "ts" && /^[A-Z]/.test(word)) push("type", word);
       else if (lang === "ts" && /^\s*\??\(/.test(after)) push("fn", word);
       else if (lang === "ts" && /^\??:/.test(after)) push("prop", word);

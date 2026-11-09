@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, FileImage, KeyRound, Laptop, Layers, Scan, Server, Share, Wrench, Image as ImageIcon } from "lucide-react";
 import { CodeBlock } from "@/components/docs/code-block";
-import { DocBody, DocCallout, DocFooter, DocHeader, H2 } from "@/components/docs/doc-page";
+import { DocBody, DocFooter, DocHeader, H2 } from "@/components/docs/doc-page";
 
 export const metadata: Metadata = {
   title: "Developer docs",
@@ -28,7 +28,7 @@ const adapter = `interface BackgroundRemovalEngine {
 `;
 
 const next = [
-  { icon: KeyRound, title: "Authentication & access", text: "How access is controlled in the application and what's currently supported.", href: "/developers/server-endpoints#authentication" },
+  { icon: KeyRound, title: "Authentication & access", text: "API keys for your code, and how the app's own routes are protected.", href: "/developers/api-reference#authentication" },
   { icon: FileImage, title: "File formats & limits", text: "Supported image formats and processing considerations.", href: "/developers/errors-limits#formats" },
   { icon: Wrench, title: "Troubleshooting", text: "Common issues and how to resolve them.", href: "/developers/errors-limits#troubleshooting" },
 ];
@@ -121,9 +121,21 @@ export default function DevelopersPage() {
         lead="Understand how ISOLA processes images and how its editing tools fit together."
       />
       <DocBody>
-        <DocCallout title="Public API access is not available yet.">
-          <p>This guide covers the application architecture and deployment interfaces. There are no API keys or usage plans.</p>
-        </DocCallout>
+        <div className="not-prose my-6 flex flex-col gap-4 rounded-[14px] border border-blue-100 bg-blue-50 px-5 py-4 sm:flex-row sm:items-center">
+          <KeyRound className="size-7 shrink-0 text-blue" strokeWidth={1.75} aria-hidden="true" />
+          <div className="flex-1 text-[15px] leading-relaxed text-ink-3">
+            <p className="font-semibold text-ink">The public API is live.</p>
+            <p>Create an API key on your Account page and remove backgrounds from your own code. This guide also covers the app&apos;s architecture and deployment.</p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Link href="/developers/api" className="inline-flex h-10 items-center rounded-[10px] bg-blue px-4 text-sm font-semibold text-white shadow-[var(--shadow-blue)] hover:bg-blue-600">
+              API quickstart
+            </Link>
+            <Link href="/account" className="inline-flex h-10 items-center rounded-[10px] border border-line bg-surface px-4 text-sm font-semibold text-ink hover:bg-paper">
+              Create a key
+            </Link>
+          </div>
+        </div>
 
         <H2 id="processing-flow">From image to cutout.</H2>
         <ol className="not-prose grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-8">

@@ -16,7 +16,7 @@ export default function PrivacyPage() {
     >
       <h2>Images</h2>
       <p>
-        With the default on-device engines (<strong>Standard</strong> and <strong>High detail</strong>), images are decoded and
+        In the app, with the default on-device engines (<strong>Standard</strong> and <strong>High detail</strong>), images are decoded and
         processed inside your browser. They are not uploaded to ISOLA&apos;s servers. Your browser downloads the model file
         once and keeps it in Cache Storage so later visits are faster.
       </p>
@@ -71,6 +71,14 @@ export default function PrivacyPage() {
         masks, settings and any background images you upload) in your browser&apos;s IndexedDB, so the batch survives a
         reload, signing in or paying. It stays on your device until you remove the images or choose{" "}
         <strong>Clear batch</strong>, or clear site data in your browser.
+      </p>
+
+      <h2>Public API</h2>
+      <p>
+        If you create API keys, ISOLA stores a SHA-256 hash of each key (never the key itself), its name, a short preview,
+        when it was created and last used, and how many requests it has made. Images your code sends to the API are
+        processed in the server&apos;s memory and discarded once the response is sent; they aren&apos;t stored or logged.
+        Deleting a key or your account removes the key.
       </p>
 
       <h2>Documentation feedback</h2>

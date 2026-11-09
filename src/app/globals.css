@@ -141,6 +141,8 @@
   }
 }
 
+/* Long-form content (docs, policies, help). In the components layer so utility classes on elements inside it still win. */
+@layer components {
 /* Long-form content (docs, policies, help). */
 .prose-isola {
   font-size: 15px;
@@ -269,4 +271,6 @@
   list-style: none;
   padding: 0;
   margin: 0;
+}
+
 }

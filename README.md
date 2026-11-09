@@ -53,6 +53,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling |
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`; start it with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:auth` | Account journey including email confirmation (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
+| `npm run test:api` | Public API with real server-side processing; start the app with `ISOLA_API_RATE_LIMIT_PER_HOUR=15` plus the `test:batch` settings |
 | `npm run test:docs` | Developer docs: pages, anchors, search, copy, browser check, feedback, mobile menu |
 | `npm run test:nav` | Tools menu, its destinations and the mobile menu (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:batch` | Batch Studio end to end with real processing; opens every download (start the app with `SMTP_URL=smtp://127.0.0.1:2525 PAYSTACK_SECRET_KEY=sk_test_isola_e2e PAYSTACK_API_BASE=http://127.0.0.1:4010`) |
@@ -87,6 +88,9 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `REMOVE_BG_SIZE` | `auto` | remove.bg output size |
 | `ISOLA_REMOTE_MAX_UPLOAD_MB` | `12` | Server engine upload limit |
 | `ISOLA_REMOTE_RATE_LIMIT_PER_HOUR` | `30` | Per-client limit (in memory, per instance) |
+| `ISOLA_API_RATE_LIMIT_PER_HOUR` | `60` | Public API requests per key per hour (in memory, per instance) |
+| `ISOLA_API_MAX_QUEUE` | `8` | Public API images that may wait for the server engine before `503 server_busy` |
+| `ISOLA_API_THREADS` | all cores | Inference threads for the public API |
 | `ISOLA_REMOTE_ALLOW_CROSS_ORIGIN` | `false` | Allow cross-origin browser calls to the route |
 | `BETTER_AUTH_SECRET` | — | **Required in production.** Signs sessions and encrypts tokens |
 | `BETTER_AUTH_URL` | request origin | Public site URL, used for OAuth callbacks |
@@ -307,6 +311,39 @@ Batch Studio is part of Pro. Images processed there never leave the browser.
 - **Review flags:** "Check edges" is a real check of the mask: no clear subject,
   almost everything kept, or large partly transparent areas.
 
+## Public API
+
+Signed-in users create API keys on the Account page (up to 10, shown once,
+stored as SHA-256 hashes) and call the API from their own code:
+
+```bash
+curl -X POST https://your-deployment/api/v1/remove-background \
+  -H "Authorization: Bearer $ISOLA_API_KEY" -F "image=@photo.jpg" -o cutout.png
+```
+
+- **Processing runs on the server** with `onnxruntime-node` and the Standard
+  model (IS-Net), using the same normalisation, output conversion and mask
+  upscaling as the browser engine (`src/lib/processing/segmentation.ts`); the
+  e2e test measures a mean alpha difference of 0.03/255 between the two.
+  Images are decoded with sharp (EXIF orientation applied), processed in
+  memory and discarded.
+- **Endpoints:** `POST /api/v1/remove-background` (multipart `image` field or
+  raw body; `output=cutout|mask`, `format=png|jpeg`, `background=#RRGGBB`) and
+  `GET /api/v1/me` (key, plan, limits, remaining requests). JSON errors with
+  stable codes, CORS for any origin, rate-limit headers on every response.
+- **Plans apply on the server:** Free keys get cutouts scaled to 1,000px with a
+  watermark (drawn as vector shapes, so no fonts are needed on the server);
+  Pro keys get full resolution, no watermark, and masks. Unlike in-browser
+  exports, these rules can't be bypassed.
+- **Limits:** 60 requests per key per hour by default, one inference at a time
+  with a short queue, and the same upload limits as the app.
+- **Docs:** `/developers/api` (quickstart with curl, Node.js and Python, plus a
+  live playground) and `/developers/api-reference`.
+- **Deployment:** needs a Node server that can load native modules. The
+  `onnxruntime-node` package is large (about 560 MB installed, all platforms),
+  and the model needs about 180 MB of disk. Measured here, the server process
+  uses about 1.1 GB of memory once the model is loaded.
+
 ## Editing model
 
 Every image keeps separate, non-destructive layers:
@@ -369,7 +406,19 @@ empty model folder (so the automatic download is exercised) and with
   JPEG; shadows; crop and resize dimensions; invalid and oversized files rejected
   before decoding; transparent input; a 24 MP image; retry after a missing-model
   failure; mobile toolbar and bottom sheet.
-- **Developer docs (`npm run test:docs`): 29/29**: the introduction as
+- **Public API (`npm run test:api`): 29/29**: keys created in the Account page
+  are shown once and never again; missing, unknown and deleted keys get 401;
+  Free keys return watermarked 1000px PNGs and can't request masks; Pro keys
+  return full-resolution cutouts with real alpha (raw body and multipart),
+  greyscale masks, JPEG on white and PNG on a colour; transparent inputs stay
+  transparent; the API's cutout matches the browser engine's export (mean alpha
+  difference 0.03/255); invalid files, tiny images, bad options, wrong content
+  types and 31 MB bodies are refused with the right codes; concurrent requests
+  queue; usage is counted exactly; CORS preflight; the 16th request with a limit
+  of 15 gets 429 with Retry-After; key management refuses other origins and
+  anonymous calls; the docs playground runs a real request.
+- **Developer docs (`npm run test:docs`): 34/34** (including the Help centre's
+  search and deep links): the introduction as
   designed, the copy button putting the real code on the clipboard, "On this
   page" following the scroll, every page active in the sidebar with every
   section anchor present and previous/next in order, search ("/" to focus,
@@ -415,7 +464,7 @@ empty model folder (so the automatic download is exercised) and with
   and subscription management.
 - **Google/GitHub (`node e2e/oauth.mjs`):** both buttons start a real OAuth
   redirect with the right callback URL (completing it needs real credentials).
-- **Accessibility:** axe-core reports 0 violations on 25 pages and states
+- **Accessibility:** axe-core reports 0 violations on 27 pages and states
   (including all seven developer docs pages and /tools),
   including the editor with an image, the export dialog, the account page, the
   auth screens, and Batch Studio with images, the Export tab and the mobile
@@ -477,8 +526,8 @@ sandbox; the route's validation, rate limiting and error paths were tested).
   and marked as such.
 - **Account email flows:** confirmation and password reset are done; changing
   the email address isn't built yet. Projects aren't saved to accounts.
-- **Public API:** no hosted API or API keys. The developer page documents only the
-  two routes that exist.
+- **Public API:** built (see below). Rate limits and usage counters are kept per
+  server instance; with several instances, use a shared store.
 - **Server rate limiting** is in memory per instance; use a shared store for
   multi-instance deployments.
 - **Project persistence:** editor projects live in the tab and are lost on

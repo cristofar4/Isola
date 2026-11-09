@@ -19,8 +19,8 @@ export default function PrivacyStoragePage() {
       <DocBody>
         <H2 id="on-device">What stays on the device</H2>
         <p>
-          With the on-device engines (Standard and High detail), images are decoded, processed, edited and exported inside
-          the browser. Originals, masks, edits and exports are never sent to the server. The Batch Studio ZIP is assembled in
+          In the app, with the on-device engines (Standard and High detail), images are decoded, processed, edited and
+          exported inside the browser. Originals, masks, edits and exports are never sent to the server. The Batch Studio ZIP is assembled in
           the browser too.
         </p>
 
@@ -30,6 +30,11 @@ export default function PrivacyStoragePage() {
           <li>Account data: name, email, password hash, linked Google or GitHub accounts, sessions (with IP address and user agent).</li>
           <li>Payments: Paystack references, amounts and dates, plus the Paystack customer and subscription codes. Card details go to Paystack only.</li>
           <li>Answers to &quot;Was this page helpful?&quot; on these docs: page, yes/no and time.</li>
+          <li>
+            <strong>Images sent to the public API</strong> by your own code: processed in the server&apos;s memory and
+            discarded when the response is sent. They aren&apos;t stored or logged; only the key&apos;s request count and
+            last-used time are updated.
+          </li>
           <li>
             <strong>Only if the server engine is chosen:</strong> the image is uploaded, forwarded to the configured provider
             (remove.bg) and the mask is returned. The route doesn&apos;t store or log image contents; the provider&apos;s own
@@ -81,7 +86,8 @@ export default function PrivacyStoragePage() {
 
         <H2 id="server-storage">Server storage</H2>
         <p>
-          Accounts, sessions, verification tokens, payments and docs feedback are stored in Postgres when{" "}
+          Accounts, sessions, verification tokens, payments, API keys (as SHA-256 hashes, with a name, a short preview and
+          usage counts) and docs feedback are stored in Postgres when{" "}
           <code>DATABASE_URL</code> is set, otherwise in a SQLite file (<code>.data/isola.db</code>, or <code>ISOLA_SQLITE_PATH</code>).
           Tables are created automatically on start-up. Deleting an account from the Account page removes the account and
           its sessions.

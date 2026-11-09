@@ -55,7 +55,7 @@ await page.screenshot({ path: join(OUT, "auth-sign-in.png") });
 // Sign up.
 await page.getByRole("link", { name: "Create an account" }).click();
 await page.waitForURL(atPath("/sign-up"));
-await page.getByLabel("Name").filter({ visible: true }).fill("Ada Lovelace");
+await page.getByLabel("Name", { exact: true }).filter({ visible: true }).fill("Ada Lovelace");
 await page.getByLabel("Email").filter({ visible: true }).fill(email);
 await page.getByLabel("Password", { exact: true }).filter({ visible: true }).fill("short");
 await page.getByRole("button", { name: "Create account" }).click();
@@ -115,7 +115,7 @@ await page.screenshot({ path: join(OUT, "auth-account.png"), fullPage: true });
 const other = await browser.newContext();
 const otherPage = await other.newPage();
 await otherPage.goto(`${BASE}/sign-up`);
-await otherPage.getByLabel("Name").filter({ visible: true }).fill("Someone Else");
+await otherPage.getByLabel("Name", { exact: true }).filter({ visible: true }).fill("Someone Else");
 await otherPage.getByLabel("Email").filter({ visible: true }).fill(email);
 await otherPage.getByLabel("Password", { exact: true }).filter({ visible: true }).fill("another-password");
 await otherPage.getByRole("button", { name: "Create account" }).click();
@@ -127,7 +127,7 @@ check("Signing up with a taken email reveals nothing and emails the owner", Bool
 await other.close();
 
 // Edit profile.
-await page.getByLabel("Name").filter({ visible: true }).fill("Ada King");
+await page.getByLabel("Name", { exact: true }).filter({ visible: true }).fill("Ada King");
 await page.getByRole("button", { name: "Save profile" }).click();
 await page.getByText("Profile saved.").filter({ visible: true }).waitFor();
 await page.reload();

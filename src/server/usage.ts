@@ -18,6 +18,8 @@ export interface UsageDecision {
 
 export interface UsageLimiter {
   consume(subject: string): Promise<UsageDecision>;
+  /** The current window without using it up. */
+  peek?(subject: string): Promise<UsageDecision>;
 }
 
 class MemoryLimiter implements UsageLimiter {
@@ -26,6 +28,12 @@ class MemoryLimiter implements UsageLimiter {
     private limit: number,
     private windowMs: number,
   ) {}
+
+  async peek(subject: string): Promise<UsageDecision> {
+    const window = this.windows.get(subject);
+    if (!window || window.resetAt <= Date.now()) return { allowed: true, remaining: this.limit, resetAt: Date.now() + this.windowMs };
+    return { allowed: window.count < this.limit, remaining: Math.max(0, this.limit - window.count), resetAt: window.resetAt };
+  }
 
   async consume(subject: string): Promise<UsageDecision> {
     const now = Date.now();

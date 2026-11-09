@@ -22,6 +22,8 @@ function check(name, ok, detail = "") {
 
 const PAGES = [
   ["/developers", "Introduction"],
+  ["/developers/api", "API quickstart"],
+  ["/developers/api-reference", "API reference"],
   ["/developers/processing", "How processing works"],
   ["/developers/browser-requirements", "Browser requirements"],
   ["/developers/engine-adapter", "Engine adapter"],
@@ -39,7 +41,7 @@ page.on("pageerror", (e) => errors.push(e.message));
 /* Introduction, as designed ------------------------------------------------ */
 await page.goto(`${BASE}/developers`, { waitUntil: "networkidle" });
 check("Intro title and lead", (await page.getByRole("heading", { level: 1 }).innerText()) === "Build with a clear picture.");
-check("Says plainly there's no public API", await page.getByText("Public API access is not available yet.").isVisible());
+check("Points to the public API", (await page.getByRole("link", { name: "API quickstart" }).first().getAttribute("href")) === "/developers/api");
 check("Four processing steps", (await page.locator("main ol a").filter({ hasText: /Validate image|Load engine|Create mask|Refine & export/ }).count()) === 4);
 check("Original → mask → cutout illustration", (await page.getByRole("img", { name: /(Original|Mask|Cutout) of a sneaker photo/ }).count()) === 3);
 const toc = page.getByRole("navigation", { name: "On this page" });
@@ -84,9 +86,9 @@ check("'/' focuses documentation search", await page.evaluate(() => document.act
 await page.keyboard.type("remove-background");
 const options = page.getByRole("option");
 await options.first().waitFor();
-check("Search finds the endpoint", (await options.first().innerText()).includes("POST /api/remove-background"));
+check("Search finds the endpoint", (await options.first().innerText()).includes("POST /api/v1/remove-background"));
 await page.keyboard.press("Enter");
-await page.waitForURL("**/developers/server-endpoints#remove-background");
+await page.waitForURL("**/developers/api-reference#remove-background");
 check("Enter opens the result at its section", true);
 await page.getByRole("combobox", { name: "Search documentation" }).first().fill("zebra quantum");
 check("No-result searches say so", await page.getByText(/Nothing matches/).isVisible());
@@ -119,7 +121,20 @@ check("Cross-origin feedback is refused", foreign.status() === 403, `HTTP ${fore
 /* Links into the docs from elsewhere --------------------------------------- */
 await page.goto(BASE, { waitUntil: "networkidle" });
 const footer = page.getByRole("contentinfo");
-check("Footer links go to the new pages", (await footer.getByRole("link", { name: "Engine adapter" }).getAttribute("href")) === "/developers/engine-adapter" && (await footer.getByRole("link", { name: "Server endpoints" }).getAttribute("href")) === "/developers/server-endpoints");
+check("Footer links go to the new pages", (await footer.getByRole("link", { name: "Engine adapter" }).getAttribute("href")) === "/developers/engine-adapter" && (await footer.getByRole("link", { name: "API reference" }).getAttribute("href")) === "/developers/api-reference");
+
+/* Help centre -------------------------------------------------------------- */
+await page.goto(`${BASE}/support`, { waitUntil: "networkidle" });
+check("Help centre lists its topics", (await page.getByRole("navigation", { name: "Help topics" }).getByRole("link").count()) === 8);
+await page.getByRole("searchbox", { name: "Search the help centre" }).fill("watermark");
+const answer = page.getByRole("link", { name: /How do I remove the watermark/ });
+await answer.waitFor();
+await answer.click();
+await page.waitForTimeout(400);
+check("Help search opens the matching answer", (await page.locator("details#watermark").getAttribute("open")) !== null && (await page.getByText("Upgrade to Pro on the").isVisible()));
+await page.goto(`${BASE}/support#api-key`, { waitUntil: "networkidle" });
+await page.waitForTimeout(400);
+check("Linking to an answer opens it", (await page.locator("details#api-key").getAttribute("open")) !== null);
 
 /* Mobile ------------------------------------------------------------------- */
 {

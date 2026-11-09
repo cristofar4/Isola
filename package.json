@@ -13,6 +13,7 @@
     "test:batch": "node e2e/batch.mjs",
     "test:nav": "node e2e/navigation.mjs",
     "test:docs": "node e2e/docs.mjs",
+    "test:api": "node e2e/api.mjs",
     "postinstall": "node scripts/copy-ort.mjs",
     "models:fetch": "node scripts/fetch-models.mjs",
     "test:auth": "node e2e/auth.mjs",
@@ -25,12 +26,14 @@
     "lucide-react": "^1.70.0",
     "next": "16.4.5",
     "nodemailer": "^10.4.0",
+    "onnxruntime-node": "^1.31.1",
     "onnxruntime-web": "^1.31.1",
     "pg": "^8.23.1",
     "radix-ui": "^1.8.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.5",
     "zustand": "^5.1.0"
   },
   "devDependencies": {

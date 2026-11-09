@@ -30,7 +30,9 @@ describe("developer docs", () => {
 
   it("search ranks title matches first and needs every word", () => {
     expect(searchDocs("webgpu")[0]?.href).toMatch(/browser-requirements|processing/);
-    expect(searchDocs("remove-background")[0]?.href).toBe("/developers/server-endpoints#remove-background");
+    expect(searchDocs("remove-background")[0]?.href).toBe("/developers/api-reference#remove-background");
+    expect(searchDocs("remove-background").map((h) => h.href)).toContain("/developers/server-endpoints#remove-background");
+    expect(searchDocs("api key")[0]?.href).toMatch(/\/developers\/api/);
     expect(searchDocs("401").length).toBeGreaterThan(0);
     expect(searchDocs("webgpu zebra")).toEqual([]);
     expect(searchDocs("   ")).toEqual([]);

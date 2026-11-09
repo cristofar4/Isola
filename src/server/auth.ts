@@ -108,6 +108,28 @@ const docsTables = {
   },
 } satisfies BetterAuthPlugin;
 
+/**
+ * API keys for the public API. Only a SHA-256 hash of each key is stored;
+ * the key itself is shown once, when it's created.
+ */
+const apiKeyTables = {
+  id: "isola-api-keys",
+  schema: {
+    apiKey: {
+      fields: {
+        userId: { type: "string", required: true, references: { model: "user", field: "id", onDelete: "cascade" } },
+        name: { type: "string", required: true },
+        keyHash: { type: "string", required: true, unique: true },
+        start: { type: "string", required: true },
+        end: { type: "string", required: true },
+        createdAt: { type: "date", required: true },
+        lastUsedAt: { type: "date", required: false },
+        requestCount: { type: "number", required: false, defaultValue: 0 },
+      },
+    },
+  },
+} satisfies BetterAuthPlugin;
+
 function createDatabase(): BetterAuthOptions["database"] {
   const url = process.env.DATABASE_URL;
   if (url && /^postgres(ql)?:\/\//.test(url)) {
@@ -212,7 +234,7 @@ function createOptions(): BetterAuthOptions {
       },
     },
     trustedOrigins: list(process.env.ISOLA_TRUSTED_ORIGINS),
-    plugins: [nextCookies(), billingTables, docsTables],
+    plugins: [nextCookies(), billingTables, docsTables, apiKeyTables],
   };
 }
 

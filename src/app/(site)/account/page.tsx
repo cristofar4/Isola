@@ -55,7 +55,7 @@ export default function AccountPage() {
         </Suspense>
       </div>
       <div className="mt-8 rounded-[18px] border border-line bg-paper-2/60 p-5 text-sm leading-relaxed text-muted">
-        Your images are still processed on your device and aren&apos;t stored in your account. Projects live in the
+        In the app, your images are processed on your device and aren&apos;t stored in your account. Projects live in the
         browser tab, so export your work before closing it.
         <div className="mt-3">
           <ButtonLink href="/editor" size="sm">

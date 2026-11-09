@@ -16,8 +16,9 @@ const columns = [
     title: "Developers",
     links: [
       { href: "/developers", label: "Developer docs" },
+      { href: "/developers/api", label: "API quickstart" },
+      { href: "/developers/api-reference", label: "API reference" },
       { href: "/developers/engine-adapter", label: "Engine adapter" },
-      { href: "/developers/server-endpoints", label: "Server endpoints" },
     ],
   },
   {

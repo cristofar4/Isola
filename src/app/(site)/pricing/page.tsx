@@ -82,8 +82,12 @@ const faq = [
     a: "Every export at the full resolution of your photo (or the size you choose), with no watermark, plus Batch Studio. Monthly and yearly Pro are the same plan; yearly just costs less over twelve months.",
   },
   {
+    q: "Is there an API?",
+    a: `Yes. Create API keys on your Account page and send images from your own code. Free keys return watermarked cutouts up to ${cap}px; Pro keys return full resolution with no watermark, plus masks. See the developer docs for examples.`,
+  },
+  {
     q: "What happens to my uploaded images?",
-    a: "They stay on your device. Background removal runs in your browser, so your images aren't uploaded to ISOLA or stored in your account.",
+    a: "In the app they stay on your device: background removal runs in your browser, so your images aren't uploaded to ISOLA or stored in your account. Images your own code sends to the API are processed in the server's memory and not stored.",
   },
 ];
 
@@ -93,6 +97,8 @@ const rows: Array<{ feature: string; free: boolean; pro: boolean; studio: boolea
   { feature: "Full-resolution (HD) export", free: false, pro: true, studio: true },
   { feature: "No watermark", free: false, pro: true, studio: true },
   { feature: `Batch Studio (up to ${uploadLimits.maxBatchFiles} images)`, free: false, pro: true, studio: true },
+  { feature: "Public API with your own keys", free: true, pro: true, studio: true },
+  { feature: "API at full resolution, no watermark, masks", free: false, pro: true, studio: true },
   { feature: "Team workspace", free: false, pro: false, studio: "planned" },
 ];
 
@@ -156,6 +162,7 @@ export default function PricingPage() {
               <Feature>No watermark</Feature>
               <Feature>Batch Studio, up to {uploadLimits.maxBatchFiles} images at a time</Feature>
               <Feature>Custom backgrounds and shadows</Feature>
+              <Feature>API at full resolution, with masks</Feature>
             </ul>
             <Suspense fallback={null}>
               <RenewalNote />

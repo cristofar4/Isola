@@ -10,6 +10,7 @@ import { MODELS, type ModelId, type ModelSpec } from "../models";
 import type { EngineErrorCode } from "../types";
 import type { WorkerRequest, WorkerResponse } from "./protocol";
 import { resizeMaskBilinear } from "./resize";
+import { normalisePixels, outputToMask } from "../segmentation";
 
 type Ort = typeof OrtTypes;
 
@@ -250,15 +251,7 @@ function preprocess(bitmap: ImageBitmap, model: ModelSpec): Float32Array {
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, 0, 0, size, size);
   const { data } = ctx.getImageData(0, 0, size, size);
-  const n = size * size;
-  const input = new Float32Array(3 * n);
-  const [m0, m1, m2] = model.mean;
-  const [s0, s1, s2] = model.std;
-  for (let i = 0, j = 0; i < n; i++, j += 4) {
-    input[i] = (data[j] / 255 - m0) / s0;
-    input[n + i] = (data[j + 1] / 255 - m1) / s1;
-    input[2 * n + i] = (data[j + 2] / 255 - m2) / s2;
-  }
+  const input = normalisePixels(data, 4, model);
   return input;
 }
 
@@ -270,13 +263,7 @@ async function infer(input: Float32Array, model: ModelSpec): Promise<Uint8Array>
   const outputs = await session.run({ [session.inputNames[0]]: tensor }, [outputName]);
   const output = outputs[outputName];
   const values = (await output.getData()) as Float32Array;
-  const small = new Uint8Array(size * size);
-  const sigmoid = model.activation === "sigmoid";
-  for (let i = 0; i < small.length; i++) {
-    let v = values[i];
-    if (sigmoid) v = 1 / (1 + Math.exp(-v));
-    small[i] = v <= 0 ? 0 : v >= 1 ? 255 : (v * 255 + 0.5) | 0;
-  }
+  const small = outputToMask(values, size * size, model.activation);
   output.dispose?.();
   tensor.dispose?.();
   return small;

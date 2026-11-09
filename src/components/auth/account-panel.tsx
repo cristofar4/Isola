@@ -5,33 +5,16 @@ import { CircleCheck, KeyRound, LogOut, MonitorSmartphone, Sparkles, Trash2, Use
 import { useRouter, useSearchParams } from "next/navigation";
 import { UpgradeButton } from "@/components/billing/upgrade-button";
 import { formatNaira, planConfig, uploadLimits } from "@/lib/config";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { authClient, authErrorMessage } from "@/lib/auth-client";
 import type { CurrentUser } from "@/server/auth";
+import { Card } from "./account-card";
+import { ApiKeysCard } from "./api-keys-card";
 import { FormAlert, PasswordField, TextField } from "./fields";
 
 const providerLabel: Record<string, string> = { credential: "Email and password", google: "Google", github: "GitHub" };
-
-function Card({ icon, title, description, children }: { icon: ReactNode; title: string; description?: string; children: ReactNode }) {
-  return (
-    <section className="rounded-[18px] border border-line bg-surface p-5 shadow-[var(--shadow-card)] sm:p-6" aria-labelledby={`card-${title}`}>
-      <div className="flex items-start gap-3">
-        <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue" aria-hidden="true">
-          {icon}
-        </span>
-        <div>
-          <h2 id={`card-${title}`} className="text-[15px] font-semibold text-ink">
-            {title}
-          </h2>
-          {description && <p className="mt-0.5 text-[13px] text-muted">{description}</p>}
-        </div>
-      </div>
-      <div className="mt-5">{children}</div>
-    </section>
-  );
-}
 
 type Status = { tone: "danger" | "success"; text: string } | null;
 
@@ -293,6 +276,7 @@ export function AccountPanel({ user, billingAvailable }: { user: CurrentUser; bi
   return (
     <div className="grid gap-5">
       <PlanCard user={user} billingAvailable={billingAvailable} />
+      <ApiKeysCard pro={user.plan.pro} />
       <ProfileCard user={user} />
       {user.providers.includes("credential") && <PasswordCard />}
       <SessionsCard />

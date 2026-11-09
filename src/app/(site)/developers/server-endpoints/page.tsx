@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { CodeBlock } from "@/components/docs/code-block";
 import { DocBody, DocCallout, DocFooter, DocHeader, H2 } from "@/components/docs/doc-page";
 import { planConfig } from "@/lib/config";
@@ -41,6 +42,11 @@ ISOLA_REMOTE_MAX_UPLOAD_MB=12
 ISOLA_REMOTE_RATE_LIMIT_PER_HOUR=30
 ISOLA_REMOTE_ALLOW_CROSS_ORIGIN=false
 
+# Public API
+ISOLA_API_RATE_LIMIT_PER_HOUR=60       # per key
+ISOLA_API_MAX_QUEUE=8                  # images waiting on the server
+ISOLA_API_THREADS=0                    # 0 = all CPU cores
+
 # Models
 ISOLA_MODEL_DIR=./models               # where the server keeps .onnx files
 NEXT_PUBLIC_ISOLA_MODEL_BASE_URL=/api/models/   # or a CORS-enabled CDN
@@ -62,7 +68,7 @@ export default function ServerEndpointsPage() {
       <DocHeader
         href="/developers/server-endpoints"
         title="Server endpoints."
-        lead="Every deployment serves these routes for its own pages. None of them is a public API: there are no API keys, and browser requests from other sites are refused."
+        lead="The routes every deployment serves for its own pages. The public API for your code lives under /api/v1 and has its own reference."
         badge="Deployment interfaces"
       />
       <DocBody>
@@ -82,8 +88,11 @@ export default function ServerEndpointsPage() {
             after a payment is verified with Paystack.
           </li>
           <li>
-            POST routes refuse browser requests whose <code>Origin</code> isn&apos;t this site. There are no API keys or
-            tokens for third-party clients.
+            POST routes on this page refuse browser requests whose <code>Origin</code> isn&apos;t this site.
+          </li>
+          <li>
+            Your own code uses the public API with an API key instead:{" "}
+            <Link href="/developers/api-reference">API reference</Link>.
           </li>
         </ul>
 
@@ -219,6 +228,39 @@ export default function ServerEndpointsPage() {
           </tbody>
         </table>
         <CodeBlock title="Checkout request" code={checkout} lang="http" />
+
+        <H2 id="api-keys">API key management</H2>
+        <p>Used by the API keys card on the Account page. Session only; keys can&apos;t manage other keys.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Route</th>
+              <th>What it does</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <code>GET /api/keys</code>
+              </td>
+              <td>Lists the account&apos;s keys: name, a short preview, created, last used and request count. Never the key or its hash.</td>
+            </tr>
+            <tr>
+              <td>
+                <code>POST /api/keys</code>
+              </td>
+              <td>
+                <code>{"{ name }"}</code> → creates a key and returns it once. Up to 10 per account.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>DELETE /api/keys/:id</code>
+              </td>
+              <td>Deletes a key; requests with it fail from then on.</td>
+            </tr>
+          </tbody>
+        </table>
 
         <H2 id="feedback">POST /api/docs/feedback</H2>
         <Endpoint method="POST" path="/api/docs/feedback" who="Same origin" />

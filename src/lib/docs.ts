@@ -1,4 +1,4 @@
-import { BookOpen, Code2, Lock, Monitor, Server, TriangleAlert, Workflow, type LucideIcon } from "lucide-react";
+import { BookOpen, Braces, Code2, Lock, Monitor, Rocket, Server, TriangleAlert, Workflow, type LucideIcon } from "lucide-react";
 
 /**
  * Developer guide structure. The sidebar, the previous/next links and the
@@ -27,10 +27,37 @@ export const DOC_PAGES: DocPage[] = [
     summary: "How ISOLA processes images and how its editing tools fit together.",
     icon: BookOpen,
     sections: [
-      { id: "overview", title: "Overview", text: "What the guide covers. There is no public API or API keys yet; this describes the application architecture and deployment interfaces." },
+      { id: "overview", title: "Overview", text: "What the guide covers: the public API with API keys, the application architecture and deployment interfaces." },
       { id: "processing-flow", title: "Processing flow", text: "Validate image, load engine, create mask, refine and export. Original, mask and cutout." },
       { id: "engine-options", title: "Engine options", text: "On-device processing in the browser, or optional server processing through a configured provider." },
       { id: "next-steps", title: "Next steps", text: "Authentication and access, file formats and limits, troubleshooting." },
+    ],
+  },
+  {
+    href: "/developers/api",
+    title: "API quickstart",
+    summary: "Create an API key and remove backgrounds from your own code.",
+    icon: Rocket,
+    sections: [
+      { id: "overview", title: "Overview", text: "Public API: server-side background removal with the Standard model. Free keys are watermarked up to 1000px; Pro keys are full resolution." },
+      { id: "get-key", title: "Create a key", text: "Create and copy an API key on the Account page. Only a hash is stored; it is shown once." },
+      { id: "first-request", title: "Send an image", text: "curl, Node.js and Python examples posting multipart form data with an image field and Bearer authorization." },
+      { id: "options", title: "Choose the output", text: "format png or jpeg, background colour, output cutout or mask, GET /api/v1/me to check a key." },
+      { id: "playground", title: "Try it", text: "Live API playground: paste your key, choose an image and options, send a real request and see the response." },
+    ],
+  },
+  {
+    href: "/developers/api-reference",
+    title: "API reference",
+    summary: "Endpoints, parameters, headers, errors, rate limits and plans for /api/v1.",
+    icon: Braces,
+    sections: [
+      { id: "authentication", title: "Authentication", text: "Authorization Bearer isola_sk_ API keys, X-Api-Key header, hashed storage, CORS, keep keys on your server." },
+      { id: "remove-background", title: "POST /api/v1/remove-background", text: "Multipart image or raw body; output cutout or mask; format png or jpeg; background colour; response headers X-Isola-Width X-Isola-Plan X-RateLimit-Remaining." },
+      { id: "me", title: "GET /api/v1/me", text: "Check a key: plan, watermark, maxSide, remaining requests and upload limits." },
+      { id: "errors", title: "Errors", text: "invalid_request, missing_api_key, invalid_api_key, pro_required, payload_too_large, unsupported_media_type, image_too_large, image_too_small, decode_failed, rate_limited, internal_error, model_unavailable, server_busy." },
+      { id: "rate-limits", title: "Rate limits", text: "Requests per key per hour, ISOLA_API_RATE_LIMIT_PER_HOUR, queue, Retry-After, server_busy." },
+      { id: "plans", title: "Plans", text: "Free keys: watermarked cutouts up to 1000px. Pro keys: full resolution, no watermark, masks." },
     ],
   },
   {
@@ -81,11 +108,12 @@ export const DOC_PAGES: DocPage[] = [
     summary: "The routes each deployment serves, and who may call them.",
     icon: Server,
     sections: [
-      { id: "authentication", title: "Authentication and access", text: "Better Auth session cookie, sign-in required for models and server processing, no API keys, same-origin checks." },
+      { id: "authentication", title: "Authentication and access", text: "Better Auth session cookie for the site's own routes, sign-in required for models, API keys for /api/v1, same-origin checks." },
       { id: "engines", title: "GET /api/engines", text: "Which engines the deployment offers; never returns credentials." },
       { id: "models", title: "GET /api/models/:file", text: "Streams a model file to a signed-in browser; 401 otherwise; downloads it once if missing." },
       { id: "remove-background", title: "POST /api/remove-background", text: "Multipart image field, greyscale PNG mask response, remove.bg provider, rate limit, status codes 401 413 415 422 429 503." },
       { id: "billing", title: "Billing routes", text: "POST /api/billing/checkout, GET /billing/callback, POST /api/billing/webhook with x-paystack-signature, GET /api/billing/manage." },
+      { id: "api-keys", title: "API key management", text: "GET POST /api/keys and DELETE /api/keys/:id for the Account page, session only." },
       { id: "feedback", title: "POST /api/docs/feedback", text: "Stores the yes or no answer from Was this page helpful." },
       { id: "configuration", title: "Configuration", text: "ISOLA_REMOTE_PROVIDER, REMOVE_BG_API_KEY, ISOLA_REMOTE_MAX_UPLOAD_MB, ISOLA_REMOTE_RATE_LIMIT_PER_HOUR, model hosting." },
     ],
@@ -109,9 +137,9 @@ export const DOC_PAGES: DocPage[] = [
     icon: Lock,
     sections: [
       { id: "on-device", title: "What stays on the device", text: "Images and masks are processed in the browser and not uploaded with the on-device engines." },
-      { id: "server", title: "What reaches the server", text: "Model download requests, account and payment data, server engine uploads forwarded to the provider, not stored or logged." },
+      { id: "server", title: "What reaches the server", text: "Model download requests, account and payment data, images sent to the public API processed in memory, server engine uploads forwarded to the provider, not stored or logged." },
       { id: "browser-storage", title: "Browser storage", text: "Cache Storage isola-models-v1, IndexedDB isola-batch, session cookies with the isola prefix. Nothing in localStorage." },
-      { id: "server-storage", title: "Server storage", text: "Accounts, sessions, payments and documentation feedback in Postgres or SQLite." },
+      { id: "server-storage", title: "Server storage", text: "Accounts, sessions, payments, hashed API keys with usage counts and documentation feedback in Postgres or SQLite." },
     ],
   },
 ];
