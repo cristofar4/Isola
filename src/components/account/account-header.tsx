@@ -60,7 +60,7 @@ export function AccountHeader({ user }: { user: CurrentUser }) {
         <ButtonLink href="/editor" icon={<Wand2 className="size-4" aria-hidden="true" />}>
           Open the editor
         </ButtonLink>
-        <ButtonLink href="/batch" variant="secondary" icon={<Layers className="size-4" aria-hidden="true" />}>
+        <ButtonLink href="/studio/batch" variant="secondary" icon={<Layers className="size-4" aria-hidden="true" />}>
           Batch Studio
         </ButtonLink>
       </div>

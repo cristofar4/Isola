@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Dialog, DropdownMenu } from "radix-ui";
 import {
+  Box,
+  Clapperboard,
   BookOpen,
   Download,
   FolderOpen,
@@ -24,7 +26,7 @@ import {
   Wand2,
   X,
 } from "lucide-react";
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { LogoMark } from "@/components/ui/logo";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/cn";
@@ -41,13 +43,15 @@ const WORKSPACE = [
 
 const CREATE = [
   { href: "/editor", label: "Image editor", icon: ImageIcon },
-  { href: "/batch", label: "Batch Studio", icon: Layers },
+  { href: "/studio/batch", label: "Batch Studio", icon: Layers, match: (p: string) => p.startsWith("/studio/batch") },
+  { href: "/studio/scenes", label: "Scene Studio", icon: Box, match: (p: string) => p.startsWith("/studio/scenes") },
+  { href: "/studio/motion", label: "Motion Studio", icon: Clapperboard, match: (p: string) => p.startsWith("/studio/motion") },
 ];
 
 const ORGANISE = [
   { href: "/studio/presets", label: "Brand presets", icon: Palette, match: (p: string) => p.startsWith("/studio/presets") },
-  { href: "/batch?export=set", label: "Export sets", icon: Share },
-  { href: "/batch?check=consistency", label: "Quality review", icon: ScanSearch },
+  { href: "/studio/batch?export=set", label: "Export sets", icon: Share },
+  { href: "/studio/batch?check=consistency", label: "Quality review", icon: ScanSearch },
   { href: "/studio/downloads", label: "Downloads", icon: Download, match: (p: string) => p.startsWith("/studio/downloads") },
   { href: "/studio/trash", label: "Trash", icon: Trash2, match: (p: string) => p.startsWith("/studio/trash") },
 ];
@@ -59,6 +63,10 @@ const FOOTER = [
 ];
 
 const PAGES: Array<[string, string]> = [
+  ["/studio/batch", "Batch Studio"],
+  ["/studio/scenes/", "Scene"],
+  ["/studio/scenes", "Scene Studio"],
+  ["/studio/motion", "Motion Studio"],
   ["/studio/projects/", "Project"],
   ["/studio/projects", "Projects"],
   ["/studio/assets", "Asset library"],
@@ -69,40 +77,71 @@ const PAGES: Array<[string, string]> = [
 
 type NavItem = { href: string; label: string; icon: typeof House; match?: (p: string) => boolean };
 
-function NavLink({ item, pathname, onNavigate }: { item: NavItem; pathname: string; onNavigate?: () => void }) {
+/* The desktop sidebar can be folded to an icon rail with the menu button; the choice is remembered in this browser. */
+const COLLAPSED_KEY = "isola-sidebar-collapsed";
+const collapsedListeners = new Set<() => void>();
+function readCollapsed() {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function writeCollapsed(value: boolean) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, value ? "1" : "0");
+  } catch {
+    /* private mode: the choice lasts for this page only */
+  }
+  collapsedListeners.forEach((l) => l());
+}
+function useSidebarCollapsed() {
+  return useSyncExternalStore(
+    (onChange) => {
+      collapsedListeners.add(onChange);
+      return () => collapsedListeners.delete(onChange);
+    },
+    readCollapsed,
+    () => false,
+  );
+}
+
+function NavLink({ item, pathname, onNavigate, compact }: { item: NavItem; pathname: string; onNavigate?: () => void; compact?: boolean }) {
   const active = item.match ? item.match(pathname) : false;
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
+      title={compact ? item.label : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-[10px] px-3 py-2 text-[15px] font-medium transition-colors",
+        "flex items-center gap-3 rounded-[10px] py-2 text-[15px] font-medium transition-colors",
+        compact ? "justify-center px-0" : "px-3",
         active ? "bg-blue text-white shadow-[var(--shadow-blue)]" : "text-white/75 hover:bg-white/8 hover:text-white",
       )}
     >
       <item.icon className="size-[19px] shrink-0" strokeWidth={1.8} aria-hidden="true" />
-      {item.label}
+      <span className={cn(compact && "sr-only")}>{item.label}</span>
     </Link>
   );
 }
 
-function Sidebar({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+function Sidebar({ pathname, onNavigate, compact = false }: { pathname: string; onNavigate?: () => void; compact?: boolean }) {
   const { data } = authClient.useSession();
   const plan = usePlan();
   const name = data?.user.name ?? "";
   const email = data?.user.email ?? "";
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto px-4 py-5 [scrollbar-width:thin]">
-      <Link href="/studio" onClick={onNavigate} aria-label="ISOLA Studio home" className="flex items-center gap-2.5 rounded-md px-2">
+    <div className={cn("flex h-full flex-col gap-6 overflow-y-auto py-5 [scrollbar-width:thin]", compact ? "px-3" : "px-4")}>
+      <Link href="/studio" onClick={onNavigate} aria-label="ISOLA Studio home" className={cn("flex items-center gap-2.5 rounded-md", compact ? "justify-center" : "px-2")}>
         <LogoMark className="size-8" />
-        <span className="leading-none">
+        <span className={cn("leading-none", compact && "sr-only")}>
           <span className="block font-display text-[21px] font-extrabold tracking-[0.06em] text-white">ISOLA</span>
           <span className="mt-1 block text-[10px] font-semibold tracking-[0.24em] text-white/70">CREATIVE STUDIO</span>
         </span>
       </Link>
 
-      <div className="flex items-center gap-3 rounded-[12px] border border-white/10 bg-white/5 px-3 py-2.5">
+      <div className={cn("flex items-center gap-3 rounded-[12px] border border-white/10 bg-white/5 px-3 py-2.5", compact && "hidden")}>
         <span className="flex-1 truncate text-[14px] font-semibold text-white">Personal studio</span>
         <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em]", plan.pro ? "bg-white text-ink" : "bg-white/10 text-white/80")}>
           {plan.isPending ? "…" : plan.pro ? "Pro" : "Free"}
@@ -117,12 +156,12 @@ function Sidebar({ pathname, onNavigate }: { pathname: string; onNavigate?: () =
             ["Organise", ORGANISE],
           ] as const
         ).map(([title, items]) => (
-          <div key={title}>
-            <p className="px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">{title}</p>
-            <ul className="mt-2 grid gap-0.5">
+          <div key={title} className={cn(compact && "border-t border-white/10 pt-3 first:border-t-0 first:pt-0")}>
+            <p className={cn("px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white/70", compact && "sr-only")}>{title}</p>
+            <ul className={cn("grid gap-0.5", !compact && "mt-2")}>
               {items.map((item) => (
                 <li key={item.href}>
-                  <NavLink item={item} pathname={pathname} onNavigate={onNavigate} />
+                  <NavLink item={item} pathname={pathname} onNavigate={onNavigate} compact={compact} />
                 </li>
               ))}
             </ul>
@@ -131,17 +170,22 @@ function Sidebar({ pathname, onNavigate }: { pathname: string; onNavigate?: () =
         <ul className="grid gap-0.5 border-t border-white/10 pt-4">
           {FOOTER.map((item) => (
             <li key={item.href}>
-              <NavLink item={item} pathname={pathname} onNavigate={onNavigate} />
+              <NavLink item={item} pathname={pathname} onNavigate={onNavigate} compact={compact} />
             </li>
           ))}
         </ul>
       </nav>
 
-      <Link href="/account" onClick={onNavigate} className="mt-auto flex items-center gap-3 rounded-[12px] border-t border-white/10 px-2 pt-4 hover:opacity-90">
+      <Link
+        href="/account"
+        onClick={onNavigate}
+        title={compact ? name || email || "Your account" : undefined}
+        className={cn("mt-auto flex items-center gap-3 rounded-[12px] border-t border-white/10 pt-4 hover:opacity-90", compact ? "justify-center" : "px-2")}
+      >
         <span aria-hidden="true" className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue to-blue-700 text-[14px] font-bold text-white">
           {email ? initialsOf(name, email) : ""}
         </span>
-        <span className="min-w-0">
+        <span className={cn("min-w-0", compact && "sr-only")}>
           <span className="block truncate text-[14px] font-semibold text-white">{name || email || "Your account"}</span>
           <span className="block truncate text-[12px] text-white/70">{email}</span>
         </span>
@@ -175,12 +219,12 @@ function CreateMenu() {
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild className={item}>
-            <Link href="/batch">
+            <Link href="/studio/batch">
               <Layers className="size-4 text-blue" aria-hidden="true" /> New batch
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild className={item}>
-            <Link href="/batch?export=set">
+            <Link href="/studio/batch?export=set">
               <Share className="size-4 text-blue" aria-hidden="true" /> Export set
             </Link>
           </DropdownMenu.Item>
@@ -196,14 +240,14 @@ function CreateMenu() {
 }
 
 /** The sidebar with the current page highlighted. Reading the path waits for the request, so it streams in. */
-function CurrentSidebar({ onNavigate }: { onNavigate?: () => void }) {
-  return <Sidebar pathname={usePathname()} onNavigate={onNavigate} />;
+function CurrentSidebar({ onNavigate, compact }: { onNavigate?: () => void; compact?: boolean }) {
+  return <Sidebar pathname={usePathname()} onNavigate={onNavigate} compact={compact} />;
 }
 
-function PlacedSidebar({ onNavigate }: { onNavigate?: () => void }) {
+function PlacedSidebar({ onNavigate, compact }: { onNavigate?: () => void; compact?: boolean }) {
   return (
-    <Suspense fallback={<Sidebar pathname="" onNavigate={onNavigate} />}>
-      <CurrentSidebar onNavigate={onNavigate} />
+    <Suspense fallback={<Sidebar pathname="" onNavigate={onNavigate} compact={compact} />}>
+      <CurrentSidebar onNavigate={onNavigate} compact={compact} />
     </Suspense>
   );
 }
@@ -217,6 +261,7 @@ function PageName() {
 export function StudioShell({ children }: { children: ReactNode }) {
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
+  const collapsed = useSidebarCollapsed();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -234,10 +279,10 @@ export function StudioShell({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[256px_minmax(0,1fr)]">
-      <aside className="hidden bg-[#111b2b] lg:block">
+    <div className={cn("min-h-dvh bg-paper lg:grid", collapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[256px_minmax(0,1fr)]")}>
+      <aside id="studio-sidebar" aria-label="Studio sidebar" className="hidden bg-[#111b2b] lg:block">
         <div className="sticky top-0 h-dvh">
-          <PlacedSidebar />
+          <PlacedSidebar compact={collapsed} />
         </div>
       </aside>
 
@@ -248,6 +293,17 @@ export function StudioShell({ children }: { children: ReactNode }) {
             onClick={() => setDrawer(true)}
             aria-label="Open studio menu"
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-ink hover:bg-ink/5 lg:hidden"
+          >
+            <Menu className="size-5" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => writeCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-expanded={!collapsed}
+            aria-controls="studio-sidebar"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="-ml-2 hidden size-10 shrink-0 items-center justify-center rounded-lg text-ink hover:bg-ink/5 lg:inline-flex"
           >
             <Menu className="size-5" aria-hidden="true" />
           </button>

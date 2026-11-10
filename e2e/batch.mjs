@@ -192,9 +192,9 @@ await page.waitForURL("**/sign-in**");
 await page.getByLabel("Email").fill(account.email);
 await page.getByLabel("Password", { exact: true }).fill(account.password);
 await page.getByRole("button", { name: "Sign in", exact: true }).click();
-await page.waitForURL((u) => u.pathname === "/batch", { timeout: 30_000 });
+await page.waitForURL((u) => u.pathname === "/studio/batch", { timeout: 30_000 });
 await page.locator("#batch-files").waitFor({ state: "attached", timeout: 20_000 });
-check("After signing in, /batch is the workspace", (await page.getByRole("heading", { level: 1 }).innerText()) === "Batch Studio");
+check("After signing in, /batch opens the workspace inside the studio", (await page.getByRole("heading", { level: 1 }).innerText()) === "Batch Studio" && (await page.getByRole("complementary", { name: "Studio sidebar" }).getByRole("link", { name: "Batch Studio" }).getAttribute("aria-current")) === "page");
 await page.locator("#batch-files").setInputFiles(PRODUCT);
 await visible(page.getByText("Pro required")).first().waitFor({ timeout: 20_000 });
 check("On a free account, images wait for Pro with a clear reason", await visible(page.getByText("Batch Studio is part of Pro")).isVisible());
@@ -299,7 +299,7 @@ await page.getByRole("button", { name: "Erase brush" }).first().click();
 }
 await page.waitForTimeout(1200);
 await page.getByRole("link", { name: /Back to Batch Studio/ }).click();
-await page.waitForURL((u) => u.pathname === "/batch");
+await page.waitForURL((u) => u.pathname === "/studio/batch");
 await card(page, "product.jpg").getByText("Edited").waitFor({ timeout: 15_000 });
 dl = await download(page, () => card(page, "product.jpg").getByRole("button", { name: "Download product.jpg" }).click());
 img = await inspect(page, dl.file, { points: [[760, 600], [600, 700]] });
@@ -310,7 +310,7 @@ await page.waitForTimeout(500);
 const editorCopies = await page.getByRole("complementary", { name: "Images" }).getByText("product.jpg").count();
 check("Refining again reuses the same editor image", editorCopies === 1, `${editorCopies} copies in the editor`);
 await page.getByRole("link", { name: /Back to Batch Studio/ }).click();
-await page.waitForURL((u) => u.pathname === "/batch");
+await page.waitForURL((u) => u.pathname === "/studio/batch");
 
 /* 7. Settings: draft, apply to the selection only, exports match previews */
 await card(page, "broken.png").getByRole("checkbox").uncheck();

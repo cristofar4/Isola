@@ -403,7 +403,8 @@ function UrlActions({ onPreset, onCheck, onExportSet }: { onPreset: (p: LoadedPr
       const next = new URLSearchParams(params.toString());
       for (const key of ["check", "export", "open"]) next.delete(key);
       const qs = next.toString();
-      router.replace(qs ? `/batch?${qs}` : "/batch", { scroll: false });
+      const here = window.location.pathname;
+      router.replace(qs ? `${here}?${qs}` : here, { scroll: false });
     };
     if (open) {
       void openInEditor(open).then((ok) => (ok ? router.push("/editor") : strip()));

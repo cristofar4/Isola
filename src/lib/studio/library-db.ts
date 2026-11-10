@@ -3,13 +3,17 @@
 /**
  * The studio library's storage: IndexedDB in this browser. Nothing here is
  * uploaded. Metadata (assets, collections, folders, projects, version
- * history) lives in its own stores; image files and masks are kept apart in
- * "blobs" so lists load without reading any pixels.
+ * history, scenes, films, motion styles) lives in its own stores; image,
+ * video and audio files and masks are kept apart in "blobs" so lists load
+ * without reading any pixels.
+ *
+ * Version 2 added "scenes" (Scene Studio), "films" (Motion Studio) and
+ * "motionStyles" (saved motion presets). Upgrades only add stores.
  */
 
 const DB_NAME = "isola-library";
-const VERSION = 1;
-export const STORES = ["assets", "blobs", "collections", "folders", "projects", "snapshots"] as const;
+const VERSION = 2;
+export const STORES = ["assets", "blobs", "collections", "folders", "projects", "snapshots", "scenes", "films", "motionStyles"] as const;
 export type StoreName = (typeof STORES)[number];
 
 export class LibraryStorageError extends Error {}
@@ -37,9 +41,25 @@ export function openLibrary(): Promise<IDBDatabase | null> {
         }
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    // Another tab with an older version open blocks the upgrade until it closes; give it a moment.
+    let blockedTimer: ReturnType<typeof setTimeout> | undefined;
+    req.onsuccess = () => {
+      clearTimeout(blockedTimer);
+      const db = req.result;
+      // A newer version opened in another tab: let it upgrade, and reopen next time.
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
     req.onerror = () => resolve(null);
-    req.onblocked = () => resolve(null);
+    req.onblocked = () => {
+      blockedTimer = setTimeout(() => {
+        dbPromise = null;
+        resolve(null);
+      }, 8000);
+    };
   });
   return dbPromise;
 }

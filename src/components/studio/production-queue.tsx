@@ -27,9 +27,9 @@ const STATE: Record<Row["state"], { label: string; icon: ReactNode; tone: string
 };
 
 function action(row: Row) {
-  if (row.state === "review") return { href: `/batch?open=${encodeURIComponent(row.item.id)}`, label: "Open editor" };
-  if (row.state === "ready") return { href: "/batch?export=set", label: "Export" };
-  return { href: "/batch", label: row.state === "failed" ? "Retry" : "Open" };
+  if (row.state === "review") return { href: `/studio/batch?open=${encodeURIComponent(row.item.id)}`, label: "Open editor" };
+  if (row.state === "ready") return { href: "/studio/batch?export=set", label: "Export" };
+  return { href: "/studio/batch", label: row.state === "failed" ? "Retry" : "Open" };
 }
 
 /** What's happening in the batch saved in this browser, with the next step for each image. */
@@ -53,7 +53,7 @@ export function ProductionQueue({ snapshot, pro }: { snapshot: BatchSnapshot | n
       {rows.length === 0 ? (
         <div className="mt-4 rounded-[14px] border border-dashed border-line-strong px-4 py-6 text-center">
           <p className="text-[14px] text-ink-3">Nothing in production yet.</p>
-          <Link href="/batch" className="mt-2 inline-flex text-[14px] font-semibold text-blue-700 hover:underline">
+          <Link href="/studio/batch" className="mt-2 inline-flex text-[14px] font-semibold text-blue-700 hover:underline">
             Start a batch
           </Link>
         </div>
@@ -92,7 +92,7 @@ export function ProductionQueue({ snapshot, pro }: { snapshot: BatchSnapshot | n
             })}
           </ul>
           {rows.length > shown.length && (
-            <Link href="/batch" className="mt-3 inline-flex text-[13px] font-semibold text-blue-700 hover:underline">
+            <Link href="/studio/batch" className="mt-3 inline-flex text-[13px] font-semibold text-blue-700 hover:underline">
               See all {rows.length} images in Batch Studio
             </Link>
           )}

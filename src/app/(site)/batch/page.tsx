@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { BatchStudio } from "@/components/batch/batch-studio";
 import { BatchLanding } from "@/components/batch/landing/batch-landing";
 import { Spinner } from "@/components/ui/progress";
 import { getAuth } from "@/server/auth";
@@ -11,9 +11,10 @@ export const metadata: Metadata = {
   description: "Remove backgrounds from a whole set of images, give them one consistent look and export them together as a ZIP.",
 };
 
-/** Signed-in visitors get the workspace; everyone else gets the introduction and sample project. */
+/** Signed-in visitors work inside the studio (/studio/batch); everyone else gets the introduction and sample project. */
 async function BatchEntry({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const preset = (await searchParams).preset === "catalogue" ? "catalogue" : null;
+  const params = await searchParams;
+  const preset = params.preset === "catalogue" ? "catalogue" : null;
   const requestHeaders = await headers();
   let signedIn = false;
   try {
@@ -22,7 +23,16 @@ async function BatchEntry({ searchParams }: { searchParams: Promise<Record<strin
   } catch {
     signedIn = false; // Accounts not configured: show the introduction.
   }
-  return signedIn ? <BatchStudio /> : <BatchLanding preset={preset} />;
+  if (signedIn) {
+    // Keep ?preset=, ?open=, ?check= and ?export= so links into Batch Studio still do what they say.
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      for (const v of Array.isArray(value) ? value : value === undefined ? [] : [value]) query.append(key, v);
+    }
+    const qs = query.toString();
+    redirect(qs ? `/studio/batch?${qs}` : "/studio/batch");
+  }
+  return <BatchLanding preset={preset} />;
 }
 
 export default function BatchPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

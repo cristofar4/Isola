@@ -300,10 +300,13 @@ export function projectsUsing(assetId: string) {
 export async function deleteAssetsForever(ids: string[]): Promise<{ kept: Asset[] }> {
   const kept: Asset[] = [];
   const gone: string[] = [];
+  // Scenes and films (Scene Studio, Motion Studio) point at assets too; read them so their images are never deleted from under them.
+  const [scenes, films] = await Promise.all([store.getAll<unknown>("scenes").catch(() => []), store.getAll<unknown>("films").catch(() => [])]);
+  const others = [...scenes, ...films].map((d) => JSON.stringify(d));
   for (const id of ids) {
     const asset = getAsset(id);
     if (!asset) continue;
-    if (projectsUsing(id).length) kept.push(asset);
+    if (projectsUsing(id).length || others.some((json) => json.includes(`"${id}"`))) kept.push(asset);
     else gone.push(id);
   }
   await store.write({ remove: gone.flatMap((id) => [["assets", id], ["blobs", assetKey(id)], ["blobs", thumbKey(id)]] as Array<[store.StoreName, string]>) });

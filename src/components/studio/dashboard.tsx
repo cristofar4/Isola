@@ -49,10 +49,10 @@ const card = "rounded-[18px] border border-line bg-surface shadow-[var(--shadow-
 const TOOLS: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/editor", label: "Remove background", icon: Scissors },
   { href: "/editor?tool=restore", label: "Edit an image", icon: Wand2 },
-  { href: "/batch", label: "Start a batch", icon: Layers },
+  { href: "/studio/batch", label: "Start a batch", icon: Layers },
   { href: "/editor?panel=background", label: "Change background", icon: Images },
-  { href: "/batch?preset=default", label: "Apply brand preset", icon: Palette },
-  { href: "/batch?export=set", label: "Create export set", icon: Share },
+  { href: "/studio/batch?preset=default", label: "Apply brand preset", icon: Palette },
+  { href: "/studio/batch?export=set", label: "Create export set", icon: Share },
 ];
 
 function QuickTools() {
@@ -166,7 +166,7 @@ function ContinueCreating({ snapshot, exports }: { snapshot: BatchSnapshot | nul
   const batchCard = items.length > 0 && (
     <Link
       key="batch"
-      href="/batch"
+      href="/studio/batch"
       className={cn("group overflow-hidden transition-[border-color,box-shadow] hover:border-blue/40 hover:shadow-[var(--shadow-float)]", card, compact && "flex items-center")}
       data-continue="batch"
     >
@@ -244,7 +244,7 @@ function ContinueCreating({ snapshot, exports }: { snapshot: BatchSnapshot | nul
   const startCard = (
     <Link
       key="start"
-      href="/batch"
+      href="/studio/batch"
       data-start-card
       className={cn(
         "flex items-center gap-3 rounded-[18px] border-2 border-dashed border-line-strong text-center hover:border-blue/60 hover:bg-surface",
@@ -413,12 +413,12 @@ function ConsistencyCard({ snapshot, pro }: { snapshot: BatchSnapshot | null; pr
         </ul>
         <div className="flex shrink-0 flex-col gap-2 lg:w-[210px] lg:border-l lg:border-line lg:pl-5">
           <Link
-            href={example ? "/batch" : "/batch?check=consistency"}
+            href={example ? "/studio/batch" : "/studio/batch?check=consistency"}
             className="inline-flex h-11 items-center justify-center rounded-[10px] border border-blue/40 bg-surface px-4 text-[14px] font-semibold text-blue-700 hover:border-blue hover:bg-blue-50"
           >
             {example ? "Start a collection" : report?.issues.length ? `Review ${report.issues.length} suggestion${report.issues.length === 1 ? "" : "s"}` : "Open the check"}
           </Link>
-          <Link href="/batch" className="inline-flex h-11 items-center justify-center rounded-[10px] border border-line bg-surface px-4 text-[14px] font-semibold text-ink hover:bg-paper">
+          <Link href="/studio/batch" className="inline-flex h-11 items-center justify-center rounded-[10px] border border-line bg-surface px-4 text-[14px] font-semibold text-ink hover:bg-paper">
             Open collection
           </Link>
         </div>
@@ -472,7 +472,7 @@ function DestinationsCard({ snapshot, pro }: { snapshot: BatchSnapshot | null; p
           ))}
         </ul>
         <Link
-          href={ready.length ? "/batch?export=set" : "/batch"}
+          href={ready.length ? "/studio/batch?export=set" : "/studio/batch"}
           className="inline-flex h-11 items-center justify-center gap-2 justify-self-end rounded-[10px] bg-blue px-5 text-[15px] font-semibold text-white shadow-[var(--shadow-blue)] hover:bg-blue-600 max-sm:w-full"
         >
           {ready.length ? "Review export set" : "Add images"} <ArrowUpRight className="size-4" aria-hidden="true" />

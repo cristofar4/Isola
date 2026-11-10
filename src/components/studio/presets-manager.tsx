@@ -288,7 +288,7 @@ function PresetCard({ preset, onEdit }: { preset: BrandPreset; onEdit: () => voi
       </div>
       {preset.colors.length > 0 && <Swatches colors={preset.colors} background={preset.layout.background} />}
       <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-line pt-4">
-        <Link href={`/batch?preset=${encodeURIComponent(preset.id)}`} className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-blue px-3 text-[13px] font-semibold text-white hover:bg-blue-600">
+        <Link href={`/studio/batch?preset=${encodeURIComponent(preset.id)}`} className="inline-flex h-9 items-center gap-1.5 rounded-[10px] bg-blue px-3 text-[13px] font-semibold text-white hover:bg-blue-600">
           Apply in Batch Studio <ArrowRight className="size-4" aria-hidden="true" />
         </Link>
         <Button size="sm" variant="secondary" onClick={onEdit} icon={<Pencil className="size-3.5" aria-hidden="true" />} aria-label={`Edit ${preset.name}`}>

@@ -121,7 +121,11 @@ const opened = page.waitForEvent("filechooser", { timeout: 5000 }).then(() => tr
 await page.getByRole("button", { name: "Upload image" }).click();
 check("Signed in, Upload on the landing page opens the file picker", (await opened) && new URL(page.url()).pathname === "/");
 await page.goto(`${BASE}/batch`, { waitUntil: "networkidle" });
-check("…and ISOLA BATCH stays in the workspace", (await page.getByRole("link", { name: "ISOLA Batch Studio" }).innerText()) === "BATCH" && (await page.locator("#batch-files").count()) === 1);
+check(
+  "…and signed in, Batch Studio opens inside the studio (sidebar, breadcrumb)",
+  new URL(page.url()).pathname === "/studio/batch" && (await page.locator("#batch-files").count()) === 1 && (await page.getByRole("navigation", { name: "Breadcrumb" }).innerText()).includes("Batch Studio"),
+  page.url(),
+);
 await page.goto(`${BASE}/batch?preset=catalogue`, { waitUntil: "networkidle" });
 await visible(page.getByText("Catalogue preset loaded")).waitFor();
 const panel = page.getByRole("complementary", { name: "Batch settings" });

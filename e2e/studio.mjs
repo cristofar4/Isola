@@ -87,7 +87,7 @@ const navText = (await sidebar.innerText()).replace(/\s+/g, " ");
 check("The sidebar has the studio's sections and tools", ["Home", "Image editor", "Batch Studio", "Brand presets", "Export sets", "Quality review", "Projects", "Asset library", "Downloads", "Trash", "Help", "Settings"].every((t) => navText.includes(t)), navText);
 const tools = page.getByRole("region", { name: "Quick start tools" });
 const toolHrefs = await tools.getByRole("link").evaluateAll((a) => a.map((x) => x.getAttribute("href")));
-check("Quick start tools open the real tools", JSON.stringify(toolHrefs.slice(0, 4)) === JSON.stringify(["/editor", "/editor?tool=restore", "/batch", "/editor?panel=background"]) && toolHrefs[5] === "/batch?export=set", toolHrefs.join(" "));
+check("Quick start tools open the real tools", JSON.stringify(toolHrefs.slice(0, 4)) === JSON.stringify(["/editor", "/editor?tool=restore", "/studio/batch", "/editor?panel=background"]) && toolHrefs[5] === "/studio/batch?export=set", toolHrefs.join(" "));
 check("An empty studio says so instead of showing made-up work", (await page.getByText("Nothing in production yet.").isVisible()) && (await page.locator("[data-consistency-card]").getByText("Example", { exact: true }).isVisible()));
 
 // Brand preset from the dashboard card.
@@ -98,7 +98,7 @@ await presetCard.getByLabel("Padding").selectOption("8");
 await presetCard.getByText("Saved to your account.").waitFor();
 let presets = (await (await freeCtx.request.get(`${BASE}/api/presets`)).json()).presets;
 check("A brand preset is created and edited in place, saved to the account", presets.length === 1 && presets[0].isDefault && presets[0].layout.padding === 8, JSON.stringify(presets[0]?.layout));
-check("Apply preset links to Batch Studio with that preset", (await presetCard.getByRole("link", { name: /Apply preset/ }).getAttribute("href")) === `/batch?preset=${presets[0].id}`);
+check("Apply preset links to Batch Studio with that preset", (await presetCard.getByRole("link", { name: /Apply preset/ }).getAttribute("href")) === `/studio/batch?preset=${presets[0].id}`);
 
 // The API checks everything it's given.
 const bad = await freeCtx.request.post(`${BASE}/api/presets`, { headers: { origin: BASE }, data: { name: "", colors: [{ hex: "blue" }], layout: { canvas: "huge" } } });

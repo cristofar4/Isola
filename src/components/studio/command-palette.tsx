@@ -23,9 +23,9 @@ const STATIC: Command[] = [
   { id: "new-project", group: "Actions", label: "New project", hint: "Projects", href: "/studio/projects?new=1", keywords: "master linked versions formats" },
   { id: "upload-assets", group: "Actions", label: "Upload assets", hint: "Asset library", href: "/studio/assets", keywords: "library logos backgrounds originals cutouts" },
   { id: "remove", group: "Actions", label: "Remove a background", hint: "Editor", href: "/editor", keywords: "cutout upload image single" },
-  { id: "batch", group: "Actions", label: "Start a batch", hint: "Batch Studio", href: "/batch", keywords: "many bulk collection upload" },
-  { id: "check", group: "Actions", label: "Check consistency", hint: "Batch Studio", href: "/batch?check=consistency", keywords: "quality review amazon instagram marketplace" },
-  { id: "export-set", group: "Actions", label: "Create an export set", hint: "Batch Studio", href: "/batch?export=set", keywords: "sizes destinations square portrait story wide zip" },
+  { id: "batch", group: "Actions", label: "Start a batch", hint: "Batch Studio", href: "/studio/batch", keywords: "many bulk collection upload" },
+  { id: "check", group: "Actions", label: "Check consistency", hint: "Batch Studio", href: "/studio/batch?check=consistency", keywords: "quality review amazon instagram marketplace" },
+  { id: "export-set", group: "Actions", label: "Create an export set", hint: "Batch Studio", href: "/studio/batch?export=set", keywords: "sizes destinations square portrait story wide zip" },
   { id: "preset-new", group: "Actions", label: "New brand preset", hint: "Brand presets", href: "/studio/presets?new=1", keywords: "colours colors brand kit style" },
   { id: "restore", group: "Actions", label: "Restore & erase", hint: "Editor", href: "/editor?tool=restore", keywords: "brush refine edges" },
   { id: "background", group: "Actions", label: "Change background", hint: "Editor", href: "/editor?panel=background", keywords: "colour scene backdrop" },
@@ -81,7 +81,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           group: "Batch images",
           label: i.name,
           hint: i.status === "ready" ? "Open in editor" : "Batch Studio",
-          href: i.status === "ready" ? `/batch?open=${encodeURIComponent(i.id)}` : "/batch",
+          href: i.status === "ready" ? `/studio/batch?open=${encodeURIComponent(i.id)}` : "/studio/batch",
           keywords: snap.name,
         })),
       );
@@ -105,7 +105,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       group: "Brand presets",
       label: `Apply “${p.name}”`,
       hint: p.isDefault ? "Default" : "Batch Studio",
-      href: `/batch?preset=${encodeURIComponent(p.id)}`,
+      href: `/studio/batch?preset=${encodeURIComponent(p.id)}`,
       keywords: `brand preset ${p.name} ${p.colors.map((c) => c.name).join(" ")}`,
     }));
     const all = [...STATIC, ...projectCommands, ...(query.trim() ? assetCommands : []), ...presetCommands, ...images, ...DOCS].filter((c) => matches(c, query.trim()));

@@ -168,7 +168,7 @@ export function BrandPresetCard() {
             <Link href="/studio/presets" className="text-[13px] font-semibold text-ink-3 hover:text-ink hover:underline">
               Edit colours and more
             </Link>
-            <Link href={`/batch?preset=${encodeURIComponent(preset.id)}`} className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-blue-700 hover:underline">
+            <Link href={`/studio/batch?preset=${encodeURIComponent(preset.id)}`} className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-blue-700 hover:underline">
               Apply preset <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
           </div>

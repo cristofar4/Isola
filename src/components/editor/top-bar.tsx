@@ -42,7 +42,7 @@ export function TopBar({
       <span className="mx-1 hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
       {image?.batchItemId && (
         <Link
-          href="/batch"
+          href="/studio/batch"
           title="Your edits to this image are kept in Batch Studio"
           className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2.5 text-[13px] font-semibold text-blue-700 hover:bg-blue-100"
         >
