@@ -3,33 +3,15 @@
 import Link from "next/link";
 import { AlertDialog } from "radix-ui";
 import { ArrowUpRight, Check, Copy, KeyRound, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
+import { FormAlert, TextField } from "@/components/auth/fields";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { planConfig } from "@/lib/config";
-import { Card } from "./account-card";
-import { FormAlert, TextField } from "./fields";
-
-interface KeySummary {
-  id: string;
-  name: string;
-  preview: string;
-  createdAt: string;
-  lastUsedAt: string | null;
-  requestCount: number;
-}
+import { relativeTime as when, useAccountData, type KeySummary } from "./account-data";
+import { Section } from "./section";
 
 const MAX_KEYS = 10;
-
-function when(iso: string | null) {
-  if (!iso) return "Never";
-  const d = new Date(iso);
-  const mins = Math.round((Date.now() - d.getTime()) / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins} min ago`;
-  if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
 
 function CopyField({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
@@ -54,30 +36,16 @@ function CopyField({ value, label }: { value: string; label: string }) {
   );
 }
 
-/** Create, list and delete API keys. A new key is shown once and never again. */
-export function ApiKeysCard({ pro }: { pro: boolean }) {
-  const [keys, setKeys] = useState<KeySummary[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+/** Create, list and delete API keys. A new key is shown once and never again. Loaded by the account page. */
+export function ApiKeysSection({ pro }: { pro: boolean }) {
+  const keys = useAccountData((s) => s.keys.data);
+  const loadError = useAccountData((s) => s.keys.error);
+  const loadKeys = useAccountData((s) => s.loadKeys);
+  const setKeys = useAccountData((s) => s.setKeys);
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fresh, setFresh] = useState<{ key: string; name: string } | null>(null);
-  const [reload, setReload] = useState(0);
-
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/keys", { cache: "no-store" })
-      .then(async (res) => {
-        const json = (await res.json()) as { keys?: KeySummary[]; message?: string };
-        if (!alive) return;
-        if (res.ok && json.keys) setKeys(json.keys);
-        else setLoadError(json.message ?? "Couldn't load your keys.");
-      })
-      .catch(() => alive && setLoadError("Couldn't reach the server."));
-    return () => {
-      alive = false;
-    };
-  }, [reload]);
 
   async function create(e: FormEvent) {
     e.preventDefault();
@@ -88,7 +56,7 @@ export function ApiKeysCard({ pro }: { pro: boolean }) {
       const json = (await res.json()) as { key?: string; summary?: KeySummary; message?: string };
       if (res.ok && json.key && json.summary) {
         setFresh({ key: json.key, name: json.summary.name });
-        setKeys((k) => [json.summary!, ...(k ?? [])]);
+        setKeys((k) => [json.summary!, ...k]);
         setName("");
       } else setError(json.message ?? "Couldn't create a key.");
     } catch {
@@ -99,20 +67,25 @@ export function ApiKeysCard({ pro }: { pro: boolean }) {
 
   async function remove(id: string) {
     const res = await fetch(`/api/keys/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (res.ok) setKeys((k) => (k ?? []).filter((x) => x.id !== id));
+    if (res.ok) setKeys((k) => k.filter((x) => x.id !== id));
     else setError("Couldn't delete that key. Try again.");
   }
 
   const full = (keys?.length ?? 0) >= MAX_KEYS;
   return (
-    <Card
-      anchor="api-keys"
-      icon={<KeyRound className="size-4" />}
+    <Section
+      id="api-keys"
+      icon={<KeyRound />}
       title="API keys"
       description={
         pro
           ? "Use the ISOLA API from your own code. Pro: full resolution, no watermark, masks included."
           : `Use the ISOLA API from your own code. Free: watermarked cutouts up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px; Pro removes both limits.`
+      }
+      action={
+        <Link href="/developers/api" className="inline-flex items-center gap-1 text-[14px] font-semibold text-blue-700 hover:underline">
+          API docs <ArrowUpRight className="size-4" aria-hidden="true" />
+        </Link>
       }
     >
       <div className="grid gap-5">
@@ -149,7 +122,7 @@ export function ApiKeysCard({ pro }: { pro: boolean }) {
         {loadError ? (
           <FormAlert>
             {loadError}{" "}
-            <button type="button" className="font-semibold underline" onClick={() => { setLoadError(null); setReload((n) => n + 1); }}>
+            <button type="button" className="font-semibold underline" onClick={() => void loadKeys()}>
               Retry
             </button>
           </FormAlert>
@@ -211,10 +184,7 @@ export function ApiKeysCard({ pro }: { pro: boolean }) {
             ))}
           </ul>
         )}
-        <Link href="/developers/api" className="inline-flex w-fit items-center gap-1 text-sm font-semibold text-blue-700 hover:underline">
-          API reference and examples <ArrowUpRight className="size-4" aria-hidden="true" />
-        </Link>
       </div>
-    </Card>
+    </Section>
   );
 }

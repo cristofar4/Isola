@@ -211,7 +211,17 @@ function createOptions(): BetterAuthOptions {
         requireLocalEmailVerified: true,
       },
     },
-    user: { deleteUser: { enabled: true }, additionalFields: planFields },
+    user: {
+      deleteUser: {
+        enabled: true,
+        // Don't rely on the database to cascade (SQLite only does with foreign keys on).
+        afterDelete: async (user) => {
+          const { deleteAllKeys } = await import("./api-keys");
+          await deleteAllKeys(user.id);
+        },
+      },
+      additionalFields: planFields,
+    },
     session: {
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,

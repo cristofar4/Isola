@@ -6,6 +6,7 @@ import { DropdownMenu } from "radix-ui";
 import { LogOut, UserRound, Wand2 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { initialsOf } from "@/lib/initials";
 import { signInHref } from "@/lib/session-gate";
 
 /** Signing in from a workspace page brings you back to it (the batch itself is kept in the browser). */
@@ -14,19 +15,13 @@ function useSignInHref() {
   return pathname === "/batch" || pathname === "/editor" ? signInHref(pathname) : "/sign-in";
 }
 
-function initials(name: string, email: string) {
-  const source = name.trim() || email;
-  const parts = source.split(/[\s@._-]+/).filter(Boolean);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
-}
-
 export function Avatar({ name, email, size = "md" }: { name: string; email: string; size?: "sm" | "md" }) {
   return (
     <span
       aria-hidden="true"
       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-blue font-semibold text-white ${size === "md" ? "size-9 text-[13px]" : "size-7 text-[11px]"}`}
     >
-      {initials(name, email)}
+      {initialsOf(name, email)}
     </span>
   );
 }

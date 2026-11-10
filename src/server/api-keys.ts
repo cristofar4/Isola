@@ -112,6 +112,12 @@ export async function deleteKey(userId: string, id: string): Promise<boolean> {
   return true;
 }
 
+/** Removes every key on an account (used when the account is deleted). */
+export async function deleteAllKeys(userId: string): Promise<void> {
+  const db = await adapter();
+  await db.deleteMany({ model: "apiKey", where: [{ field: "userId", value: userId }] });
+}
+
 export interface ResolvedKey {
   key: ApiKeyRow;
   pro: boolean;

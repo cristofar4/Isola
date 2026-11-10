@@ -144,9 +144,9 @@ if (new URL(page.url()).pathname !== "/account") {
 }
 await page.waitForURL(atPath("/account"));
 check("The original tab carries on to where you were going", true);
-await page.getByText("Signed in as").filter({ visible: true }).waitFor();
+await page.getByRole("region", { name: "Profile" }).waitFor();
 check("Account shows the email as confirmed", await page.getByText(/Confirmed\. Email changes/).filter({ visible: true }).isVisible());
-check("Sign-up creates the account and opens it", (await page.getByText("Signed in as").filter({ visible: true }).innerText()).includes("Ada Lovelace"));
+check("Sign-up creates the account and opens it", (await page.getByRole("heading", { level: 1 }).innerText()) === "Ada Lovelace");
 check("Header shows the account menu", await page.getByRole("button", { name: /Account menu for Ada Lovelace/ }).isVisible());
 await page.screenshot({ path: join(OUT, "auth-account.png"), fullPage: true });
 
@@ -170,7 +170,7 @@ await page.getByLabel("Name", { exact: true }).filter({ visible: true }).fill("A
 await page.getByRole("button", { name: "Save profile" }).click();
 await page.getByText("Profile saved.").filter({ visible: true }).waitFor();
 await page.reload();
-check("Profile name changes persist", (await page.getByText("Signed in as").filter({ visible: true }).innerText()).includes("Ada King"));
+check("Profile name changes persist", (await page.getByRole("heading", { level: 1 }).innerText()) === "Ada King");
 
 // Sign out from the header menu.
 await page.getByRole("button", { name: /Account menu/ }).click();

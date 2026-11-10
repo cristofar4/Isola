@@ -30,7 +30,7 @@ export function TextField({
   const id = useId();
   const describedBy = [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
   return (
-    <div className={cn("grid gap-1.5", className)}>
+    <div className={cn("grid content-start gap-1.5", className)}>
       <label htmlFor={id} className={cn("font-medium text-ink", tall ? "text-[14px]" : "text-[13px]")}>
         {label}
       </label>
@@ -53,7 +53,7 @@ export function PasswordField(props: InputHTMLAttributes<HTMLInputElement> & Fie
   const describedBy = [hint && `${id}-hint`, error && `${id}-error`, capsLock && `${id}-caps`].filter(Boolean).join(" ") || undefined;
   const readCapsLock = (event: KeyboardEvent<HTMLInputElement>) => setCapsLock(event.getModifierState?.("CapsLock") ?? false);
   return (
-    <div className={cn("grid gap-1.5", className)}>
+    <div className={cn("grid content-start gap-1.5", className)}>
       <div className="flex items-center justify-between gap-3">
         <label htmlFor={id} className={cn("font-medium text-ink", tall ? "text-[14px]" : "text-[13px]")}>
           {label}

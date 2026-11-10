@@ -35,7 +35,7 @@ await page.getByRole("button", { name: "Export image" }).click();
 await page.waitForTimeout(500);
 await audit("/editor (export dialog)");
 await page.goto(`${BASE}/account`, { waitUntil: "networkidle" });
-await page.getByText("Signed in as").filter({ visible: true }).waitFor();
+await page.locator("[data-device]").first().waitFor();
 await audit("/account (signed in)");
 // Batch Studio with images in it (free account: they wait for Pro), the menus and the settings tabs.
 await page.goto(`${BASE}/batch`, { waitUntil: "networkidle" });

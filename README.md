@@ -53,6 +53,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling |
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`; start it with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:auth` | Account journey including email confirmation (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
+| `npm run test:account` | Account page: overview, section links, devices and signing them out, phones, key cleanup on deletion |
 | `npm run test:api` | Public API with real server-side processing; start the app with `ISOLA_API_RATE_LIMIT_PER_HOUR=15` plus the `test:batch` settings |
 | `npm run test:docs` | Developer docs: pages, anchors, search, copy, browser check, feedback, mobile menu |
 | `npm run test:nav` | Tools menu, its destinations and the mobile menu (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
@@ -194,8 +195,25 @@ Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
   same tab; a Google/GitHub redirect reloads the page). Once a browser has the
   model cached, the requirement there is enforced by the app. If you point
   `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` at a public CDN, it's enforced by the app only.
-- **Account page:** edit name, change password (optionally signing out other
-  devices), sign out everywhere, delete the account.
+- **Account page** (`/account`): a header with your name, avatar initials,
+  plan badge and confirmed email, plus links to the editor and Batch Studio;
+  an overview (plan and renewal, API keys and requests, devices signed in)
+  from live data; section links that stay beside the content on wide screens
+  and pin under the header as chips on phones, highlighting the section you're
+  reading. Sections: **Plan & billing** (Free vs Pro with monthly/yearly
+  upgrade, or billing period, renewal date and Manage subscription on Pro),
+  **API keys**, **Profile**, **Password & sign-in** (connected sign-in methods,
+  change password), **Devices** and **Delete account**.
+- **Devices:** every browser signed in to the account, named from its user
+  agent ("Safari on iPhone"), with when it signed in, when it was last active
+  and its IP address, and a Sign out button for each other device, plus Sign
+  out other devices. It's served by `/api/account/devices` (and
+  `DELETE /api/account/devices/:id`), which never send session tokens to the
+  browser, refuse other sites and only act on your own sessions. Better
+  Auth's own session list needs a sign-in from the last day, so the page
+  doesn't use it.
+- **Deleting an account** also deletes its API keys explicitly, rather than
+  relying on the database to cascade (SQLite only does with foreign keys on).
 - **Password reset by email:** "Forgot password?" on the sign-in page sends a
   single-use link that expires after 60 minutes; using it signs the account out
   everywhere and also confirms the email address (it proves the mailbox). The response is identical whether or not the email has an
@@ -399,7 +417,9 @@ src/
     batch/                batch studio
     ui/                   buttons, sliders, switches, sheets (Radix), progress
     upload/               shared upload + drag-and-drop hooks
-    auth/                 auth shell + pictures, sign-in/up forms, social buttons, account panel
+    auth/                 auth shell + pictures, sign-in/up forms, social buttons, form fields
+    account/              account page: header, section nav, overview, plan, API keys,
+                          profile, password & sign-in, devices, delete
   lib/
     config.ts             limits and engine configuration (env-driven)
     image/                content sniffing, validation, decoding, mask PNG codec
@@ -421,7 +441,7 @@ Run against a production build in this repository's sandbox, starting from an
 empty model folder (so the automatic download is exercised) and with
 `SMTP_URL=smtp://127.0.0.1:2525` so emails land in the tests' local mailbox:
 
-- **Unit tests:** 32/32 passing.
+- **Unit tests:** 46/46 passing.
 - **End-to-end (`npm run test:e2e`): 31/31 checks passing**, including: the
   model is refused to signed-out requests; a signed-out upload waits with a
   sign-in prompt and is processed after signing in; real on-device removal;
@@ -486,6 +506,14 @@ empty model folder (so the automatic download is exercised) and with
   confirming, blocked sign-in with a fresh link, bad links, the original tab
   carrying on, duplicate sign-up revealing nothing while emailing the owner,
   profile, sign out, password change and account deletion.
+- **Account page (`npm run test:account`): 22/22**, including the header,
+  the overview counts matching the server, section links scrolling and
+  highlighting, devices named from their browser with this device first,
+  no session tokens in the device list, signing one device out (its session
+  really ends) and all others, refusing this device, other sites, signed-out
+  requests and other people's devices, the password fields lining up, no
+  sideways scrolling on phones with the section chips pinned under the
+  header, and account deletion leaving no API keys in the database.
 - **Password reset (`npm run test:reset`): 13/13**, through a real SMTP hop.
 - **Plans and payments (`npm run test:billing`): 32/32**, including the price
   and amount sent to checkout, the yearly toggle, free exports capped at

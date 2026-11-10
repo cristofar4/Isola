@@ -7,7 +7,7 @@ function json(status: number, body: unknown) {
 }
 
 /** Session-only management: these routes are for the Account page, not for API clients. */
-export async function sessionUser(request: Request) {
+export async function sessionUser(request: Request, signInMessage = "Sign in to manage API keys.") {
   const origin = request.headers.get("origin");
   const host = request.headers.get("host");
   if (request.method !== "GET" && origin && host && new URL(origin).host !== host) {
@@ -16,11 +16,10 @@ export async function sessionUser(request: Request) {
   try {
     const auth = await getAuth();
     const session = await auth.api.getSession({ headers: request.headers });
-    if (!session) return { error: json(401, { code: "auth-required", message: "Sign in to manage API keys." }) };
-    return { userId: session.user.id };
+    if (!session) return { error: json(401, { code: "auth-required", message: signInMessage }) };
+    return { userId: session.user.id, sessionId: session.session.id };
   } catch (error) {
     if (error instanceof AuthUnavailableError) return { error: json(503, { code: "auth-unavailable", message: error.message }) };
     throw error;
   }
 }
-

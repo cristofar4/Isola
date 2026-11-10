@@ -17,6 +17,7 @@
     "postinstall": "node scripts/copy-ort.mjs",
     "models:fetch": "node scripts/fetch-models.mjs",
     "test:auth": "node e2e/auth.mjs",
+    "test:account": "node e2e/account.mjs",
     "test:reset": "node e2e/password-reset.mjs",
     "test:billing": "node e2e/billing.mjs"
   },
