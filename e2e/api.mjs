@@ -90,6 +90,14 @@ await page.reload({ waitUntil: "networkidle" });
 await card.getByText("Shop backend").waitFor();
 check("After a reload the full key is gone for good", !(await page.content()).includes(freeKey) && (await card.getByText(`${freeKey.slice(0, 13)}…${freeKey.slice(-4)}`).isVisible()));
 await page.screenshot({ path: join(OUT, "account-api-keys.png"), fullPage: true });
+await page.goto(`${BASE}/developers`, { waitUntil: "networkidle" });
+const panel = page.locator('[data-api-access="signed-in"]');
+await panel.getByText("You have 1 API key.").waitFor({ timeout: 10_000 });
+check(
+  "Signed in, the docs show your plan and keys instead of the sign-up invitation",
+  (await panel.getByText("Free plan").isVisible()) && (await page.locator('[data-api-access="signed-out"]').count()) === 0 && (await panel.getByRole("link", { name: "Manage API keys" }).getAttribute("href")) === "/account#api-keys",
+);
+await page.screenshot({ path: join(OUT, "docs-signed-in.png") });
 
 /* 2. Authentication -------------------------------------------------------- */
 let res = await call("/api/v1/me");

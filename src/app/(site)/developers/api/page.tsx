@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ApiAccessPanel } from "@/components/docs/api-access-panel";
 import { ApiPlayground } from "@/components/docs/api-playground";
 import { CodeBlock } from "@/components/docs/code-block";
 import { CodeTabs } from "@/components/docs/code-tabs";
@@ -77,6 +78,7 @@ export default function ApiQuickstartPage() {
         </DocCallout>
 
         <H2 id="get-key">1. Create a key</H2>
+        <ApiAccessPanel next="/developers/api" />
         <ol>
           <li>
             Sign in and open your <Link href="/account">Account page</Link>.

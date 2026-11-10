@@ -138,15 +138,29 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 900 
 const page = await context.newPage();
 page.on("pageerror", (e) => check("No page errors", false, e.message));
 
-/* 2. Landing upload opens the editor and processes for real ------------ */
+/* 2. Signed out, landing uploads go to sign-in; the editor waits for an account */
 await page.goto(BASE, { waitUntil: "networkidle" });
-const chooser = page.waitForEvent("filechooser");
+let picker = false;
+page.once("filechooser", () => (picker = true));
 await page.getByRole("button", { name: "Upload image" }).click();
-await (await chooser).setFiles(SAMPLE);
-await page.waitForURL("**/editor");
-check("Landing upload opens the editor", true);
+await page.waitForURL((u) => u.pathname === "/sign-in");
+let url = new URL(page.url());
+check("Signed out, Upload on the landing page goes to sign-in (no file picker)", !picker && url.searchParams.get("next") === "/editor" && url.searchParams.get("reason") === "upload", url.pathname + url.search);
+check("The sign-in page says why", await page.getByText("Sign in to upload your images.").filter({ visible: true }).isVisible());
+check(
+  "Switching to Create an account keeps the way back",
+  (await page.getByRole("link", { name: "Create an account" }).filter({ visible: true }).getAttribute("href")) === "/sign-up?next=%2Feditor&reason=upload",
+);
+await page.goto(BASE, { waitUntil: "networkidle" });
+await page.getByRole("button", { name: "Try the sneaker example" }).click();
+await page.waitForURL((u) => u.pathname === "/sign-in");
+check("Signed out, the example photos also go to sign-in", new URL(page.url()).searchParams.get("next") === "/editor");
 
-// Signed out: the image waits with a sign-in prompt instead of processing.
+// In the editor itself, a signed-out upload waits with a sign-in prompt instead of processing.
+await page.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
+const chooser = page.waitForEvent("filechooser");
+await page.getByRole("button", { name: "Upload images" }).click();
+await (await chooser).setFiles(SAMPLE);
 const gate = page.getByText("Sign in to remove the background").filter({ visible: true });
 await gate.waitFor({ timeout: 30_000 });
 check("Signed-out visitors are asked to sign in before removal", true);

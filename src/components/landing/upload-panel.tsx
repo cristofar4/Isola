@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { SAMPLES } from "@/lib/samples";
 
 export function UploadPanel({ className }: { className?: string }) {
-  const upload = useUpload();
+  const upload = useUpload({ requireAccount: true });
   const drop = useFileDrop((files) => void upload.handleFiles(files), upload.busy);
 
   return (
@@ -36,7 +36,7 @@ export function UploadPanel({ className }: { className?: string }) {
       </span>
       <h2 id="upload-heading" className="mt-4 font-display text-[26px] font-bold leading-[1.1] tracking-[-0.025em] text-ink">
         {drop.dragging ? (
-          "Drop to open the editor"
+          upload.mustSignIn ? "Drop to sign in and start" : "Drop to open the editor"
         ) : (
           <>
             Drop an image.

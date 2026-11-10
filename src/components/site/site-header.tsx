@@ -18,8 +18,16 @@ const links = [
   { href: "/pricing", label: "Pricing" },
 ];
 
+/** Sections with their own name next to the logo, e.g. "ISOLA DEVELOPERS". */
+function sectionOf(pathname: string) {
+  if (pathname.startsWith("/developers")) return { label: "DEVELOPERS", href: "/developers", name: "ISOLA Developers" };
+  if (pathname === "/batch") return { label: "BATCH", href: "/batch", name: "ISOLA Batch Studio" };
+  return null;
+}
+
 export function SiteHeader() {
   const pathname = usePathname();
+  const section = sectionOf(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -43,9 +51,9 @@ export function SiteHeader() {
           <Link href="/" aria-label="ISOLA home" className="rounded-md">
             <Logo />
           </Link>
-          {pathname.startsWith("/developers") && (
-            <Link href="/developers" aria-label="ISOLA Developers" className="hidden font-display text-[21px] font-medium tracking-[0.06em] text-ink-3 hover:text-ink sm:inline">
-              DEVELOPERS
+          {section && (
+            <Link href={section.href} aria-label={section.name} className="hidden font-display text-[21px] font-medium tracking-[0.06em] text-ink-3 hover:text-ink sm:inline">
+              {section.label}
             </Link>
           )}
         </div>

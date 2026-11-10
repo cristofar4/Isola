@@ -8,7 +8,7 @@ import { useUpload } from "@/components/upload/use-upload";
 import { cn } from "@/lib/cn";
 
 export function FinalCta() {
-  const upload = useUpload();
+  const upload = useUpload({ requireAccount: true });
   const drop = useFileDrop((files) => void upload.handleFiles(files), upload.busy);
   return (
     <section

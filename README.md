@@ -407,7 +407,7 @@ empty model folder (so the automatic download is exercised) and with
 `SMTP_URL=smtp://127.0.0.1:2525` so emails land in the tests' local mailbox:
 
 - **Unit tests:** 32/32 passing.
-- **End-to-end (`npm run test:e2e`): 28/28 checks passing**, including: the
+- **End-to-end (`npm run test:e2e`): 31/31 checks passing**, including: the
   model is refused to signed-out requests; a signed-out upload waits with a
   sign-in prompt and is processed after signing in; real on-device removal;
   exported PNGs are RGBA with fully transparent background pixels and original
@@ -416,7 +416,7 @@ empty model folder (so the automatic download is exercised) and with
   JPEG; shadows; crop and resize dimensions; invalid and oversized files rejected
   before decoding; transparent input; a 24 MP image; retry after a missing-model
   failure; mobile toolbar and bottom sheet.
-- **Public API (`npm run test:api`): 29/29**: keys created in the Account page
+- **Public API (`npm run test:api`): 30/30**: keys created in the Account page
   are shown once and never again; missing, unknown and deleted keys get 401;
   Free keys return watermarked 1000px PNGs and can't request masks; Pro keys
   return full-resolution cutouts with real alpha (raw body and multipart),
@@ -427,7 +427,7 @@ empty model folder (so the automatic download is exercised) and with
   queue; usage is counted exactly; CORS preflight; the 16th request with a limit
   of 15 gets 429 with Retry-After; key management refuses other origins and
   anonymous calls; the docs playground runs a real request.
-- **Developer docs (`npm run test:docs`): 34/34** (including the Help centre's
+- **Developer docs (`npm run test:docs`): 35/35** (including the Help centre's
   search and deep links): the introduction as
   designed, the copy button putting the real code on the clipboard, "On this
   page" following the scroll, every page active in the sidebar with every
@@ -435,7 +435,7 @@ empty model folder (so the automatic download is exercised) and with
   Enter opens the section), the live browser check, troubleshooting entries,
   all 20 error codes listed, feedback stored (and refused for unknown pages or
   other origins), footer links, and the mobile guide menu.
-- **Navigation (`npm run test:nav`): 30/30**: every Tools menu link points
+- **Navigation (`npm run test:nav`): 33/33**: every Tools menu link points
   where it says, hover/click/Escape/keyboard behaviour, no axe violations with
   the menu open, the editor hints and preselected tools (restore brush after
   processing, crop tool when an image is already open), the catalogue preset
@@ -494,7 +494,11 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 
 **Working**
 
-- Developer docs from the reference design (`/developers`): a three-column
+- Developer docs from the reference design (`/developers`). The docs are the
+  same reference for everyone; an account panel on the introduction and API
+  quickstart changes with the reader: signed out, it invites them to create an
+  account for an API key; signed in, it shows their plan and how many API keys
+  they have, with links to manage keys and try the playground. a three-column
   guide with a sidebar (search with "/" or Ctrl/⌘ K, seven pages), the content,
   and "On this page" that follows your scroll. Pages: Introduction, How
   processing works, Browser requirements (with a live check of the visitor's
@@ -517,7 +521,13 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 - Landing page from the reference design, with ISOLA branding, draggable
   before/after, upload panel, samples, feature sections and footer.
 - One upload path for every entry point (landing, CTA, editor, filmstrip, drag
-  and drop, paste, samples) that validates type, size and dimensions.
+  and drop, paste, samples) that validates type, size and dimensions. On the
+  landing and pricing pages, a signed-out visitor who taps Upload (or drops a
+  file, or picks an example) is sent to sign in first, with a note saying why;
+  "Create an account" on that page keeps the way back to the editor. Signed in,
+  Upload opens the file picker as before.
+- Section names next to the logo: ISOLA DEVELOPERS on the docs and ISOLA BATCH
+  on Batch Studio.
 - Editor: top bar (project name, undo, redo, compare, zoom, engine status,
   export), tool rail, image list, canvas, properties panel, filmstrip.
 - Real on-device background removal with download progress, cancellation,

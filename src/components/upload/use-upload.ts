@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { authClient } from "@/lib/auth-client";
 import { ACCEPT_ATTRIBUTE } from "@/lib/config";
 import { importFiles } from "@/lib/project/actions";
 import type { Sample } from "@/lib/samples";
@@ -14,9 +15,19 @@ export interface UploadIssue {
 /**
  * The single upload path used by every entry point: validates files, adds
  * them to the project (original preserved) and opens the editor.
+ *
+ * With `requireAccount` (the marketing pages), a visitor who is signed out is
+ * sent to sign in first instead of picking a file; afterwards they land in
+ * the editor. Inside the editor, uploads still work signed out and wait there.
  */
-export function useUpload({ navigateTo = "/editor" }: { navigateTo?: string | null } = {}) {
+export function useUpload({ navigateTo = "/editor", requireAccount = false }: { navigateTo?: string | null; requireAccount?: boolean } = {}) {
   const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
+  // Only redirect when we know the visitor is signed out; while the session loads, behave as before.
+  const mustSignIn = requireAccount && !isPending && !session;
+  const signInFirst = useCallback(() => {
+    router.push(`/sign-in?next=${encodeURIComponent(navigateTo ?? "/editor")}&reason=upload`);
+  }, [navigateTo, router]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<"idle" | "checking" | "opening">("idle");
   const [issues, setIssues] = useState<UploadIssue[]>([]);
@@ -27,6 +38,10 @@ export function useUpload({ navigateTo = "/editor" }: { navigateTo?: string | nu
   const handleFiles = useCallback(
     async (files: File[]) => {
       if (files.length === 0) return;
+      if (mustSignIn) {
+        signInFirst();
+        return;
+      }
       setIssues([]);
       setState("checking");
       const report = await importFiles(files);
@@ -39,11 +54,15 @@ export function useUpload({ navigateTo = "/editor" }: { navigateTo?: string | nu
       }
       return report;
     },
-    [navigateTo, router],
+    [navigateTo, router, mustSignIn, signInFirst],
   );
 
   const trySample = useCallback(
     async (sample: Sample) => {
+      if (mustSignIn) {
+        signInFirst();
+        return;
+      }
       setIssues([]);
       setState("checking");
       try {
@@ -56,10 +75,13 @@ export function useUpload({ navigateTo = "/editor" }: { navigateTo?: string | nu
         setState("idle");
       }
     },
-    [handleFiles],
+    [handleFiles, mustSignIn, signInFirst],
   );
 
-  const openPicker = useCallback(() => inputRef.current?.click(), []);
+  const openPicker = useCallback(() => {
+    if (mustSignIn) signInFirst();
+    else inputRef.current?.click();
+  }, [mustSignIn, signInFirst]);
 
   const onInputChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
@@ -81,5 +103,5 @@ export function useUpload({ navigateTo = "/editor" }: { navigateTo?: string | nu
     "aria-hidden": true as const,
   };
 
-  return { inputProps, openPicker, handleFiles, trySample, state, busy: state !== "idle", issues, clearIssues: () => setIssues([]) };
+  return { inputProps, openPicker, handleFiles, trySample, state, busy: state !== "idle", issues, clearIssues: () => setIssues([]), mustSignIn };
 }

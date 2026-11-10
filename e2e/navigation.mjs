@@ -113,7 +113,15 @@ await page.screenshot({ path: join(OUT, "tools-page.png"), fullPage: true });
 
 /* The editor applies the tool once an image is ready ----------------------- */
 const account = await createConfirmedAccount(browser, BASE, mailbox, { name: "Nav Tester" });
+await page.goto(`${BASE}/batch`, { waitUntil: "networkidle" });
+check("Batch Studio's header reads ISOLA BATCH", (await page.getByRole("link", { name: "ISOLA Batch Studio" }).innerText()) === "BATCH");
 await signInContext(context, BASE, account);
+await page.goto(BASE, { waitUntil: "networkidle" });
+const opened = page.waitForEvent("filechooser", { timeout: 5000 }).then(() => true, () => false);
+await page.getByRole("button", { name: "Upload image" }).click();
+check("Signed in, Upload on the landing page opens the file picker", (await opened) && new URL(page.url()).pathname === "/");
+await page.goto(`${BASE}/batch`, { waitUntil: "networkidle" });
+check("…and ISOLA BATCH stays in the workspace", (await page.getByRole("link", { name: "ISOLA Batch Studio" }).innerText()) === "BATCH" && (await page.locator("#batch-files").count()) === 1);
 await page.goto(`${BASE}/batch?preset=catalogue`, { waitUntil: "networkidle" });
 await visible(page.getByText("Catalogue preset loaded")).waitFor();
 const panel = page.getByRole("complementary", { name: "Batch settings" });

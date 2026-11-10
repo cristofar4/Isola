@@ -6,7 +6,7 @@ import { Spinner } from "@/components/ui/progress";
 import { useUpload } from "@/components/upload/use-upload";
 
 export function PricingCta() {
-  const upload = useUpload();
+  const upload = useUpload({ requireAccount: true });
   return (
     <section aria-labelledby="pricing-cta" className="rounded-[22px] bg-[linear-gradient(135deg,#e7eefd,#dde7fb)] px-6 py-12 text-center">
       <input {...upload.inputProps} />

@@ -106,6 +106,7 @@ export function ApiKeysCard({ pro }: { pro: boolean }) {
   const full = (keys?.length ?? 0) >= MAX_KEYS;
   return (
     <Card
+      anchor="api-keys"
       icon={<KeyRound className="size-4" />}
       title="API keys"
       description={

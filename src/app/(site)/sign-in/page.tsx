@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { AuthReason, AuthSwitchLink } from "@/components/auth/auth-context";
 import { AuthShell, FormSkeleton } from "@/components/auth/auth-shell";
 import { ProviderSlot } from "@/components/auth/provider-slot";
 import { SignInForm } from "@/components/auth/sign-in-form";
@@ -18,12 +19,21 @@ export default function SignInPage() {
       footer={
         <>
           New to ISOLA?{" "}
-          <Link href="/sign-up" className="font-semibold text-blue-700 underline-offset-2 hover:underline">
-            Create an account
-          </Link>
+          <Suspense
+            fallback={
+              <Link href="/sign-up" className="font-semibold text-blue-700 underline-offset-2 hover:underline">
+                Create an account
+              </Link>
+            }
+          >
+            <AuthSwitchLink to="/sign-up">Create an account</AuthSwitchLink>
+          </Suspense>
         </>
       }
     >
+      <Suspense fallback={null}>
+        <AuthReason mode="sign-in" />
+      </Suspense>
       <Suspense fallback={null}>
         <ProviderSlot mode="sign-in" />
       </Suspense>

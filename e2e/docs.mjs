@@ -47,6 +47,11 @@ check("Original → mask → cutout illustration", (await page.getByRole("img", 
 const toc = page.getByRole("navigation", { name: "On this page" });
 const tocLabels = (await toc.getByRole("link").allInnerTexts()).map((t) => t.trim());
 check("On this page lists the design's sections", tocLabels.join("|") === "Overview|Processing flow|Engine options|Next steps", tocLabels.join(", "));
+const access = page.locator('[data-api-access="signed-out"]');
+check(
+  "Signed out, the docs invite you to create an account for an API key",
+  (await access.isVisible()) && (await access.getByRole("link", { name: "Create account" }).getAttribute("href")) === "/sign-up?next=%2Faccount%23api-keys",
+);
 check("Header reads ISOLA DEVELOPERS", (await page.getByRole("link", { name: "ISOLA Developers" }).innerText()) === "DEVELOPERS");
 await page.screenshot({ path: join(OUT, "docs-intro.png") });
 

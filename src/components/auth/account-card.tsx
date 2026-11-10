@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 
-export function Card({ icon, title, description, children }: { icon: ReactNode; title: string; description?: string; children: ReactNode }) {
+export function Card({ icon, title, description, children, anchor }: { icon: ReactNode; title: string; description?: string; children: ReactNode; anchor?: string }) {
   // aria-labelledby takes space-separated ids, so the id must not contain spaces.
   const id = `card-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
-    <section className="rounded-[18px] border border-line bg-surface p-5 shadow-[var(--shadow-card)] sm:p-6" aria-labelledby={id}>
+    <section id={anchor} className="scroll-mt-24 rounded-[18px] border border-line bg-surface p-5 shadow-[var(--shadow-card)] sm:p-6" aria-labelledby={id}>
       <div className="flex items-start gap-3">
         <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue" aria-hidden="true">
           {icon}
