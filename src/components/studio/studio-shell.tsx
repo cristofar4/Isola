@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 import { Dialog, DropdownMenu } from "radix-ui";
 import {
   BookOpen,
+  Download,
+  FolderOpen,
+  Images,
+  Trash2,
   ChevronDown,
   CircleHelp,
   House,
@@ -20,28 +24,47 @@ import {
   Wand2,
   X,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { LogoMark } from "@/components/ui/logo";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/cn";
 import { initialsOf } from "@/lib/initials";
 import { usePlan } from "@/lib/plan";
 import { CommandPalette } from "./command-palette";
+import { NameDialogHost } from "./name-dialog";
 
-const NAV = [
+const WORKSPACE = [
   { href: "/studio", label: "Home", icon: House, match: (p: string) => p === "/studio" },
-  { href: "/editor", label: "Image editor", icon: ImageIcon },
-  { href: "/batch", label: "Batch Studio", icon: Layers },
-  { href: "/studio/presets", label: "Brand presets", icon: Palette, match: (p: string) => p.startsWith("/studio/presets") },
-  { href: "/batch?export=set", label: "Export sets", icon: Share },
+  { href: "/studio/projects", label: "Projects", icon: FolderOpen, match: (p: string) => p.startsWith("/studio/projects") },
+  { href: "/studio/assets", label: "Asset library", icon: Images, match: (p: string) => p.startsWith("/studio/assets") },
 ];
 
-const QUALITY = [{ href: "/batch?check=consistency", label: "Consistency check", icon: ScanSearch }];
+const CREATE = [
+  { href: "/editor", label: "Image editor", icon: ImageIcon },
+  { href: "/batch", label: "Batch Studio", icon: Layers },
+];
+
+const ORGANISE = [
+  { href: "/studio/presets", label: "Brand presets", icon: Palette, match: (p: string) => p.startsWith("/studio/presets") },
+  { href: "/batch?export=set", label: "Export sets", icon: Share },
+  { href: "/batch?check=consistency", label: "Quality review", icon: ScanSearch },
+  { href: "/studio/downloads", label: "Downloads", icon: Download, match: (p: string) => p.startsWith("/studio/downloads") },
+  { href: "/studio/trash", label: "Trash", icon: Trash2, match: (p: string) => p.startsWith("/studio/trash") },
+];
 
 const FOOTER = [
   { href: "/developers", label: "Developers", icon: BookOpen },
   { href: "/support", label: "Help", icon: CircleHelp },
   { href: "/account", label: "Settings", icon: Settings },
+];
+
+const PAGES: Array<[string, string]> = [
+  ["/studio/projects/", "Project"],
+  ["/studio/projects", "Projects"],
+  ["/studio/assets", "Asset library"],
+  ["/studio/presets", "Brand presets"],
+  ["/studio/downloads", "Downloads"],
+  ["/studio/trash", "Trash"],
 ];
 
 type NavItem = { href: string; label: string; icon: typeof House; match?: (p: string) => boolean };
@@ -54,7 +77,7 @@ function NavLink({ item, pathname, onNavigate }: { item: NavItem; pathname: stri
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15px] font-medium transition-colors",
+        "flex items-center gap-3 rounded-[10px] px-3 py-2 text-[15px] font-medium transition-colors",
         active ? "bg-blue text-white shadow-[var(--shadow-blue)]" : "text-white/75 hover:bg-white/8 hover:text-white",
       )}
     >
@@ -86,25 +109,26 @@ function Sidebar({ pathname, onNavigate }: { pathname: string; onNavigate?: () =
         </span>
       </div>
 
-      <nav aria-label="Studio" className="grid gap-6">
-        <ul className="grid gap-1">
-          {NAV.map((item) => (
-            <li key={item.href}>
-              <NavLink item={item} pathname={pathname} onNavigate={onNavigate} />
-            </li>
-          ))}
-        </ul>
-        <div>
-          <p className="px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">Quality tools</p>
-          <ul className="mt-2 grid gap-1">
-            {QUALITY.map((item) => (
-              <li key={item.href}>
-                <NavLink item={item} pathname={pathname} onNavigate={onNavigate} />
-              </li>
-            ))}
-          </ul>
-        </div>
-        <ul className="grid gap-1 border-t border-white/10 pt-4">
+      <nav aria-label="Studio" className="grid gap-5">
+        {(
+          [
+            ["Workspace", WORKSPACE],
+            ["Create", CREATE],
+            ["Organise", ORGANISE],
+          ] as const
+        ).map(([title, items]) => (
+          <div key={title}>
+            <p className="px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">{title}</p>
+            <ul className="mt-2 grid gap-0.5">
+              {items.map((item) => (
+                <li key={item.href}>
+                  <NavLink item={item} pathname={pathname} onNavigate={onNavigate} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+        <ul className="grid gap-0.5 border-t border-white/10 pt-4">
           {FOOTER.map((item) => (
             <li key={item.href}>
               <NavLink item={item} pathname={pathname} onNavigate={onNavigate} />
@@ -136,6 +160,16 @@ function CreateMenu() {
       <DropdownMenu.Portal>
         <DropdownMenu.Content align="end" sideOffset={8} className="z-50 min-w-[240px] animate-scale-in rounded-xl border border-line bg-surface p-1.5 shadow-[var(--shadow-float)]">
           <DropdownMenu.Item asChild className={item}>
+            <Link href="/studio/projects?new=1">
+              <FolderOpen className="size-4 text-blue" aria-hidden="true" /> New project
+            </Link>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item asChild className={item}>
+            <Link href="/studio/assets">
+              <Images className="size-4 text-blue" aria-hidden="true" /> Upload assets
+            </Link>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item asChild className={item}>
             <Link href="/editor">
               <Wand2 className="size-4 text-blue" aria-hidden="true" /> Remove a background
             </Link>
@@ -161,12 +195,28 @@ function CreateMenu() {
   );
 }
 
+/** The sidebar with the current page highlighted. Reading the path waits for the request, so it streams in. */
+function CurrentSidebar({ onNavigate }: { onNavigate?: () => void }) {
+  return <Sidebar pathname={usePathname()} onNavigate={onNavigate} />;
+}
+
+function PlacedSidebar({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <Suspense fallback={<Sidebar pathname="" onNavigate={onNavigate} />}>
+      <CurrentSidebar onNavigate={onNavigate} />
+    </Suspense>
+  );
+}
+
+function PageName() {
+  const pathname = usePathname();
+  return <>{PAGES.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? "Home"}</>;
+}
+
 /** The studio's frame: a dark sidebar, a top bar with search (⌘K) and Create, and the page. */
 export function StudioShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
-  const page = pathname.startsWith("/studio/presets") ? "Brand presets" : "Home";
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -187,7 +237,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
     <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[256px_minmax(0,1fr)]">
       <aside className="hidden bg-[#111b2b] lg:block">
         <div className="sticky top-0 h-dvh">
-          <Sidebar pathname={pathname} />
+          <PlacedSidebar />
         </div>
       </aside>
 
@@ -212,7 +262,9 @@ export function StudioShell({ children }: { children: ReactNode }) {
               /
             </span>
             <span className="font-semibold text-ink" aria-current="page">
-              {page}
+              <Suspense fallback={null}>
+                <PageName />
+              </Suspense>
             </span>
           </nav>
           <button
@@ -243,12 +295,13 @@ export function StudioShell({ children }: { children: ReactNode }) {
             <Dialog.Close aria-label="Close menu" className="absolute right-3 top-4 z-10 inline-flex size-9 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white">
               <X className="size-5" aria-hidden="true" />
             </Dialog.Close>
-            <Sidebar pathname={pathname} onNavigate={() => setDrawer(false)} />
+            <PlacedSidebar onNavigate={() => setDrawer(false)} />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
 
       <CommandPalette open={palette} onOpenChange={setPalette} />
+      <NameDialogHost />
     </div>
   );
 }

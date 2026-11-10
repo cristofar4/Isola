@@ -13,7 +13,7 @@ export const MAX_RECORDS = 8;
 export const MAX_STORED_BYTES = 150 * 1024 * 1024;
 export const EXPORTS_CHANGED = "isola:exports-changed";
 
-export type ExportSource = "batch" | "editor" | "export-set";
+export type ExportSource = "batch" | "editor" | "export-set" | "library" | "project";
 
 export interface ExportRecord {
   id: string;

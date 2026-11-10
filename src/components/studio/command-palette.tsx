@@ -6,12 +6,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { DOC_PAGES } from "@/lib/docs";
 import { cn } from "@/lib/cn";
+import { loadLibrary, useLibrary } from "@/lib/studio/library";
 import { loadSnapshot } from "@/lib/studio/snapshot";
 import { usePresets } from "./use-presets";
 
 interface Command {
   id: string;
-  group: "Actions" | "Go to" | "Brand presets" | "Batch images" | "Developer docs";
+  group: "Actions" | "Projects" | "Assets" | "Go to" | "Brand presets" | "Batch images" | "Developer docs";
   label: string;
   hint?: string;
   href: string;
@@ -19,6 +20,8 @@ interface Command {
 }
 
 const STATIC: Command[] = [
+  { id: "new-project", group: "Actions", label: "New project", hint: "Projects", href: "/studio/projects?new=1", keywords: "master linked versions formats" },
+  { id: "upload-assets", group: "Actions", label: "Upload assets", hint: "Asset library", href: "/studio/assets", keywords: "library logos backgrounds originals cutouts" },
   { id: "remove", group: "Actions", label: "Remove a background", hint: "Editor", href: "/editor", keywords: "cutout upload image single" },
   { id: "batch", group: "Actions", label: "Start a batch", hint: "Batch Studio", href: "/batch", keywords: "many bulk collection upload" },
   { id: "check", group: "Actions", label: "Check consistency", hint: "Batch Studio", href: "/batch?check=consistency", keywords: "quality review amazon instagram marketplace" },
@@ -28,7 +31,11 @@ const STATIC: Command[] = [
   { id: "background", group: "Actions", label: "Change background", hint: "Editor", href: "/editor?panel=background", keywords: "colour scene backdrop" },
   { id: "crop", group: "Actions", label: "Resize & crop", hint: "Editor", href: "/editor?tool=crop", keywords: "size canvas" },
   { id: "home", group: "Go to", label: "Studio home", href: "/studio", keywords: "dashboard overview" },
+  { id: "projects", group: "Go to", label: "Projects", href: "/studio/projects", keywords: "folders starred" },
+  { id: "assets", group: "Go to", label: "Asset library", href: "/studio/assets", keywords: "library logos backgrounds cutouts tags" },
   { id: "presets", group: "Go to", label: "Brand presets", href: "/studio/presets", keywords: "colours style" },
+  { id: "downloads", group: "Go to", label: "Downloads", href: "/studio/downloads", keywords: "exports history again" },
+  { id: "trash", group: "Go to", label: "Trash", href: "/studio/trash", keywords: "restore deleted" },
   { id: "account", group: "Go to", label: "Account", href: "/account", keywords: "profile settings password devices" },
   { id: "plan", group: "Go to", label: "Plan & billing", href: "/account#plan", keywords: "pro upgrade subscription" },
   { id: "keys", group: "Go to", label: "API keys", href: "/account#api-keys", keywords: "developer token" },
@@ -38,7 +45,7 @@ const STATIC: Command[] = [
 
 const DOCS: Command[] = DOC_PAGES.map((p) => ({ id: `doc-${p.href}`, group: "Developer docs", label: p.title, hint: "Docs", href: p.href, keywords: `${p.summary} ${p.sections.map((s) => s.title).join(" ")}` }));
 
-const GROUP_ORDER: Command["group"][] = ["Actions", "Brand presets", "Batch images", "Go to", "Developer docs"];
+const GROUP_ORDER: Command["group"][] = ["Actions", "Projects", "Assets", "Brand presets", "Batch images", "Go to", "Developer docs"];
 
 function matches(command: Command, query: string) {
   if (!query) return true;
@@ -64,6 +71,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   useEffect(() => {
     if (!open) return;
     if (!presets) void loadPresets();
+    void loadLibrary().catch(() => undefined);
     let alive = true;
     void loadSnapshot().then((snap) => {
       if (!alive || !snap) return;
@@ -83,7 +91,15 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     };
   }, [open, presets, loadPresets]);
 
+  const projects = useLibrary((s) => s.projects);
+  const assets = useLibrary((s) => s.assets);
   const results = useMemo(() => {
+    const projectCommands: Command[] = projects
+      .filter((p) => !p.trashedAt)
+      .map((p) => ({ id: `project-${p.id}`, group: "Projects", label: p.name, hint: `${p.versions.length} versions`, href: `/studio/projects/${p.id}`, keywords: "project" }));
+    const assetCommands: Command[] = assets
+      .filter((a) => !a.trashedAt)
+      .map((a) => ({ id: `asset-${a.id}`, group: "Assets", label: a.name, hint: a.kind, href: `/studio/assets?asset=${encodeURIComponent(a.id)}`, keywords: [...a.tags, ...a.autoTags].join(" ") }));
     const presetCommands: Command[] = (presets ?? []).map((p) => ({
       id: `preset-${p.id}`,
       group: "Brand presets",
@@ -92,9 +108,9 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       href: `/batch?preset=${encodeURIComponent(p.id)}`,
       keywords: `brand preset ${p.name} ${p.colors.map((c) => c.name).join(" ")}`,
     }));
-    const all = [...STATIC, ...presetCommands, ...images, ...DOCS].filter((c) => matches(c, query.trim()));
+    const all = [...STATIC, ...projectCommands, ...(query.trim() ? assetCommands : []), ...presetCommands, ...images, ...DOCS].filter((c) => matches(c, query.trim()));
     return GROUP_ORDER.flatMap((g) => all.filter((c) => c.group === g)).slice(0, 40);
-  }, [presets, images, query]);
+  }, [presets, images, query, projects, assets]);
 
   const current = Math.min(active, Math.max(0, results.length - 1));
 

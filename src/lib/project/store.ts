@@ -36,6 +36,8 @@ export interface ProjectImage {
   revision: number;
   /** Set when the image was opened from Batch Studio; edits flow back to that item. */
   batchItemId: string | null;
+  /** Set when the image was opened from a studio project; refined masks flow back to it. */
+  libraryProjectId: string | null;
   history: { canUndo: boolean; canRedo: boolean; undoLabel?: string; redoLabel?: string };
 }
 
@@ -58,7 +60,7 @@ interface ProjectState {
   addBackground: (option: BackgroundOption) => void;
 }
 
-export function newImage(partial: Pick<ProjectImage, "id" | "name" | "size" | "mime"> & Partial<Pick<ProjectImage, "batchItemId" | "settings">>): ProjectImage {
+export function newImage(partial: Pick<ProjectImage, "id" | "name" | "size" | "mime"> & Partial<Pick<ProjectImage, "batchItemId" | "libraryProjectId" | "settings">>): ProjectImage {
   return {
     width: 0,
     height: 0,
@@ -74,6 +76,7 @@ export function newImage(partial: Pick<ProjectImage, "id" | "name" | "size" | "m
     revision: 0,
     history: { canUndo: false, canRedo: false },
     batchItemId: null,
+    libraryProjectId: null,
     ...partial,
   };
 }

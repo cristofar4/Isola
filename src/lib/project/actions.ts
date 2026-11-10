@@ -211,7 +211,7 @@ export async function importWithMask(
   file: File,
   mask: Uint8Array,
   meta: { engineId: string; backend: string; durationMs: number },
-  options: { batchItemId?: string; background?: EditSettings["background"] } = {},
+  options: { batchItemId?: string; libraryProjectId?: string; background?: EditSettings["background"] } = {},
 ) {
   const id = uid();
   const assets = createImageAssets(file);
@@ -223,6 +223,7 @@ export async function importWithMask(
       size: file.size,
       mime: file.type,
       batchItemId: options.batchItemId ?? null,
+      libraryProjectId: options.libraryProjectId ?? null,
       settings: options.background ? { ...DEFAULT_SETTINGS, background: options.background } : DEFAULT_SETTINGS,
     }),
   );
