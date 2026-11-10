@@ -54,12 +54,13 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm run models:fetch` | Download model weights into `./models` ahead of time and check SHA-256 |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint (Next.js core-web-vitals + TypeScript rules) |
-| `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling |
+| `npm test` | Unit tests (Vitest): file sniffing, validation, brushes, refinement, history, resampling, consistency, export sets, presets, image analysis, project review |
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`; start it with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:auth` | Account journey including email confirmation (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:account` | Account page: overview, section links, devices and signing them out, phones, key cleanup on deletion |
 | `npm run test:quickstart` | Accounts with no setup: create account, sign out, sign in, generated secret (start the app with no auth or email settings) |
 | `npm run test:studio` | Studio: dashboard, brand presets, ⌘K, consistency check with the Amazon fix, export sets, recent exports, phones (needs the fake Paystack settings, as for billing) |
+| `npm run test:library` | Asset library and projects with real processing: uploads, smart tags, duplicates, tags, collections, downloads, cutouts, brand colours, linked versions, quality review, history with undo/redo, linked-set export, the editor round-trip, folders, trash, downloads, phones (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:api` | Public API with real server-side processing; start the app with `ISOLA_API_RATE_LIMIT_PER_HOUR=15` plus the `test:batch` settings |
 | `npm run test:docs` | Developer docs: pages, anchors, search, copy, browser check, feedback, mobile menu |
 | `npm run test:nav` | Tools menu, its destinations and the mobile menu (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
@@ -398,10 +399,12 @@ Batch Studio is part of Pro. Images processed there never leave the browser.
 ## Studio
 
 `/studio` is the signed-in home, built from the reference design ("Your studio,
-in sync."). It has its own frame: a dark sidebar (Home, Image editor, Batch
-Studio, Brand presets, Export sets, Consistency check, Developers, Help,
-Settings, and your account), a top bar with search (⌘K, Ctrl+K or "/") and a
-Create menu, and a phone menu. Signing in without a `next` page lands here;
+in sync."). It has its own frame: a dark sidebar (Workspace: Home, Projects,
+Asset library; Create: Image editor, Batch Studio; Organise: Brand presets,
+Export sets, Quality review, Downloads, Trash; then Developers, Help, Settings
+and your account), a top bar with search (⌘K, Ctrl+K or "/") and a Create menu
+(new project, upload assets, editor, batch, export set, brand preset), and a
+phone menu. Signing in without a `next` page lands here;
 "Get started" on the site goes to Create account, and signed in, the header
 offers "Your studio".
 
@@ -413,9 +416,10 @@ images, is labelled "Example").
   to export, edges to refine (opens that image in the editor), waiting, or
   failed, with the next step for each. Free accounts see that Batch Studio is
   part of Pro.
-- **Continue creating:** the current collection (thumbnails, image count,
-  "Updated today at 10:24", recorded when the batch actually changes) and recent
-  exports, as a grid or a list.
+- **Continue creating:** your most recently edited projects (their first
+  version as it exports, version count, status), the current collection
+  (thumbnails, image count, "Updated today at 10:24", recorded when the batch
+  actually changes) and recent exports, as a grid or a list.
 - **Brand preset:** your default preset's colours with Canvas, Padding and
   Shadow you can change in place; "Apply preset" opens Batch Studio with it.
 - **Keep the collection consistent:** the consistency check (below) run on the
@@ -469,9 +473,78 @@ images, is labelled "Example").
   files, ZIPs and export sets) are recorded in this browser's IndexedDB: the
   newest keep their files up to 150 MB in total (eight at most), older ones
   keep only their details. Nothing is uploaded.
-- **Command palette (⌘K).** Search tools, pages, brand presets (apply one),
-  images in your batch (opens one straight in the editor through
-  `/batch?open=<id>`) and the developer docs; arrow keys and Enter.
+- **Command palette (⌘K).** Search tools, pages, projects, library assets,
+  brand presets (apply one), images in your batch (opens one straight in the
+  editor through `/batch?open=<id>`) and the developer docs; arrow keys and
+  Enter.
+
+### Asset library and projects
+
+Both live in this browser (IndexedDB database `isola-library`), like the batch:
+nothing is uploaded, they work on any host, and they don't follow you to
+another device. Brand presets stay in the account.
+
+**Asset library** (`/studio/assets`, from the reference design). Originals,
+cutouts, backgrounds and logos, with tabs and counts, search, type and tag
+filters, sorting, grid or list, select all and a bulk toolbar.
+
+- **Analysed on upload** (`src/lib/studio/asset-analysis.ts`): real
+  dimensions, format, size and transparency; the main colours (median-cut
+  palette, named with the nearest of a fixed colour list); and **smart tags**
+  from the pixels: orientation, "Transparent", up to two main colour names,
+  "High resolution" (2,000px or more) or "Low resolution" (under 800px).
+  Search matches names, your tags, smart tags and colour names. Photos are
+  filed as originals and transparent images as cutouts; you can change it.
+- **Duplicate detection:** each image gets a 64-bit difference hash, so a
+  resized or recompressed copy is recognised ("product-copy.jpg looks like
+  product.jpg") and can go to the trash in one click.
+- **Tags and collections:** add or remove tags, apply tags to a selection, and
+  put assets in collections (an asset can be in several).
+- **Make a cutout:** removes the background on this device with the same
+  engine as the editor and saves it as a new cutout linked to its source.
+- **Save as brand colours:** an asset's main colours become a brand preset
+  (white background, so new projects don't take the photo's colour unasked).
+- **Download** one asset or a selection (ZIP). Uploads download exactly as they
+  were; cutouts made here follow the plan (Free: 1,000px with the watermark).
+- Details show where an asset is used, and **Use in project** / **Open in
+  editor** take it further. Assets used by a project can't be deleted for
+  good until the project is.
+
+**Projects** (`/studio/projects`, `/studio/projects/<id>`). A project is one
+**master** cutout and its **linked versions**, one per destination (Square,
+Portrait, Wide by default; Story and Marketplace can be added). Change the
+master's background (transparent, white, a brand colour or any colour),
+padding, shadow or position, and every linked version follows. A version can
+have its own padding, shadow or position; it's then marked "Custom
+adjustments" and keeps following everything else. New projects start from the
+default brand preset.
+
+- **Board, grid and list views**, with real previews drawn by the export
+  renderer, zoom, a before/after slider on the master, and Undo/Redo
+  (Ctrl+Z, Ctrl+Shift+Z).
+- **Quality review** (`reviewProject` in `src/lib/studio/project-model.ts`),
+  measured from the mask and each version's real geometry: versions whose
+  subject is scaled differently from the master (with the difference, e.g.
+  "−6%", and "Match to master"), edges worth refining, a marketplace version
+  that doesn't reach the 85% fill rule (fix: padding 5%), shadows that differ
+  from the master, off-centre versions, and subjects enlarged more than 2×.
+  Suggestions change nothing until you choose a fix.
+- **Version history:** every change is a named step ("Background updated",
+  "Portrait 4:5: padding 14%", "Mask refined"…), up to 40 per project.
+  Restore any of them; restoring is itself a step you can undo. Slider changes
+  are saved when you let go, so a drag or a run of arrow-key presses is one
+  step.
+- **Refine edges** opens the master in the editor; the refined mask comes back
+  to the project as a "Mask refined" step.
+- **Export** one version (PNG or JPEG) or the **linked set**: one file per
+  version in a folder per destination, in one ZIP, under the plan's rules.
+- Folders, starring, renaming, duplicating, Recent and Starred tabs.
+
+**Trash** (`/studio/trash`): trashed assets and projects stay 30 days, then
+are deleted when the library next opens. Restore or delete for good.
+**Downloads** (`/studio/downloads`): every export recorded in this browser,
+from the editor, Batch Studio, the library and projects, with the newest kept
+to download again.
 
 ## Public API
 
@@ -538,7 +611,8 @@ src/
     ui/                   buttons, sliders, switches, sheets (Radix), progress
     upload/               shared upload + drag-and-drop hooks
     auth/                 auth shell + pictures, sign-in/up forms, social buttons, form fields
-    studio/               studio shell, dashboard, production queue, brand presets, ⌘K
+    studio/               studio shell, dashboard, production queue, brand presets, ⌘K,
+                          asset library, projects, project board, trash, downloads
     account/              account page: header, section nav, overview, plan, API keys,
                           profile, password & sign-in, devices, delete
   lib/
@@ -549,6 +623,8 @@ src/
     editor/               mask ops, history, layers, compositing, export
     project/              project store, heavy-asset store, actions
     batch/                batch queue, ZIP export
+    studio/               library + projects storage (IndexedDB), image analysis,
+                          project model and review, export history, snapshot
   server/                 Better Auth setup + session helpers, remote provider,
                           usage limiter, billing boundary
 scripts/                  copy-ort.mjs (postinstall), fetch-models.mjs
@@ -653,6 +729,25 @@ empty model folder (so the automatic download is exercised) and with
   result, destination previews and the export set, which downloads again
   unchanged; ⌘K opens a batch image in the editor; phones have no sideways
   scrolling and a working menu.
+- **Asset library and projects (`npm run test:library`): 34/34**, with real
+  processing on a Free account: five uploads are analysed and a resized copy
+  is recognised as a duplicate and trashed in one click; photos are filed as
+  originals and transparent images as cutouts; smart tags and colours come
+  from the pixels; tags filter, search finds assets by colour, a selection
+  goes into a new collection with a tag; a selection downloads as a ZIP of the
+  untouched originals; "Make a cutout" removes the background and links the
+  cutout to its source, which downloads at 667×1000 with the watermark on
+  Free; an asset's colours become a brand preset. A project prepares the
+  master and draws Square, Portrait and Wide; a version given its own padding
+  is reported with the real difference ("−16%") and "Match to master" links it
+  again; changes are named in version history; Undo and Ctrl+Shift+Z redo
+  work; restoring "Original imported" is a new step; a Marketplace version
+  meets the fill rule; the linked set is a ZIP of four files in folders at the
+  Free plan's sizes (1000×1000, 800×1000, 1000×563, 1000×1000); edges refined
+  in the editor come back as "Mask refined"; projects can be starred,
+  duplicated and filed in a new folder; trash restores and deletes for good;
+  Downloads lists library and project exports; the dashboard's Continue
+  creating shows the project; no sideways scrolling on phones; no page errors.
 - **Password reset (`npm run test:reset`): 13/13**, through a real SMTP hop.
 - **PostgreSQL:** with `DATABASE_URL` pointing at PostgreSQL 16 and the local
   SQLite folder made unwritable (as on a serverless host), the account (34/34),
@@ -674,9 +769,11 @@ empty model folder (so the automatic download is exercised) and with
   and subscription management.
 - **Google/GitHub (`node e2e/oauth.mjs`):** both buttons start a real OAuth
   redirect with the right callback URL (completing it needs real credentials).
-- **Accessibility:** axe-core reports 0 violations on 31 pages and states
+- **Accessibility:** axe-core reports 0 violations on 40 pages and states
   (including all seven developer docs pages, /tools, the studio dashboard, its
-  ⌘K palette and phone menu, and the brand preset editor),
+  ⌘K palette and phone menu, the brand preset editor, the asset library empty
+  and with details and a selection, a project board with its Review and
+  History tabs, the new-project sheet, Trash and Downloads),
   including the editor with an image, the export dialog, the account page, the
   auth screens, and Batch Studio with images, the Export tab and the mobile
   settings drawer.
@@ -746,14 +843,15 @@ sandbox; the route's validation, rate limiting and error paths were tested).
   against live Paystack from here. Studio (team workspace, centralised billing) is planned
   and marked as such.
 - **Account email flows:** confirmation and password reset are done; changing
-  the email address isn't built yet. Projects aren't saved to accounts.
+  the email address isn't built yet.
 - **Public API:** built (see below). Rate limits and usage counters are kept per
   server instance; with several instances, use a shared store.
 - **Server rate limiting** is in memory per instance; use a shared store for
   multi-instance deployments.
-- **Project persistence:** editor projects live in the tab and are lost on
-  reload. The current Batch Studio batch is kept in the browser (IndexedDB),
-  not in the account, so it doesn't follow you to another device.
+- **Project persistence:** editor sessions live in the tab and are lost on
+  reload. The asset library, studio projects and the current Batch Studio
+  batch are kept in the browser (IndexedDB), not in the account, so they don't
+  follow you to another device.
 - **Model hosting:** the ~179–224 MB model files must be served by your host or a
   CDN. The built-in `/api/models/` route streams them from the Node server
   (downloading them once on first use), which needs a long-running Node host

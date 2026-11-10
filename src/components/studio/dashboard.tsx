@@ -22,15 +22,20 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { ISSUE_LABEL, TARGETS, flaggedCount, targetSummary, type Issue } from "@/lib/consistency";
 import { DEFAULT_DESTINATIONS, destinationById, destinationSettings } from "@/lib/export-sets";
 import { getExport, type ExportRecord } from "@/lib/studio/export-history";
+import { useLibrary } from "@/lib/studio/library";
+import type { Project } from "@/lib/studio/project-model";
 import type { BatchSnapshot } from "@/lib/studio/snapshot";
 import { BrandPresetCard } from "./brand-preset-card";
+import { useLibraryReady } from "./library-hooks";
 import { ProductionQueue } from "./production-queue";
+import { editedText, useProjectPreview } from "./project-hooks";
+import { StatusPill } from "./projects-page";
 import { usePresets } from "./use-presets";
 import { bytesText, useBlobUrls, useCutoutPreviews, useExportHistory, useOriginalThumbs, useSnapshot, useSnapshotReport, useStorageInfo, whenText } from "./use-studio-data";
 
@@ -108,8 +113,48 @@ function exportKind(r: ExportRecord) {
   return r.format;
 }
 
+/** A project in Continue creating: its first version as it exports, its status and when it was edited. */
+function ProjectContinueCard({ project, compact }: { project: Project; compact: boolean }) {
+  const preview = useProjectPreview(project, project.versions[0] ?? null, 420);
+  const versions = `${project.versions.length} version${project.versions.length === 1 ? "" : "s"}`;
+  return (
+    <Link
+      href={`/studio/projects/${project.id}`}
+      className={cn("group overflow-hidden transition-[border-color,box-shadow] hover:border-blue/40 hover:shadow-[var(--shadow-float)]", card, compact && "flex items-center")}
+      data-continue="project"
+    >
+      {compact ? (
+        <span className="checkerboard-sm m-2 size-14 shrink-0 overflow-hidden rounded-[10px] border border-line">
+          {/* eslint-disable-next-line @next/next/no-img-element -- local object URL */}
+          {preview && <img src={preview} alt="" className="size-full object-contain" />}
+        </span>
+      ) : (
+        <div className="checkerboard-sm relative aspect-[16/10]">
+          {/* eslint-disable-next-line @next/next/no-img-element -- local object URL */}
+          {preview && <img src={preview} alt="" className="absolute inset-0 size-full object-contain p-2" />}
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[12px] font-semibold text-ink shadow-sm">
+            <Layers className="size-3.5" aria-hidden="true" /> Project · {versions}
+          </span>
+        </div>
+      )}
+      <div className={cn("flex min-w-0 flex-1 items-center gap-3", compact ? "py-2 pr-3" : "px-4 py-3")}>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[16px] font-bold text-ink group-hover:text-blue-700">{project.name}</p>
+          <p className="truncate text-[13px] text-muted">
+            {compact && `Project · ${versions} · `}Edited {editedText(project.updatedAt)}
+          </p>
+        </div>
+        <StatusPill project={project} />
+      </div>
+    </Link>
+  );
+}
+
 function ContinueCreating({ snapshot, exports }: { snapshot: BatchSnapshot | null; exports: ExportRecord[] | null }) {
   const [tab, setTab] = useState<"recent" | "exports">("recent");
+  useLibraryReady();
+  const allProjects = useLibrary((s) => s.projects);
+  const projects = useMemo(() => allProjects.filter((p) => !p.trashedAt).sort((a, b) => b.updatedAt - a.updatedAt), [allProjects]);
   const [layout, setLayout] = useState<"grid" | "list">("grid");
   const items = snapshot?.items ?? [];
   const thumbs = useOriginalThumbs(items, 3);
@@ -216,7 +261,10 @@ function ContinueCreating({ snapshot, exports }: { snapshot: BatchSnapshot | nul
     </Link>
   );
 
-  const recentCards = [batchCard, ...(exports ?? []).slice(0, batchCard ? 2 : 3).map(exportCard)].filter(Boolean);
+  // Most recent work first: projects you edited, the batch, then exports; three cards in all.
+  const projectCards = projects.slice(0, 2).map((p) => <ProjectContinueCard key={p.id} project={p} compact={compact} />);
+  const before = [...projectCards, batchCard].filter(Boolean);
+  const recentCards = [...before, ...(exports ?? []).slice(0, Math.max(0, 3 - before.length)).map(exportCard)].slice(0, 3);
   const list = tab === "recent" ? recentCards : (exports ?? []).map(exportCard);
 
   return (
@@ -445,12 +493,12 @@ function StorageCard() {
         </h2>
       </div>
       <p className="mt-2 text-[13px] leading-relaxed text-ink-3">
-        Your batch and recent exports stay in this browser; images are processed on this device. Your account keeps only settings like brand
+        Your library, projects, batch and recent exports stay in this browser; images are processed on this device. Your account keeps only settings like brand
         presets.
       </p>
       <p className="mt-3 flex items-center gap-2 text-[13px] text-ink">
         <HardDrive className="size-4 text-muted" aria-hidden="true" />
-        {info.usage === null ? "Storage use isn't available in this browser." : `This browser holds ${bytesText(info.usage)} for ISOLA: your batch, recent exports and any downloaded models.`}
+        {info.usage === null ? "Storage use isn't available in this browser." : `This browser holds ${bytesText(info.usage)} for ISOLA: your library, projects, batch, recent exports and any downloaded models.`}
       </p>
       {info.canPersist &&
         (info.persisted ? (

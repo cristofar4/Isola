@@ -2,7 +2,7 @@
 
 import { AlertDialog } from "radix-ui";
 import { FolderOpen, Image as ImageIcon, RotateCcw, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { TRASH_DAYS, deleteAssetsForever, restoreAssets, useLibrary, type Asset } from "@/lib/studio/library";
@@ -91,8 +91,11 @@ function ProjectRow({ project, onMessage }: { project: Project; onMessage: (m: s
 /** Trashed assets and projects, restorable for 30 days. */
 export function TrashPage() {
   const status = useLibraryReady();
-  const assets = useLibrary((s) => s.assets.filter((a) => a.trashedAt));
-  const projects = useLibrary((s) => s.projects.filter((p) => p.trashedAt));
+  // Select the stored arrays and filter after: a selector that builds a new array each time re-renders forever.
+  const allAssets = useLibrary((s) => s.assets);
+  const allProjects = useLibrary((s) => s.projects);
+  const assets = useMemo(() => allAssets.filter((a) => a.trashedAt), [allAssets]);
+  const projects = useMemo(() => allProjects.filter((p) => p.trashedAt), [allProjects]);
   const [message, setMessage] = useState<string | null>(null);
   const empty = assets.length + projects.length === 0;
   return (

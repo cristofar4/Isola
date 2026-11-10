@@ -396,7 +396,7 @@ function Details({ asset, onClose, onSelect }: { asset: Asset; onClose?: () => v
                 void run("palette", async () => {
                   if (!presets) await loadPresets();
                   const colors = asset.swatches.slice(0, 6).map((s, i) => ({ name: `${s.name}${asset.swatches.findIndex((x) => x.name === s.name) < i ? ` ${i + 1}` : ""}`, hex: s.hex }));
-                  const result = await savePreset({ ...STARTER_PRESET, name: `${asset.name.replace(/\.[^.]+$/, "")} colours`.slice(0, 60), colors, layout: { ...STARTER_PRESET.layout, background: { kind: "brand", index: 0 } } });
+                  const result = await savePreset({ ...STARTER_PRESET, name: `${asset.name.replace(/\.[^.]+$/, "")} colours`.slice(0, 60), colors, layout: { ...STARTER_PRESET.layout, background: { kind: "white" } } });
                   if (!result.ok) throw new Error(result.message);
                   setNote({ tone: "ok", text: `Saved ${colors.length} colours as the brand preset “${result.preset.name}”.`, href: "/studio/presets" });
                 })

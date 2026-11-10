@@ -147,16 +147,17 @@ await page.getByRole("button", { name: "Select the master" }).click();
 await page.getByRole("tab", { name: "Properties" }).click();
 const checkedBackground = () => page.evaluate(() => document.querySelector('[role="radiogroup"][aria-label="Background"] [aria-checked="true"]')?.getAttribute("aria-label") ?? null);
 const startingBackground = await checkedBackground();
-await page.getByRole("radio", { name: /^White #FFFFFF/ }).click();
+const nextBackground = startingBackground === "Transparent" ? "White #FFFFFF" : "Transparent";
+await page.getByRole("radio", { name: nextBackground, exact: true }).click();
 await page.getByRole("tab", { name: "History" }).click();
 await page.locator("[data-history]").getByText("Background updated").waitFor();
 check("Every change is recorded in version history", (await page.locator("[data-history] li").count()) >= 4);
 await page.getByRole("button", { name: "Undo" }).click();
 await page.getByRole("tab", { name: "Properties" }).click();
 await page.waitForFunction((label) => document.querySelector('[role="radiogroup"][aria-label="Background"] [aria-checked="true"]')?.getAttribute("aria-label") === label, startingBackground);
-check("Undo brings the previous look back", startingBackground !== null && startingBackground !== "White #FFFFFF", startingBackground ?? "");
+check("Undo brings the previous look back", startingBackground !== null, `${nextBackground} → ${startingBackground}`);
 await page.keyboard.press("Control+Shift+z");
-await page.waitForFunction(() => document.querySelector('[role="radiogroup"][aria-label="Background"] [aria-checked="true"]')?.getAttribute("aria-label") === "White #FFFFFF");
+await page.waitForFunction((label) => document.querySelector('[role="radiogroup"][aria-label="Background"] [aria-checked="true"]')?.getAttribute("aria-label") === label, nextBackground);
 check("Redo (Ctrl+Shift+Z) re-applies it", true);
 await page.getByRole("tab", { name: "History" }).click();
 await page.getByRole("button", { name: "Restore Original imported" }).click();
@@ -187,7 +188,7 @@ await page.screenshot({ path: join(OUT, "board.png") });
 await page.getByRole("button", { name: "Refine edges" }).click();
 await page.waitForURL("**/editor");
 await page.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Export image" && !b.disabled), null, { timeout: 60_000 });
-const shift = page.getByRole("slider", { name: /Shift/ }).filter({ visible: true }).first();
+const shift = page.getByRole("slider", { name: /Edge shift/ }).filter({ visible: true }).first();
 await shift.focus();
 for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowRight");
 await page.waitForTimeout(2500);
@@ -218,6 +219,7 @@ await page.getByText("Moved to the new folder “Spring”.").waitFor();
 check("Projects can be duplicated and filed in folders", /1 project/.test(await page.getByRole("button", { name: /Spring/ }).first().innerText()));
 await page.locator('[data-project="product copy"]').getByRole("button", { name: "More actions for product copy" }).click();
 await page.getByRole("menuitem", { name: "Move to trash" }).click();
+await page.getByText("Moved “product copy” to the trash.").waitFor();
 await page.goto(`${BASE}/studio/trash`, { waitUntil: "networkidle" });
 const trashed = page.locator('[data-trash-item="product copy"]');
 await trashed.waitFor();
@@ -231,6 +233,11 @@ check("Items can be restored or deleted for good", (await page.locator("[data-tr
 
 await page.goto(`${BASE}/studio/downloads`, { waitUntil: "networkidle" });
 check("Downloads lists exports from the library and projects", (await page.locator('[data-download="product-linked-set.zip"]').count()) === 1 && (await page.locator('[data-download="assets.zip"], [data-download="isola-assets-2.zip"]').count()) === 1);
+
+await page.goto(`${BASE}/studio`, { waitUntil: "networkidle" });
+const recent = page.locator('[data-continue="project"]').filter({ visible: true });
+await recent.first().waitFor();
+check("The dashboard's Continue creating shows the project with its versions and status", /product/.test(await recent.first().innerText()) && /4 versions/.test(await recent.first().innerText()), (await recent.first().innerText()).replace(/\s+/g, " "));
 
 /* 4. Phones --------------------------------------------------------------------- */
 {

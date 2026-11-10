@@ -456,10 +456,16 @@ export async function openProjectInEditor(id: string): Promise<boolean> {
 
 let syncTimer: ReturnType<typeof setTimeout> | undefined;
 let syncing = false;
+let syncAgain = false;
 
 async function syncFromEditor() {
-  if (syncing) return;
+  if (syncing) {
+    // A change landed mid-save: go round once more when this one is done.
+    syncAgain = true;
+    return;
+  }
   syncing = true;
+  syncAgain = false;
   try {
     for (const image of useProject.getState().images) {
       const projectId = image.libraryProjectId;
@@ -481,6 +487,7 @@ async function syncFromEditor() {
     }
   } finally {
     syncing = false;
+    if (syncAgain) void syncFromEditor();
   }
 }
 

@@ -102,8 +102,13 @@ export function loadLibrary(): Promise<void> {
     const cutoff = Date.now() - TRASH_DAYS * 86_400_000;
     const oldAssets = assets.filter((a) => a.trashedAt && a.trashedAt < cutoff).map((a) => a.id);
     const oldProjects = projects.filter((p) => p.trashedAt && p.trashedAt < cutoff).map((p) => p.id);
-    if (oldProjects.length) await (await import("./projects")).deleteProjectsForever(oldProjects);
-    if (oldAssets.length) await deleteAssetsForever(oldAssets);
+    // Emptying old trash is housekeeping: if it fails, the library is still loaded and it's tried next time.
+    try {
+      if (oldProjects.length) await (await import("./projects")).deleteProjectsForever(oldProjects);
+      if (oldAssets.length) await deleteAssetsForever(oldAssets);
+    } catch {
+      /* try again on the next load */
+    }
   })().catch((error) => {
     loading = null;
     useLibrary.setState({ status: "unavailable" });
