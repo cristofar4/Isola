@@ -100,9 +100,11 @@ function texture(kind: "grain" | "stone" | "marble" | "weave", size = 256): AnyC
         // Travertine pits: occasional darker specks.
         if (grain() > 0.992) g *= 0.55;
       } else if (kind === "marble") {
+        // Fine, soft veins: a turbulent sine field, kept thin and light, plus faint cloudiness.
         const t = marble(u, v);
-        const vein = Math.abs(Math.sin((u * 3.2 + v * 1.6 + t * 4.2) * Math.PI));
-        g = 1 - Math.pow(1 - vein, 9) * 0.85;
+        const vein = Math.abs(Math.sin((u * 1.4 + v * 0.8 + t * 2.6) * Math.PI * 2));
+        const fine = Math.abs(Math.sin((u * 3.1 - v * 1.2 + t * 3.4) * Math.PI * 2));
+        g = 1 - Math.pow(1 - vein, 40) * 0.45 - Math.pow(1 - fine, 60) * 0.25 - (t - 0.5) * 0.08;
         a = 1;
       } else {
         const wx = Math.sin(x * 1.7) * 0.5 + 0.5;
@@ -377,7 +379,7 @@ export function drawBackdrop(ctx: Ctx, id: BackdropId, W: number, H: number) {
     case "marble": {
       wallAndFloor(ctx, W, H, 0.76, ["#ECEAE6", "#DEDBD5"], ["#D8D4CD", "#C8C3BB"]);
       keyLight(ctx, W, H, 0.3, 0.2, 0.5);
-      slab(ctx, W, H, 0.67, { top: "#F4F3F0", front: ["#E9E7E3", "#D3D0CA"] }, texture("marble", 512), "multiply", 0.7);
+      slab(ctx, W, H, 0.67, { top: "#F4F3F0", front: ["#E9E7E3", "#D3D0CA"] }, texture("marble", 512), "multiply", 0.55);
       overlayTexture(ctx, texture("grain"), 0, 0, W, H, "soft-light", 0.1, Math.max(1, S / 700));
       vignette(ctx, W, H, 0.12);
       break;

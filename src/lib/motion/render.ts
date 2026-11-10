@@ -458,3 +458,83 @@ export function videoNeeds(film: Film, t: number): Array<{ mediaId: string; time
 }
 
 export { transitionLength };
+
+/* ------------------------------------------------- editor geometry (viewer) --- */
+
+/** The camera transform a clip gets in shot `shot` at shot time `local`, as a matrix in output pixels. */
+export function cameraMatrix(shot: Shot | null, local: number, depth: number, W: number, H: number): DOMMatrix {
+  const cam = cameraAt(shot, local);
+  const m = new DOMMatrix();
+  if (depth === 0) return m;
+  const z = 1 + (cam.zoom - 1) * depth;
+  return m
+    .translate(W / 2, H / 2)
+    .rotate(cam.rotate * depth)
+    .scale(z, z)
+    .translate(-W / 2 - cam.panX * W * depth, -H / 2 - cam.panY * H * depth);
+}
+
+/** Clip time and shot context of a clip at film time `t`, or null when it isn't on screen then. */
+export function clipLocalAt(film: Film, clip: Clip, t: number): { lt: number; shot: Shot | null; shotLocal: number } | null {
+  const r = clipRange(film, clip);
+  if (t < r.start - 1e-9 || t >= r.end) return null;
+  const starts = shotStarts(film);
+  const idx = clip.shotId ? film.shots.findIndex((s) => s.id === clip.shotId) : (() => {
+    let i = 0;
+    for (let k = 0; k < film.shots.length; k++) if (t >= starts[k]) i = k;
+    return i;
+  })();
+  const shot = film.shots[idx] ?? null;
+  return { lt: t - r.start, shot, shotLocal: t - (starts[idx] ?? 0) };
+}
+
+/** Where a clip's box is on screen at film time `t` (four corners in output pixels), for selection outlines. */
+export function clipCorners(film: Film, clip: Clip, t: number, W: number, H: number, measure: Ctx, fonts: FontFamilies): Array<[number, number]> | null {
+  const at = clipLocalAt(film, clip, t);
+  if (!at) return null;
+  const S = Math.min(W, H);
+  let p: Placement;
+  if (clip.source.kind === "image" || clip.source.kind === "video") p = clipPlacement(clip, at.lt, W, H);
+  else if (clip.source.kind === "text") {
+    const layout = layoutText(measure, clip.source.style, clip.source.style.size * clipValue(clip, "scale", at.lt) * S, fonts);
+    p = { cx: clipValue(clip, "x", at.lt) * W, cy: clipValue(clip, "y", at.lt) * H, w: layout.width, h: layout.height, rotation: clipValue(clip, "rotation", at.lt), opacity: 1, ax: clip.transform.anchorX, ay: clip.transform.anchorY };
+  } else if (clip.source.kind === "light") {
+    const r = Math.max(4, clipValue(clip, "scale", at.lt) * S * 0.6);
+    p = { cx: clipValue(clip, "lightX", at.lt) * W, cy: clipValue(clip, "lightY", at.lt) * H, w: r * 2, h: r * 2, rotation: 0, opacity: 1 };
+  } else if (clip.source.kind === "backdrop" || clip.source.kind === "solid") p = { cx: W / 2, cy: H / 2, w: W, h: H, rotation: 0, opacity: 1 };
+  else return null;
+  const m = cameraMatrix(at.shot, at.shotLocal, clip.source.kind === "solid" ? 0 : clip.depth, W, H);
+  const ax = p.ax ?? 0.5;
+  const ay = p.ay ?? 0.5;
+  const c = Math.cos((p.rotation * Math.PI) / 180);
+  const s = Math.sin((p.rotation * Math.PI) / 180);
+  return [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ].map(([u, v]) => {
+    const x = (u - ax) * p.w;
+    const y = (v - ay) * p.h;
+    const pt = m.transformPoint({ x: p.cx + x * c - y * s, y: p.cy + x * s + y * c });
+    return [pt.x, pt.y] as [number, number];
+  });
+}
+
+/** Points along a clip's position animation (on screen, camera included), for drawing its motion path. */
+export function motionPath(film: Film, clip: Clip, W: number, H: number, steps = 90): { points: Array<[number, number]>; keys: Array<{ t: number; x: number; y: number }> } | null {
+  const kx = clip.keyframes.x ?? [];
+  const ky = clip.keyframes.y ?? [];
+  if (kx.length + ky.length < 2) return null;
+  const r = clipRange(film, clip);
+  const point = (lt: number): [number, number] => {
+    const at = clipLocalAt(film, clip, Math.min(r.end - 1e-4, r.start + lt));
+    const m = cameraMatrix(at?.shot ?? null, at?.shotLocal ?? 0, clip.depth, W, H);
+    const pt = m.transformPoint({ x: clipValue(clip, "x", lt) * W, y: clipValue(clip, "y", lt) * H });
+    return [pt.x, pt.y];
+  };
+  const points: Array<[number, number]> = [];
+  for (let i = 0; i <= steps; i++) points.push(point((clip.duration * i) / steps));
+  const times = [...new Set([...kx, ...ky].map((k) => k.t))].filter((t) => t >= 0 && t <= clip.duration).sort((a, b) => a - b);
+  return { points, keys: times.map((t) => ({ t, x: point(t)[0], y: point(t)[1] })) };
+}
