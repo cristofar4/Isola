@@ -11,7 +11,7 @@ import { FormAlert, TextField } from "./fields";
 export function VerifyEmailResult() {
   const params = useSearchParams();
   const error = params.get("error");
-  const next = safeNext(params.get("next"), "/editor");
+  const next = safeNext(params.get("next"), "/studio");
   const { data } = authClient.useSession();
   const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);

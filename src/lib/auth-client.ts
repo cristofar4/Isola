@@ -6,7 +6,7 @@ import { PASSWORD_MIN } from "./password";
 /** Browser client for /api/auth. Same origin, so no base URL is needed. */
 export const authClient = createAuthClient();
 
-export function safeNext(value: string | null | undefined, fallback = "/account"): string {
+export function safeNext(value: string | null | undefined, fallback = "/studio"): string {
   // Only allow same-site relative paths to avoid open redirects.
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return fallback;
   return value;

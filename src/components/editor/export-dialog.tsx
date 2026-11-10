@@ -12,6 +12,7 @@ import { formatBytes, formatNaira, planConfig } from "@/lib/config";
 import { usePlan } from "@/lib/plan";
 import { applyPolicySize, exportPolicy } from "@/lib/plan-policy";
 import { checkExportSize, downloadBlob, exportFileName, renderExport, type ExportFormat } from "@/lib/editor/export";
+import { recordExport } from "@/lib/studio/export-history";
 import { cropOf, outputSizeOf, type BackgroundSpec } from "@/lib/editor/types";
 import { compositeSources, updateSettings } from "@/lib/project/actions";
 import type { ProjectImage } from "@/lib/project/store";
@@ -86,6 +87,7 @@ function ExportForm({ image }: { image: ProjectImage }) {
       });
       downloadBlob(blob, fileName);
       setState({ kind: "done", name: fileName, bytes: blob.size });
+      void recordExport({ title: image.name, fileName, source: "editor", files: 1, format: format === "jpeg" ? "JPEG" : "PNG", blob });
     } catch (error) {
       setState({ kind: "error", message: error instanceof Error ? error.message : "Export failed." });
     }

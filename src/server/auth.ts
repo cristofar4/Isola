@@ -131,6 +131,26 @@ const apiKeyTables = {
   },
 } satisfies BetterAuthPlugin;
 
+/**
+ * Brand presets: a named look (canvas, padding, background, shadow, format)
+ * and the brand's colours, as JSON. Settings only; no images are stored.
+ */
+const presetTables = {
+  id: "isola-brand-presets",
+  schema: {
+    brandPreset: {
+      fields: {
+        userId: { type: "string", required: true, references: { model: "user", field: "id", onDelete: "cascade" } },
+        name: { type: "string", required: true },
+        data: { type: "string", required: true },
+        isDefault: { type: "boolean", required: true, defaultValue: false },
+        createdAt: { type: "date", required: true },
+        updatedAt: { type: "date", required: true },
+      },
+    },
+  },
+} satisfies BetterAuthPlugin;
+
 function createDatabase(): BetterAuthOptions["database"] {
   const url = process.env.DATABASE_URL;
   if (url && /^postgres(ql)?:\/\//.test(url)) {
@@ -216,8 +236,8 @@ function createOptions(): BetterAuthOptions {
         enabled: true,
         // Don't rely on the database to cascade (SQLite only does with foreign keys on).
         afterDelete: async (user) => {
-          const { deleteAllKeys } = await import("./api-keys");
-          await deleteAllKeys(user.id);
+          const [{ deleteAllKeys }, { deleteAllPresets }] = await Promise.all([import("./api-keys"), import("./brand-presets")]);
+          await Promise.all([deleteAllKeys(user.id), deleteAllPresets(user.id)]);
         },
       },
       additionalFields: planFields,
@@ -245,7 +265,7 @@ function createOptions(): BetterAuthOptions {
       },
     },
     trustedOrigins: list(process.env.ISOLA_TRUSTED_ORIGINS),
-    plugins: [nextCookies(), billingTables, docsTables, apiKeyTables],
+    plugins: [nextCookies(), billingTables, docsTables, apiKeyTables, presetTables],
   };
 }
 

@@ -4,13 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowUpRight, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
 import { TOOL_GROUPS } from "@/lib/tools";
 import { MainNav } from "./tools-menu";
-import { MobileUserLinks, UserMenu } from "./user-menu";
+import { MobileCta, MobileUserLinks, UserMenu } from "./user-menu";
 
 const links = [
   { href: "/batch", label: "Batch Studio" },
@@ -102,9 +101,7 @@ export function SiteHeader() {
           </Link>
           <div className="my-2 h-px bg-line" />
           <MobileUserLinks onNavigate={() => setMenuOpen(false)} />
-          <ButtonLink href="/editor" size="lg" className="mt-3">
-            Get started
-          </ButtonLink>
+          <MobileCta onNavigate={() => setMenuOpen(false)} />
         </nav>
       </Sheet>
     </header>

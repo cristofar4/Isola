@@ -18,6 +18,7 @@ export function Sheet({
   footer,
   className,
   side = "auto",
+  size = "md",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -27,6 +28,8 @@ export function Sheet({
   footer?: ReactNode;
   className?: string;
   side?: "auto" | "bottom" | "right";
+  /** Width of the centred dialog on larger screens. */
+  size?: "md" | "lg";
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -39,7 +42,10 @@ export function Sheet({
               ? "inset-y-0 right-0 w-[min(92vw,380px)] animate-fade-in"
               : side === "bottom"
                 ? "inset-x-0 bottom-0 animate-sheet-up rounded-t-[20px] pb-[env(safe-area-inset-bottom)]"
-                : "inset-x-0 bottom-0 animate-sheet-up rounded-t-[20px] pb-[env(safe-area-inset-bottom)] sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[min(92vw,520px)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:animate-scale-in sm:rounded-[18px] sm:pb-0",
+                : cn(
+                    "inset-x-0 bottom-0 animate-sheet-up rounded-t-[20px] pb-[env(safe-area-inset-bottom)] sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:animate-scale-in sm:rounded-[18px] sm:pb-0",
+                    size === "lg" ? "sm:w-[min(94vw,760px)]" : "sm:w-[min(92vw,520px)]",
+                  ),
             className,
           )}
         >

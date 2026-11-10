@@ -32,7 +32,7 @@ async function submitSignIn(page) {
   const limited = page.getByRole("alert").filter({ hasText: "Too many attempts" });
   const outcome = await Promise.race([
     limited.waitFor({ timeout: 4000 }).then(() => "limited").catch(() => "ok"),
-    page.waitForURL((u) => u.pathname === "/account", { timeout: 4000 }).then(() => "ok").catch(() => "ok"),
+    page.waitForURL((u) => u.pathname === "/account" || u.pathname === "/studio", { timeout: 4000 }).then(() => "ok").catch(() => "ok"),
   ]);
   if (outcome === "limited") {
     console.log("  (rate limited as expected in production; retrying after 11 s)");
@@ -111,8 +111,8 @@ await page.getByRole("alert").filter({ hasText: "don't match" }).waitFor();
 check("Old password no longer works", true);
 await visible(page.getByLabel("Password", { exact: true })).fill(newPassword);
 await submitSignIn(page);
-await page.waitForURL(atPath("/account"));
-check("New password signs in", true);
+await page.waitForURL(atPath("/studio"));
+check("New password signs in (and lands in the studio)", true);
 
 // A completed reset proves the mailbox, so it also confirms an unconfirmed email.
 const pending = `pending-${Date.now()}@example.com`;

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
-import { LogOut, UserRound, Wand2 } from "lucide-react";
+import { LayoutDashboard, LogOut, UserRound, Wand2 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { initialsOf } from "@/lib/initials";
@@ -46,7 +46,7 @@ export function UserMenu() {
             Create account
           </ButtonLink>
         ) : (
-          <ButtonLink href="/editor" size="md">
+          <ButtonLink href="/sign-up" size="md">
             Get started
           </ButtonLink>
         )}
@@ -57,8 +57,8 @@ export function UserMenu() {
   const { name, email } = session.user;
   return (
     <>
-      <ButtonLink href="/editor" size="md" variant="secondary">
-        Open editor
+      <ButtonLink href="/studio" size="md" variant="secondary" icon={<LayoutDashboard className="size-4" aria-hidden="true" />}>
+        Your studio
       </ButtonLink>
       <DropdownMenu.Root modal={false}>
         <DropdownMenu.Trigger
@@ -77,6 +77,11 @@ export function UserMenu() {
               <p className="truncate text-xs text-muted">{email}</p>
             </div>
             <DropdownMenu.Separator className="my-1 h-px bg-line" />
+            <DropdownMenu.Item asChild>
+              <Link href="/studio" className="flex items-center gap-2 rounded-lg px-2.5 py-2 outline-none data-[highlighted]:bg-paper">
+                <LayoutDashboard className="size-4 text-muted" aria-hidden="true" /> Studio
+              </Link>
+            </DropdownMenu.Item>
             <DropdownMenu.Item asChild>
               <Link href="/account" className="flex items-center gap-2 rounded-lg px-2.5 py-2 outline-none data-[highlighted]:bg-paper">
                 <UserRound className="size-4 text-muted" aria-hidden="true" /> Account
@@ -131,6 +136,9 @@ export function MobileUserLinks({ onNavigate }: { onNavigate: () => void }) {
           <p className="truncate text-xs text-muted">{session.user.email}</p>
         </div>
       </div>
+      <Link href="/studio" className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
+        Your studio
+      </Link>
       <Link href="/account" className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
         Account
       </Link>
@@ -147,5 +155,20 @@ export function MobileUserLinks({ onNavigate }: { onNavigate: () => void }) {
         Sign out
       </button>
     </>
+  );
+}
+
+/** The main button at the bottom of the mobile menu: create an account, or open the studio once signed in. */
+export function MobileCta({ onNavigate }: { onNavigate: () => void }) {
+  const { data: session, isPending } = authClient.useSession();
+  if (isPending) return null;
+  return session ? (
+    <ButtonLink href="/studio" size="lg" className="mt-3" onClick={onNavigate}>
+      Open your studio
+    </ButtonLink>
+  ) : (
+    <ButtonLink href="/sign-up" size="lg" className="mt-3" onClick={onNavigate}>
+      Get started
+    </ButtonLink>
   );
 }

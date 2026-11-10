@@ -17,6 +17,8 @@ import { addBackgroundImage, importWithMask } from "@/lib/project/actions";
 import { backgroundAssets, imageAssets } from "@/lib/project/assets";
 import { useProject } from "@/lib/project/store";
 import { sessionAccess } from "@/lib/session-gate";
+import { destinationById, destinationSettings, folderFor, type DestinationId } from "@/lib/export-sets";
+import { recordExport } from "@/lib/studio/export-history";
 import * as storage from "./persist";
 import { renderBatchBlob, renderBatchPreview, type BatchSources } from "./render";
 import { reviewMask } from "./review";
@@ -241,6 +243,27 @@ async function refreshPreview(id: string) {
     swapUrl(id, "previewUrl", await renderBatchPreview(sources, item.settings, exportPolicy(useBatch.getState().pro)));
   } catch {
     // A preview that can't be drawn leaves the previous one; downloads report their own errors.
+  }
+}
+
+/**
+ * A small preview of one finished item drawn with other settings (an export
+ * set destination), by the same renderer as downloads. Null when the item
+ * has no low-resolution cutout in memory yet.
+ */
+export async function previewWith(id: string, settings: BatchSettings, maxSide = 240): Promise<Blob | null> {
+  const item = get(id);
+  const cutout = smallCutouts.get(id);
+  if (!item || !cutout) return null;
+  try {
+    return await renderBatchPreview(
+      { width: item.width, height: item.height, cutout, bounds: item.bounds, backgroundImage: backgroundFor(settings) },
+      settings,
+      exportPolicy(useBatch.getState().pro),
+      maxSide,
+    );
+  } catch {
+    return null;
   }
 }
 
@@ -553,8 +576,11 @@ async function currentPolicy(): Promise<ExportPolicy> {
   return exportPolicy((await sessionAccess()).pro);
 }
 
-/** Full-resolution render of one finished item with its applied settings. */
-export async function renderItem(item: BatchItem, policy: ExportPolicy): Promise<Blob> {
+/**
+ * Decode a finished item once, so it can be rendered with several settings
+ * (an export set) without decoding the original again. Call `close()` after.
+ */
+async function openSources(item: BatchItem) {
   if (!item.maskBlob) throw new Error("This image hasn't been processed yet.");
   let decoded: Awaited<ReturnType<typeof decodeImage>>;
   try {
@@ -567,15 +593,30 @@ export async function renderItem(item: BatchItem, policy: ExportPolicy): Promise
     if (width !== decoded.width || height !== decoded.height) throw new Error("The saved mask doesn't match this image. Run background removal again.");
     // The editor's own layer code builds the cutout, so batch and editor exports agree.
     const layers = new ImageLayers(decoded.pixels, decoded.width, decoded.height, mask, { shift: 0, feather: 0 });
-    const { blob } = await renderBatchBlob(
-      { width, height, cutout: layers.cutout, bounds: item.bounds, backgroundImage: backgroundFor(item.settings) },
-      item.settings,
-      policy,
-    );
-    return blob;
-  } finally {
+    return {
+      sources: (settings: BatchSettings): BatchSources => ({ width, height, cutout: layers.cutout, bounds: item.bounds, backgroundImage: backgroundFor(settings) }),
+      close: () => decoded.bitmap.close(),
+    };
+  } catch (error) {
     decoded.bitmap.close();
+    throw error;
   }
+}
+
+/** Full-resolution render of one finished item with its applied settings. */
+export async function renderItem(item: BatchItem, policy: ExportPolicy): Promise<Blob> {
+  const opened = await openSources(item);
+  try {
+    return (await renderBatchBlob(opened.sources(item.settings), item.settings, policy)).blob;
+  } finally {
+    opened.close();
+  }
+}
+
+/** "PNG", "JPEG" or "PNG + JPEG" for a set of settings. */
+function formatsOf(list: BatchSettings[]) {
+  const formats = [...new Set(list.map((x) => (x.format === "jpeg" ? "JPEG" : "PNG")))];
+  return formats.join(" + ") || "PNG";
 }
 
 function nameContext(id: string) {
@@ -609,6 +650,7 @@ export async function downloadItem(id: string): Promise<void> {
     const fileName = fileNameFor(item);
     downloadBlob(blob, fileName);
     useBatch.setState({ report: { tone: "ok", message: `Downloaded ${fileName}.`, excluded: [] } });
+    void recordExport({ title: item.name, fileName, source: "batch", files: 1, format: formatsOf([item.settings]), blob });
   } catch (error) {
     const message = error instanceof Error ? error.message : "The download couldn't be created.";
     useBatch.setState({ report: { tone: "error", message: `${item.name}: ${message}`, excluded: [] } });
@@ -653,10 +695,13 @@ export async function exportItems(ids: string[], scope: "selected" | "all"): Pro
     });
     const used = new Set<string>();
     let added = 0;
+    let preview: Blob | null = null;
     for (let i = 0; i < ready.length; i++) {
       const item = ready[i];
       try {
-        const data = new Uint8Array(await (await renderItem(item, policy)).arrayBuffer());
+        const rendered = await renderItem(item, policy);
+        preview ??= rendered;
+        const data = new Uint8Array(await rendered.arrayBuffer());
         // PNG and JPEG are already compressed, so they're stored without deflating again.
         const entry = new ZipPassThrough(fileNameFor(item, used));
         zip.add(entry);
@@ -671,7 +716,8 @@ export async function exportItems(ids: string[], scope: "selected" | "all"): Pro
     if (zipError) throw zipError;
     if (added === 0) throw new Error(`None of the images could be rendered.${describeExcluded(excluded)}`);
     const zipName = `${safeFileStem(name, "isola-batch")}${scope === "selected" ? "-selected" : ""}.zip`;
-    downloadBlob(new Blob(chunks as BlobPart[], { type: "application/zip" }), zipName);
+    const zipBlob = new Blob(chunks as BlobPart[], { type: "application/zip" });
+    downloadBlob(zipBlob, zipName);
     useBatch.setState({
       report: {
         tone: excluded.length ? "warn" : "ok",
@@ -679,12 +725,113 @@ export async function exportItems(ids: string[], scope: "selected" | "all"): Pro
         excluded,
       },
     });
+    void recordExport({ title: name, fileName: zipName, source: "batch", files: added, format: formatsOf(ready.map((r) => r.settings)), blob: zipBlob, preview });
   } catch (error) {
     const message = error instanceof Error ? error.message : "The ZIP file couldn't be created.";
     useBatch.setState({
       report: {
         tone: "error",
         message: /memory|allocation/i.test(message) ? "The browser ran out of memory building the ZIP. Select fewer images and export them in smaller groups." : message,
+        excluded,
+      },
+    });
+  } finally {
+    useBatch.setState({ exporting: null });
+  }
+}
+
+/**
+ * Export set: every finished image among `ids`, rendered once per destination
+ * (Square, Portrait, Wide…) with its own look, in one ZIP with a folder per
+ * destination. Images that can't be rendered are left out and listed.
+ */
+export async function exportSet(ids: string[], destinationIds: DestinationId[]): Promise<void> {
+  const { items, name } = useBatch.getState();
+  const destinations = destinationIds.map(destinationById).filter((d) => d !== null);
+  if (destinations.length === 0) {
+    useBatch.setState({ report: { tone: "error", message: "Choose at least one destination for the export set.", excluded: [] } });
+    return;
+  }
+  const wanted = new Set(ids);
+  const chosen = items.filter((i) => wanted.has(i.id));
+  const ready = chosen.filter(isReady);
+  const excluded = chosen.filter((i) => !isReady(i)).map((i) => ({ name: i.name, reason: exclusionReason(i) }));
+  if (ready.length === 0) {
+    useBatch.setState({ report: { tone: "error", message: `There are no finished images to export.${describeExcluded(excluded)}`, excluded } });
+    return;
+  }
+  const total = ready.length * destinations.length;
+  if (!startJob({ label: "Building export set", done: 0, total })) return;
+  try {
+    const policy = await currentPolicy();
+    const chunks: Uint8Array[] = [];
+    let zipError: unknown = null;
+    const zip = new Zip((err, chunk) => {
+      if (err) zipError = err;
+      else chunks.push(chunk);
+    });
+    const used = new Map<string, Set<string>>();
+    const usedSettings: BatchSettings[] = [];
+    let added = 0;
+    let done = 0;
+    let preview: Blob | null = null;
+    const rendered = new Set<string>();
+    for (const item of ready) {
+      let opened: Awaited<ReturnType<typeof openSources>> | null = null;
+      try {
+        opened = await openSources(item);
+        for (const dest of destinations) {
+          const settings = destinationSettings(item.settings, dest);
+          const folder = folderFor(dest);
+          if (!used.has(folder)) used.set(folder, new Set());
+          const { blob } = await renderBatchBlob(opened.sources(settings), settings, policy);
+          preview ??= blob;
+          const entry = new ZipPassThrough(`${folder}/${exportName(item.name, settings, used.get(folder)!, nameContext(item.id))}`);
+          zip.add(entry);
+          entry.push(new Uint8Array(await blob.arrayBuffer()), true);
+          usedSettings.push(settings);
+          rendered.add(item.id);
+          added++;
+          useBatch.setState({ exporting: { label: "Building export set", done: ++done, total } });
+        }
+      } catch (error) {
+        excluded.push({ name: item.name, reason: error instanceof Error ? error.message : "couldn't be rendered" });
+        done = Math.min(total, done + destinations.length);
+        useBatch.setState({ exporting: { label: "Building export set", done, total } });
+      } finally {
+        opened?.close();
+      }
+    }
+    zip.end();
+    if (zipError) throw zipError;
+    if (added === 0) throw new Error(`None of the images could be rendered.${describeExcluded(excluded)}`);
+    const zipName = `${safeFileStem(name, "isola-batch")}-export-set.zip`;
+    const zipBlob = new Blob(chunks as BlobPart[], { type: "application/zip" });
+    downloadBlob(zipBlob, zipName);
+    const images = rendered.size;
+    useBatch.setState({
+      report: {
+        tone: excluded.length ? "warn" : "ok",
+        message: `Downloaded ${added} file${added === 1 ? "" : "s"} (${images} image${images === 1 ? "" : "s"} × ${destinations.length} destination${destinations.length === 1 ? "" : "s"}) in ${zipName}.${describeExcluded(excluded)}`,
+        excluded,
+      },
+    });
+    void recordExport({
+      title: name,
+      fileName: zipName,
+      source: "export-set",
+      files: added,
+      format: formatsOf(usedSettings),
+      blob: zipBlob,
+      preview,
+      destinations: destinations.map((d) => d.label),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The export set couldn't be created.";
+    useBatch.setState({
+      report: {
+        tone: "error",
+        message: /memory|allocation/i.test(message) ? "The browser ran out of memory building the export set. Choose fewer destinations or images." : message,
         excluded,
       },
     });
@@ -825,6 +972,8 @@ function schedulePersist() {
 }
 
 let flushing: Promise<void> | null = null;
+/** The batch name and last-changed time as saved, so unchanged flushes don't bump the time. */
+let savedMeta: storage.PersistedMeta | null = null;
 async function flushPersist() {
   if (flushing) {
     await flushing;
@@ -835,11 +984,13 @@ async function flushPersist() {
     const { items, name } = useBatch.getState();
     const ids = new Set(items.map((i) => i.id));
     let full = false;
+    let changed = false;
     try {
       for (const id of [...persisted.keys()]) {
         if (ids.has(id)) continue;
         await storage.deleteItem(id);
         persisted.delete(id);
+        changed = true;
       }
       for (const [order, item] of items.entries()) {
         const record = toRecord(item, order);
@@ -849,12 +1000,17 @@ async function flushPersist() {
           if (!previous) await storage.saveFile(item.id, item.file);
           await storage.saveItem(record);
           persisted.set(item.id, record);
+          changed = true;
         } catch (error) {
           if (error instanceof storage.StorageFullError) full = true;
           else throw error;
         }
       }
-      await storage.saveMeta({ name });
+      if (changed || !savedMeta || savedMeta.name !== name) {
+        const meta = { name, updatedAt: Date.now() };
+        await storage.saveMeta(meta);
+        savedMeta = meta;
+      }
       useBatch.setState({ storage: full ? { state: "full" } : { state: "ok" } });
     } catch (error) {
       useBatch.setState({ storage: { state: "error", message: error instanceof Error ? error.message : String(error) } });
@@ -911,6 +1067,7 @@ export function restoreBatch(): Promise<void> {
           refined: r.refined,
         });
       }
+      savedMeta = data.meta;
       useBatch.setState((s) => {
         const known = new Set(restored.map((i) => i.id));
         return {

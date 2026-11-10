@@ -54,6 +54,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`; start it with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:auth` | Account journey including email confirmation (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:account` | Account page: overview, section links, devices and signing them out, phones, key cleanup on deletion |
+| `npm run test:studio` | Studio: dashboard, brand presets, ⌘K, consistency check with the Amazon fix, export sets, recent exports, phones (needs the fake Paystack settings, as for billing) |
 | `npm run test:api` | Public API with real server-side processing; start the app with `ISOLA_API_RATE_LIMIT_PER_HOUR=15` plus the `test:batch` settings |
 | `npm run test:docs` | Developer docs: pages, anchors, search, copy, browser check, feedback, mobile menu |
 | `npm run test:nav` | Tools menu, its destinations and the mobile menu (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
@@ -353,6 +354,84 @@ Batch Studio is part of Pro. Images processed there never leave the browser.
 - **Review flags:** "Check edges" is a real check of the mask: no clear subject,
   almost everything kept, or large partly transparent areas.
 
+## Studio
+
+`/studio` is the signed-in home, built from the reference design ("Your studio,
+in sync."). It has its own frame: a dark sidebar (Home, Image editor, Batch
+Studio, Brand presets, Export sets, Consistency check, Developers, Help,
+Settings, and your account), a top bar with search (⌘K, Ctrl+K or "/") and a
+Create menu, and a phone menu. Signing in without a `next` page lands here;
+"Get started" on the site goes to Create account, and signed in, the header
+offers "Your studio".
+
+Everything on it is real data; empty states say so instead of showing made-up
+work (the one illustration, in the consistency card before you have finished
+images, is labelled "Example").
+
+- **Production queue:** the batch saved in this browser, image by image: ready
+  to export, edges to refine (opens that image in the editor), waiting, or
+  failed, with the next step for each. Free accounts see that Batch Studio is
+  part of Pro.
+- **Continue creating:** the current collection (thumbnails, image count,
+  "Updated today at 10:24", recorded when the batch actually changes) and recent
+  exports, as a grid or a list.
+- **Brand preset:** your default preset's colours with Canvas, Padding and
+  Shadow you can change in place; "Apply preset" opens Batch Studio with it.
+- **Keep the collection consistent:** the consistency check (below) run on the
+  saved batch, with the flagged images drawn by the export renderer.
+- **One collection. Every destination.:** your first finished image rendered as
+  Square, Portrait and Wide, with how many images are ready.
+- **Recent exports:** the latest download, kept in this browser so it can be
+  downloaded again byte for byte.
+- **Private by design:** how much this browser stores for ISOLA (from the
+  browser's own estimate) and a button that asks the browser to keep those
+  files when space runs low.
+
+### Features built for product photos
+
+- **Consistency check** (Batch Studio → Check consistency, or the studio card).
+  Measured from each finished cutout's mask and settings (`src/lib/consistency.ts`)
+  and compared with the rest of the collection, so a style the whole set shares
+  isn't reported as a fault. It finds images whose settings differ from the
+  rest (with a "Match the others" fix that keeps each file's naming), subjects
+  cut off by the photo's edge, stray specks left from the background (small
+  separate pieces; a second shoe of a pair isn't one), edges to review,
+  subjects enlarged more than 2× to fill the canvas (they look soft), and, for
+  images that keep their own framing, subjects much smaller, larger or further
+  off-centre than the rest (fix: re-centre all with equal padding). Fixes are
+  applied only when you choose them, one image at a time or all at once.
+- **Marketplace readiness.** The same check can measure against a destination's
+  published rules, on the real output geometry after the plan's size limit:
+  **Amazon main image** (pure white RGB 255,255,255 background, product filling
+  at least 85% of the frame, 1,000px or more on the longest side, no
+  watermark, so Free exports are flagged) with "Make Amazon-ready" (square,
+  white, JPEG, padding 5%; 1,000px canvas for small photos), and **Instagram
+  post** (4:5 to 1.91:1, 1080px wide, no transparency). The catalogue preset's
+  10% padding leaves products filling 80%, which this catches. Rules are based
+  on published guidelines; the panel says to check the destination's current
+  rules too.
+- **Export sets** (Batch Studio → Export set, `/batch?export=set`). Every
+  finished image rendered once per destination and packed into one ZIP with a
+  folder per destination: Square 1:1 (1080), Portrait 4:5 (1080×1350), Story
+  9:16 (1080×1920), Wide 16:9 (1920×1080) and Marketplace 1:1 (2000, pure white
+  JPEG, 5% padding). Each keeps the image's own look and changes only the
+  canvas. The dialog shows real previews of the first image at every size.
+- **Brand presets** (`/studio/presets`, `GET/POST /api/presets`,
+  `PUT/DELETE /api/presets/:id`). Up to 20 per account, saved on the server so
+  they're the same on every device: name, up to six colours, background
+  (transparent, white or a brand colour), canvas, padding, position, soft
+  shadow and format, with one default. The editor shows a live preview drawn by
+  the export renderer. Every field is validated on the server; other sites and
+  other accounts are refused; presets are deleted with the account. Batch
+  Studio loads one from `?preset=<id>` (or `default`).
+- **Recent exports.** Downloads from the editor and Batch Studio (single
+  files, ZIPs and export sets) are recorded in this browser's IndexedDB: the
+  newest keep their files up to 150 MB in total (eight at most), older ones
+  keep only their details. Nothing is uploaded.
+- **Command palette (⌘K).** Search tools, pages, brand presets (apply one),
+  images in your batch (opens one straight in the editor through
+  `/batch?open=<id>`) and the developer docs; arrow keys and Enter.
+
 ## Public API
 
 Signed-in users create API keys on the Account page (up to 10, shown once,
@@ -407,7 +486,7 @@ canvas; the checkerboard is drawn by the preview only.
 
 ```
 src/
-  app/                    routes: / (landing), /editor, /batch, /developers, /pricing,
+  app/                    routes: / (landing), /editor, /batch, /developers, /pricing, /studio,
                           (auth)/ sign-in, sign-up, forgot/reset password, verify-email,
                           /account, /privacy, /terms, /support,
                           /api/auth/*, /api/engines, /api/remove-background
@@ -418,6 +497,7 @@ src/
     ui/                   buttons, sliders, switches, sheets (Radix), progress
     upload/               shared upload + drag-and-drop hooks
     auth/                 auth shell + pictures, sign-in/up forms, social buttons, form fields
+    studio/               studio shell, dashboard, production queue, brand presets, ⌘K
     account/              account page: header, section nav, overview, plan, API keys,
                           profile, password & sign-in, devices, delete
   lib/
@@ -441,7 +521,10 @@ Run against a production build in this repository's sandbox, starting from an
 empty model folder (so the automatic download is exercised) and with
 `SMTP_URL=smtp://127.0.0.1:2525` so emails land in the tests' local mailbox:
 
-- **Unit tests:** 46/46 passing.
+- **Unit tests:** 60/60 passing, including the consistency rules on synthetic
+  masks (crops, specks vs a pair of shoes, Amazon fill and its fix,
+  Instagram's aspect range, scale outliers, enlargement after the plan limit),
+  export-set sizes and brand preset validation.
 - **End-to-end (`npm run test:e2e`): 31/31 checks passing**, including: the
   model is refused to signed-out requests; a signed-out upload waits with a
   sign-in prompt and is processed after signing in; real on-device removal;
@@ -514,6 +597,21 @@ empty model folder (so the automatic download is exercised) and with
   requests and other people's devices, the password fields lining up, no
   sideways scrolling on phones with the section chips pinned under the
   header, and account deletion leaving no API keys in the database.
+- **Studio (`npm run test:studio`): 36/36**, with real processing: signed-out
+  visitors are sent to sign in and "Get started" goes to Create account; an
+  empty studio shows honest empty states; a brand preset is created and edited
+  in place and saved to the account; invalid presets, other sites and other
+  accounts are refused; the presets page creates a new default with a live
+  preview; ⌘K finds and applies a preset; an editor export appears in Recent
+  exports and downloads again byte for byte. On Pro, three photos with the
+  catalogue preset are flagged for Amazon (each product fills 80%), "Make all
+  3 Amazon-ready" fixes every one while the small serum bottle is still noted
+  as enlarged 2.7×; an export set of Square, Wide and Marketplace gives a ZIP
+  of nine files in three folders, each the exact size, marketplace files JPEG
+  on pure white; the dashboard shows the real queue, collection, consistency
+  result, destination previews and the export set, which downloads again
+  unchanged; ⌘K opens a batch image in the editor; phones have no sideways
+  scrolling and a working menu.
 - **Password reset (`npm run test:reset`): 13/13**, through a real SMTP hop.
 - **Plans and payments (`npm run test:billing`): 32/32**, including the price
   and amount sent to checkout, the yearly toggle, free exports capped at
@@ -526,8 +624,9 @@ empty model folder (so the automatic download is exercised) and with
   and subscription management.
 - **Google/GitHub (`node e2e/oauth.mjs`):** both buttons start a real OAuth
   redirect with the right callback URL (completing it needs real credentials).
-- **Accessibility:** axe-core reports 0 violations on 27 pages and states
-  (including all seven developer docs pages and /tools),
+- **Accessibility:** axe-core reports 0 violations on 31 pages and states
+  (including all seven developer docs pages, /tools, the studio dashboard, its
+  ⌘K palette and phone menu, and the brand preset editor),
   including the editor with an image, the export dialog, the account page, the
   auth screens, and Batch Studio with images, the Export tab and the mobile
   settings drawer.

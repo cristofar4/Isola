@@ -12,12 +12,14 @@ import {
   Ellipsis,
   HardDrive,
   Image as ImageIcon,
+  Layers,
   LayoutGrid,
   List,
   Lock,
   Pencil,
   Plus,
   RotateCw,
+  ScanSearch,
   Scissors,
   Search,
   ShoppingBag,
@@ -46,6 +48,7 @@ import {
   hasUnappliedEdits,
   isBusy,
   isReady,
+  openInEditor,
   processItems,
   removeItems,
   restoreBatch,
@@ -55,7 +58,9 @@ import {
   type BatchItem,
   type BatchView,
 } from "@/lib/batch/batch-store";
-import { CATALOGUE_PRESET, formatLabel, sameSettings, sizeLabel } from "@/lib/batch/settings";
+import { CATALOGUE_PRESET, formatLabel, sameSettings, sizeLabel, type BatchSettings } from "@/lib/batch/settings";
+import { describeLayout, presetToBatchSettings, type BrandPreset } from "@/lib/brand-presets";
+import { flaggedCount } from "@/lib/consistency";
 import { useEngineState } from "@/lib/processing/registry";
 import { useProject } from "@/lib/project/store";
 import { usePlan } from "@/lib/plan";
@@ -63,6 +68,8 @@ import { exportPolicy, policySummary } from "@/lib/plan-policy";
 import { signInHref, useOnSignIn } from "@/lib/session-gate";
 import { BatchCard, BatchRow } from "./batch-card";
 import { BatchSettingsPanel, useSettingsTab } from "./batch-settings-panel";
+import { ConsistencyPanel, useCheckTarget, useConsistencyReport } from "./consistency-panel";
+import { ExportSetDialog } from "./export-set-dialog";
 
 export function countItems(items: BatchItem[]) {
   const c = { total: items.length, ready: 0, review: 0, processing: 0, queued: 0, failed: 0, cancelled: 0, waiting: 0 };
@@ -355,27 +362,94 @@ function StorageNote() {
   );
 }
 
-/** Loads a preset from ?preset= (the Tools menu's "Product images"). */
-function PresetFromUrl({ onPreset }: { onPreset: (preset: "catalogue") => void }) {
-  const preset = useSearchParams().get("preset");
+type LoadedPreset = { kind: "catalogue" } | { kind: "brand"; preset: BrandPreset } | { kind: "missing" };
+
+/**
+ * Acts on links into Batch Studio: ?preset=catalogue (the Tools menu's
+ * "Product images"), ?preset=<brand preset id or "default">, and, once the
+ * saved batch is restored, ?check=consistency, ?export=set and ?open=<image id>.
+ */
+function UrlActions({ onPreset, onCheck, onExportSet }: { onPreset: (p: LoadedPreset) => void; onCheck: () => void; onExportSet: () => void }) {
+  const params = useSearchParams();
+  const router = useRouter();
+  const storage = useBatch((s) => s.storage.state);
+  const handled = useRef(false);
+  const preset = params.get("preset");
+  const check = params.get("check");
+  const exportParam = params.get("export");
+  const open = params.get("open");
+
   useEffect(() => {
-    if (preset === "catalogue") onPreset("catalogue");
+    if (!preset) return;
+    if (preset === "catalogue") return onPreset({ kind: "catalogue" });
+    let alive = true;
+    fetch("/api/presets", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ presets: BrandPreset[] }>) : null))
+      .then((json) => {
+        const list = json?.presets ?? [];
+        const found = preset === "default" ? (list.find((p) => p.isDefault) ?? list[0]) : list.find((p) => p.id === preset);
+        if (alive) onPreset(found ? { kind: "brand", preset: found } : { kind: "missing" });
+      })
+      .catch(() => alive && onPreset({ kind: "missing" }));
+    return () => {
+      alive = false;
+    };
   }, [preset, onPreset]);
+
+  useEffect(() => {
+    if (handled.current || storage === "loading" || (!check && !exportParam && !open)) return;
+    handled.current = true;
+    const strip = () => {
+      const next = new URLSearchParams(params.toString());
+      for (const key of ["check", "export", "open"]) next.delete(key);
+      const qs = next.toString();
+      router.replace(qs ? `/batch?${qs}` : "/batch", { scroll: false });
+    };
+    if (open) {
+      void openInEditor(open).then((ok) => (ok ? router.push("/editor") : strip()));
+      return;
+    }
+    if (check === "consistency") onCheck();
+    if (exportParam === "set") onExportSet();
+    strip();
+  }, [storage, check, exportParam, open, params, router, onCheck, onExportSet]);
   return null;
 }
 
-function CatalogueNotice({ onDismiss }: { onDismiss: () => void }) {
+function PresetNotice({ loaded, onDismiss }: { loaded: LoadedPreset; onDismiss: () => void }) {
   const items = useBatch((s) => s.items);
+  const draft = useBatch((s) => s.draft);
   const [applied, setApplied] = useState(false);
+  if (loaded.kind === "missing") {
+    return (
+      <div role="alert" className="mt-4 flex flex-col gap-3 rounded-[14px] border border-warn/25 bg-warn-50 px-4 py-3 sm:flex-row sm:items-center">
+        <p className="flex-1 text-[13px] leading-relaxed text-warn">
+          That brand preset wasn&apos;t found on your account. It may have been deleted.{" "}
+          <a href="/studio/presets" className="font-semibold underline">
+            Manage brand presets
+          </a>
+        </p>
+        <Button size="sm" variant="secondary" onClick={onDismiss}>
+          Dismiss
+        </Button>
+      </div>
+    );
+  }
+  const settings: BatchSettings = loaded.kind === "catalogue" ? CATALOGUE_PRESET : draft;
+  const title = loaded.kind === "catalogue" ? "Catalogue preset loaded" : `Brand preset “${loaded.preset.name}” loaded`;
+  const description =
+    loaded.kind === "catalogue"
+      ? "White square canvas, 10% padding, centred products, JPEG. It's in Batch settings, not applied yet. Add your product photos, then apply it to every image."
+      : `${describeLayout(loaded.preset.layout, loaded.preset.colors)}. It's in Batch settings, not applied yet.`;
   return (
     <div role="status" className="mt-4 flex flex-col gap-3 rounded-[14px] border border-blue-100 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center">
       <ShoppingBag className="hidden size-5 shrink-0 text-blue sm:block" aria-hidden="true" />
       <div className="flex-1 text-[13px] leading-relaxed text-ink-3">
-        <p className="font-semibold text-ink">Catalogue preset loaded</p>
+        <p className="font-semibold text-ink">{title}</p>
         <p>
           {applied
             ? `Applied to ${items.length === 1 ? "1 image" : `all ${items.length} images`}. New images you add can be given the same look with Apply in Batch settings.`
-            : "White square canvas, 10% padding, centred products, JPEG. It's in Batch settings, not applied yet. Add your product photos, then apply it to every image."}
+            : description}
         </p>
       </div>
       <div className="flex gap-2">
@@ -385,7 +459,7 @@ function CatalogueNotice({ onDismiss }: { onDismiss: () => void }) {
             onClick={async () => {
               await applySettings(
                 items.map((i) => i.id),
-                CATALOGUE_PRESET,
+                settings,
               );
               setApplied(true);
             }}
@@ -423,16 +497,24 @@ export function BatchStudio() {
   const inputRef = useRef<HTMLInputElement>(null);
   const settingsRef = useRef<HTMLElement>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [preset, setPreset] = useState<"catalogue" | null>(null);
+  const [preset, setPreset] = useState<LoadedPreset | null>(null);
+  const [checkOpen, setCheckOpen] = useState(false);
+  const [exportSetOpen, setExportSetOpen] = useState(false);
+  const [checkTarget] = useCheckTarget();
+  const report = useConsistencyReport(items, checkTarget, plan.pro);
+  const flagged = report ? flaggedCount(report) : 0;
   const setDraft = useBatch((s) => s.setDraft);
   const loadPreset = useCallback(
-    (p: "catalogue") => {
+    (p: LoadedPreset) => {
       setPreset(p);
-      setDraft(CATALOGUE_PRESET);
-      setTab("layout");
+      if (p.kind === "catalogue") setDraft(CATALOGUE_PRESET);
+      else if (p.kind === "brand") setDraft(presetToBatchSettings(p.preset, useBatch.getState().draft));
+      if (p.kind !== "missing") setTab("layout");
     },
     [setDraft, setTab],
   );
+  const openCheck = useCallback(() => setCheckOpen(true), []);
+  const openExportSet = useCallback(() => setExportSetOpen(true), []);
 
   useEffect(() => {
     void restoreBatch();
@@ -524,6 +606,16 @@ export function BatchStudio() {
               Add images
             </Button>
             <Button
+              variant="secondary"
+              size="lg"
+              disabled={readyIds.length === 0 || exporting !== null}
+              title={readyIds.length === 0 ? "No finished images yet" : undefined}
+              onClick={openExportSet}
+              icon={<Layers className="size-4" aria-hidden="true" />}
+            >
+              Export set
+            </Button>
+            <Button
               variant="dark"
               size="lg"
               disabled={readyIds.length === 0 || exporting !== null}
@@ -564,9 +656,9 @@ export function BatchStudio() {
         )}
 
         <Suspense fallback={null}>
-          <PresetFromUrl onPreset={loadPreset} />
+          <UrlActions onPreset={loadPreset} onCheck={openCheck} onExportSet={openExportSet} />
         </Suspense>
-        {preset === "catalogue" && <CatalogueNotice onDismiss={() => setPreset(null)} />}
+        {preset && <PresetNotice loaded={preset} onDismiss={() => setPreset(null)} />}
 
         {needsPro && (
           <div className="mt-4 flex flex-col gap-3 rounded-[14px] border border-blue-100 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center">
@@ -622,6 +714,17 @@ export function BatchStudio() {
               </button>
               <button type="button" className={toolButton} disabled={retryable.length === 0} title={retryable.length ? undefined : "No failed or cancelled images"} onClick={() => processItems(retryable.map((i) => i.id))}>
                 <RotateCw className="size-4" aria-hidden="true" /> Retry failed{retryable.length ? ` (${retryable.length})` : ""}
+              </button>
+              <button
+                type="button"
+                className={toolButton}
+                disabled={readyIds.length === 0}
+                title={readyIds.length ? undefined : "No finished images to check yet"}
+                onClick={openCheck}
+                aria-label={flagged ? `Check consistency, ${flagged} image${flagged === 1 ? "" : "s"} with suggestions` : "Check consistency"}
+              >
+                <ScanSearch className="size-4" aria-hidden="true" /> Check consistency
+                {flagged > 0 && <span className="rounded-full bg-warn-50 px-1.5 text-[11px] font-bold text-warn">{flagged}</span>}
               </button>
               <DropdownMenu.Root modal={false}>
                 <DropdownMenu.Trigger className={toolButton} disabled={items.length === 0}>
@@ -760,6 +863,9 @@ export function BatchStudio() {
       </div>
 
       <ExportBar onOpenExportSettings={openExportSettings} />
+
+      <ConsistencyPanel open={checkOpen} onOpenChange={setCheckOpen} />
+      <ExportSetDialog open={exportSetOpen} onOpenChange={setExportSetOpen} />
 
       <Sheet open={settingsOpen} onOpenChange={setSettingsOpen} title="Batch settings" side="bottom" className="lg:hidden">
         <BatchSettingsPanel inSheet onApplied={() => setSettingsOpen(false)} />

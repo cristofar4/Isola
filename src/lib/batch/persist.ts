@@ -34,6 +34,8 @@ export interface PersistedItem {
 
 export interface PersistedMeta {
   name: string;
+  /** When the batch last changed (ms since 1970); missing on batches saved before it was recorded. */
+  updatedAt?: number;
 }
 
 export interface PersistedBackground {
