@@ -60,6 +60,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm run test:account` | Account page: overview, section links, devices and signing them out, phones, key cleanup on deletion |
 | `npm run test:quickstart` | Accounts with no setup: create account, sign out, sign in, generated secret (start the app with no auth or email settings) |
 | `npm run test:studio` | Studio: dashboard, brand presets, ⌘K, consistency check with the Amazon fix, export sets, recent exports, phones (needs the fake Paystack settings, as for billing) |
+| `npm run test:motion` | Scene Studio and Motion Studio on Pro: scenes, formats, all six motion styles, storyboard/timeline, keyframes and curves, colour scope, sound and meters, video import, missing media, Update from scene, and an export checked with ffprobe and compared with the preview (start the app as for `test:batch`; needs ffmpeg/ffprobe) |
 | `npm run test:library` | Asset library and projects with real processing: uploads, smart tags, duplicates, tags, collections, downloads, cutouts, brand colours, linked versions, quality review, history with undo/redo, linked-set export, the editor round-trip, folders, trash, downloads, phones (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:api` | Public API with real server-side processing; start the app with `ISOLA_API_RATE_LIMIT_PER_HOUR=15` plus the `test:batch` settings |
 | `npm run test:docs` | Developer docs: pages, anchors, search, copy, browser check, feedback, mobile menu |
@@ -336,8 +337,10 @@ Batch Studio is part of Pro. Images processed there never leave the browser.
   uses three real cutouts from ISOLA's model and the real Batch Studio
   compositor: pick a background and padding, apply, and download a ZIP of the
   actual files. "Product images" in the Tools menu shows the catalogue look on
-  the samples and keeps the preset through sign-in. Signed in, `/batch` is the
-  workspace described below.
+  the samples and keeps the preset through sign-in. Signed in, `/batch` sends
+  you to `/studio/batch`: the workspace described below, inside the studio
+  frame (sidebar, breadcrumb, ⌘K), keeping any `?preset=`, `?open=`,
+  `?check=` or `?export=` in the link.
 
 - **Adding images:** choose files, drag and drop, or add more at any time (up
   to 50). Each file is checked by content, size and dimensions; a rejected file
@@ -400,11 +403,14 @@ Batch Studio is part of Pro. Images processed there never leave the browser.
 
 `/studio` is the signed-in home, built from the reference design ("Your studio,
 in sync."). It has its own frame: a dark sidebar (Workspace: Home, Projects,
-Asset library; Create: Image editor, Batch Studio; Organise: Brand presets,
-Export sets, Quality review, Downloads, Trash; then Developers, Help, Settings
-and your account), a top bar with search (⌘K, Ctrl+K or "/") and a Create menu
-(new project, upload assets, editor, batch, export set, brand preset), and a
-phone menu. Signing in without a `next` page lands here;
+Asset library; Create: Image editor, Batch Studio, Scene Studio, Motion
+Studio; Organise: Brand presets, Export sets, Quality review, Downloads,
+Trash; then Developers, Help, Settings and your account), a top bar with a
+menu button, search (⌘K, Ctrl+K or "/") and a Create menu (new project,
+upload assets, new scene, new film, editor, batch, export set, brand preset).
+The menu button folds the desktop sidebar to an icon rail (remembered in this
+browser) and opens it as a drawer on phones. Batch Studio and Scene Studio
+open inside this frame; Motion Studio takes the whole window. Signing in without a `next` page lands here;
 "Get started" on the site goes to Create account, and signed in, the header
 offers "Your studio".
 
@@ -546,6 +552,152 @@ are deleted when the library next opens. Restore or delete for good.
 from the editor, Batch Studio, the library and projects, with the newest kept
 to download again.
 
+## Scene Studio
+
+`/studio/scenes` (from the reference design). A scene is a product
+composition made of **separate layers**: a backdrop, product cutouts, a shadow
+for each product, text and logos. Layers are placed in resolution-independent
+units (position as a fraction of the frame, size as a fraction of its short
+side), so one scene renders in every format and at any size.
+
+- **Backdrops** are drawn by code (`src/lib/scene/backdrops.ts`): Ivory
+  plinth, Sage wall, Warm stone, Pale blue seamless, Sunlight on linen and
+  Marble slab, with search and Studio/Natural/Interior filters. Gradients,
+  light and seeded noise textures draw the same pixels every time, stay sharp
+  at any size and carry no licence questions. The set can be recoloured
+  (Ivory, Sage, Blush, Slate, brand colours or any colour) or replaced with an
+  uploaded background from the asset library.
+- **Products** come from the asset library. A photo without transparency gets
+  its background removed on this device first ("Make a cutout"). The
+  product's pixels are never changed ("Original appearance protected");
+  "Match scene light" (off by default) lays a warm key light over the
+  product and says it changes how the product looks.
+- **Shadows** are their own layer under each product: a soft contact shadow
+  plus a cast shadow with opacity, softness, direction and length.
+- **Editing:** move, rotate (Shift for 15° steps) and scale with handles;
+  snapping to the centre, thirds, other layers and the backdrop's surface
+  (ground contact), with guides; numeric position (px), scale, rotation and
+  opacity; arrow-key nudging; a layers list (order, hide, lock, delete);
+  text with font (Inter, Inter Tight, Cormorant Garamond, Bebas Neue, all
+  self-hosted, OFL), weight, size, colour, alignment, spacing and capitals;
+  Compare shows the products without the set; undo/redo.
+- **Linked formats:** Square, Portrait 4:5, Wide 16:9 and Story 9:16 share the
+  layers; each has a live thumbnail. Export one as PNG/JPEG or several as a
+  ZIP (a folder per format), under the plan's rules (Free: watermark, 1,000px).
+- **Sample scene** builds a scene from a cutout that ships with ISOLA (ISOLA's
+  own output from an Unsplash photo; see `public/samples/CREDITS.md`).
+- Scenes are kept in this browser (IndexedDB) and "Saved in this browser" is
+  shown only after the write succeeds; a failed write says why, with Retry.
+- **Animate scene** opens a style picker (below) and then Motion Studio. Editing
+  a scene never redirects you anywhere.
+
+## Motion Studio
+
+`/studio/motion` lists your films; `/motion/<id>` is the editor, a full-window
+dark workspace from the reference design. The workflow is Scene Studio →
+Animate scene → choose a motion style → edit shots and timing → preview →
+export video. You can also start an empty film and import your own images,
+video and sound.
+
+**One project model** (`src/lib/motion/model.ts`, versioned, with
+`migrateFilm` repairing stored data) drives the storyboard, timeline, viewer
+and export. Shots play one after another; a visual clip belongs to a shot and
+its time is relative to that shot, so reordering the storyboard moves the
+shots' clips on the timeline. Music and overlays can sit in film time instead.
+Keyframe times are relative to their clip.
+
+- **Workspaces:** Assemble, Animate, Colour, Sound and Deliver, with a
+  creative library on the left (Media, Styles, Scenes, Text, Audio, Effects),
+  a large viewer with the shot storyboard under it, a contextual inspector on
+  the right and a multitrack timeline below. Panels resize (drag or arrow keys
+  on the separators) and collapse; the layout is remembered. On small screens
+  the viewer stays on top and the panels become tabs.
+- **Motion styles** (`src/lib/motion/kits.ts`): Slow reveal (push in with a
+  controlled fade), Spotlight (a moving spotlight layer finds the product,
+  then the lights come up), Layered parallax (the backdrop moves at 35% of the
+  camera, the product at 100%), Editorial cut (wide, close-up, detail and hero
+  shots on hard cuts, title wiped on), Soft luxury (slow dissolves, barely-there
+  drift, serif title letter by letter, warm grade on the background only,
+  vignette) and Social launch (five quick shots, a product pop, bold caption,
+  end card in your brand colour with your logo and an editable call to
+  action). Each declares its editable timings, the layers it needs, and
+  produces ordinary shots, clips, keyframes, transitions and text animation
+  you can edit. Previews are your own layers through the real renderer. A
+  customised film can be saved as a reusable style (timings, framing,
+  keyframes, transitions, text animation; not your images or sound).
+- **Honest motion:** everything is 2D (camera moves, layer animation, light
+  and parallax between separate layers). No style claims to orbit a product
+  or show sides a single photo doesn't have; that needs more footage, several
+  views or a 3D model.
+- **Assemble:** import images (to the asset library), video (MP4/H.264, WebM,
+  MOV your browser can decode) and sound (MP3, WAV, M4A, OGG, FLAC); each file
+  is probed with Mediabunny and refused with a reason if its codec can't be
+  decoded here. Add, duplicate, delete and reorder shots; set shot lengths;
+  transitions (cut, dissolve, dip to black, slide, wipe) centred on the cut and
+  never longer than half of either shot; trim and split clips; position,
+  scale, rotate and anchor layers; text, logos, light and solid layers;
+  aspect 16:9, 9:16, 1:1 or 4:5. Missing media is marked on the timeline and
+  can be relinked; source links and metadata are kept.
+- **Animate:** keyframes for position, scale, rotation, opacity, blur (where
+  the browser supports canvas filters) and light intensity/position, with
+  add, move (drag the diamonds on the timeline), duplicate and delete;
+  linear, ease in, ease out, ease in/out, or a custom curve: the curve
+  editor's handles are the segment's cubic-bezier control points and change
+  the actual interpolation. The motion path is drawn from the real position
+  keyframes and its points can be dragged. Snapping and guides in the viewer;
+  numeric inputs; anchor control. "Selected layer" and "Scene camera" are
+  separate: the camera moves the whole shot and each layer follows by its
+  depth (backdrops less, titles not at all).
+- **Viewer:** play/pause, frame stepping, scrubbing, timecode, loop, zoom and
+  fit, aspect ratio, safe areas, preview quality (full, half, quarter) and
+  fullscreen. The clock is the audio clock while there's sound, so picture
+  and sound stay together. Selection outlines, guides and handles are an
+  overlay and never reach an export.
+- **Timeline and storyboard:** multiple video and audio tracks; select
+  (Shift for more), move across tracks, trim, split (S), snapping to the
+  playhead, clip edges, shots and markers; track order, visibility, lock,
+  mute and solo; zoom (slider or Ctrl+wheel); markers (M); undo/redo. Clips on
+  one track never overlap: a move snaps to the nearest gap that fits or is
+  refused, and nothing can be shorter than 0.1s.
+- **Colour:** exposure, contrast, saturation, temperature, tint, highlights
+  and shadows, applied while drawing (sources never change), scoped to the
+  background layers (the default: product untouched), the whole frame (marked
+  "includes the product") or one layer, plus a vignette. The RGB parade and
+  luma histogram are computed from the viewer's actual pixels. No LUT
+  support yet.
+- **Sound:** waveforms from the decoded audio, trim and placement, volume,
+  fades, mute and solo, master gain, and L/R meters read from the master
+  output's analysers. ISOLA ships no music or sound effects (add sound you
+  have the rights to); there are no beat markers because there's no beat
+  detection.
+- **Update from scene:** each clip made from a scene layer remembers the
+  layer. When the scene changes, a notice offers a review of what will
+  update, field by field. Linked clips take the changes and keep their
+  animation and timing (moves shift keyframes; resizes scale them). Where a
+  clip was also edited in Motion Studio, you choose "Keep my edit" or "Take
+  the scene's" (keep is the default). New layers can be added to every shot;
+  deleted ones are detached and kept unless you remove them. Any clip can be
+  detached.
+- **Deliver** (`src/lib/motion/export.ts`): rendering happens in the browser:
+  every frame is drawn at its exact timestamp by the same renderer as the
+  viewer, video frames are decoded exactly with Mediabunny, the sound is mixed
+  in an OfflineAudioContext with the same scheduling code as playback, and
+  the browser's WebCodecs encoders write the file through Mediabunny
+  (MPL-2.0, used unmodified from npm). Chosen because it keeps media on the
+  device like the rest of ISOLA, needs no server render jobs, and works on any
+  host. Only what this browser can encode at the chosen size and frame rate is
+  offered: MP4 with H.264 video (AAC sound where the browser can encode AAC,
+  otherwise Opus, with a note that QuickTime doesn't play Opus) or WebM with
+  VP9/VP8 and Opus. Settings: aspect, 720p/1080p/4K, 24/25/30/60 fps,
+  quality, sound on/off, file name. Progress is measured in frames; export
+  can be cancelled; a file is offered only after the encoder finishes; missing
+  media blocks export with a reason. Free plan exports carry the watermark and
+  are capped at 1,000px on the longest side, like every Free export.
+- **Saving:** films and saved styles are kept in this browser (IndexedDB,
+  next to the library), as local drafts that aren't synced to your account.
+  "Saved in this browser" appears only after the write succeeds; storage
+  errors are shown with Retry, and leaving with unsaved changes asks first.
+
 ## Public API
 
 Signed-in users create API keys on the Account page (up to 10, shown once,
@@ -613,6 +765,9 @@ src/
     auth/                 auth shell + pictures, sign-in/up forms, social buttons, form fields
     studio/               studio shell, dashboard, production queue, brand presets, ⌘K,
                           asset library, projects, project board, trash, downloads
+    scene/                Scene Studio: scenes list, editor, canvas, style picker
+    motion/               Motion Studio: workspaces, viewer, timeline, storyboard,
+                          inspector, colour, sound, deliver, library
     account/              account page: header, section nav, overview, plan, API keys,
                           profile, password & sign-in, devices, delete
   lib/
@@ -625,6 +780,9 @@ src/
     batch/                batch queue, ZIP export
     studio/               library + projects storage (IndexedDB), image analysis,
                           project model and review, export history, snapshot
+    scene/                scene model, procedural backdrops, drawing, renderer, export
+    motion/               film model + migrations, timing, editing ops, kits, scene
+                          link, renderer, colour + scopes, media, audio, export
   server/                 Better Auth setup + session helpers, remote provider,
                           usage limiter, billing boundary
 scripts/                  copy-ort.mjs (postinstall), fetch-models.mjs
