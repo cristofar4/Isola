@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { SignInArt } from "@/components/auth/auth-art";
 import { AuthReason, AuthSwitchLink } from "@/components/auth/auth-context";
 import { AuthShell, FormSkeleton } from "@/components/auth/auth-shell";
-import { ProviderSlot } from "@/components/auth/provider-slot";
+import { AuthSetupNotice, ProviderSlot } from "@/components/auth/provider-slot";
 import { SignInForm } from "@/components/auth/sign-in-form";
 
 export const metadata: Metadata = {
@@ -14,8 +15,10 @@ export const metadata: Metadata = {
 export default function SignInPage() {
   return (
     <AuthShell
-      title="Welcome back"
-      subtitle="Sign in to your ISOLA account."
+      badge="Sign in"
+      art={<SignInArt />}
+      title="Welcome back."
+      subtitle="Your next great image starts here."
       footer={
         <>
           New to ISOLA?{" "}
@@ -32,13 +35,13 @@ export default function SignInPage() {
       }
     >
       <Suspense fallback={null}>
-        <AuthReason mode="sign-in" />
+        <AuthSetupNotice />
       </Suspense>
       <Suspense fallback={null}>
-        <ProviderSlot mode="sign-in" />
+        <AuthReason mode="sign-in" />
       </Suspense>
       <Suspense fallback={<FormSkeleton />}>
-        <SignInForm />
+        <SignInForm social={<ProviderSlot mode="sign-in" />} />
       </Suspense>
     </AuthShell>
   );

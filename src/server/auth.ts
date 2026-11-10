@@ -11,6 +11,7 @@ import { getMigrations } from "better-auth/db/migration";
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
 import { accountExistsEmail, getEmailTransport, passwordResetEmail, verificationEmail } from "./email";
+import { PASSWORD_MAX, PASSWORD_MIN } from "@/lib/password";
 
 const RESET_TOKEN_MINUTES = 60;
 const VERIFY_TOKEN_HOURS = 24;
@@ -158,8 +159,8 @@ function createOptions(): BetterAuthOptions {
     database: createDatabase(),
     emailAndPassword: {
       enabled: true,
-      minPasswordLength: 8,
-      maxPasswordLength: 128,
+      minPasswordLength: PASSWORD_MIN,
+      maxPasswordLength: PASSWORD_MAX,
       autoSignIn: true,
       // With an email service, new accounts must confirm their address before signing in.
       requireEmailVerification: Boolean(email),

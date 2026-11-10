@@ -9,6 +9,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { authClient, authErrorMessage } from "@/lib/auth-client";
+import { PASSWORD_MAX, PASSWORD_MIN, PASSWORD_TOO_SHORT, passwordHint } from "@/lib/password";
 import type { CurrentUser } from "@/server/auth";
 import { Card } from "./account-card";
 import { ApiKeysCard } from "./api-keys-card";
@@ -72,10 +73,11 @@ function PasswordCard() {
   const [revoke, setRevoke] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<Status>(null);
+  const nextHint = passwordHint(next);
   async function save(e: FormEvent) {
     e.preventDefault();
-    if (next.length < 8) {
-      setStatus({ tone: "danger", text: "Use at least 8 characters for the new password." });
+    if (next.length < PASSWORD_MIN) {
+      setStatus({ tone: "danger", text: PASSWORD_TOO_SHORT });
       return;
     }
     setSaving(true);
@@ -93,7 +95,7 @@ function PasswordCard() {
     <Card icon={<KeyRound className="size-4" />} title="Password">
       <form onSubmit={save} className="grid gap-4">
         <PasswordField label="Current password" autoComplete="current-password" required value={current} onChange={(e) => setCurrent(e.target.value)} />
-        <PasswordField label="New password" autoComplete="new-password" required hint="At least 8 characters." value={next} onChange={(e) => setNext(e.target.value)} />
+        <PasswordField label="New password" autoComplete="new-password" required maxLength={PASSWORD_MAX} hint={nextHint.text} hintTone={nextHint.tone} value={next} onChange={(e) => setNext(e.target.value)} />
         <label className="flex items-center gap-2 text-[13px] text-ink">
           <input type="checkbox" checked={revoke} onChange={(e) => setRevoke(e.target.checked)} className="size-4 accent-[var(--color-blue)]" />
           Sign out of other devices

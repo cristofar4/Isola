@@ -32,6 +32,8 @@ async function ForgotPasswordContent() {
 export default function ForgotPasswordPage() {
   return (
     <AuthShell
+      badge="Reset password"
+      links={["help", "privacy", "terms"]}
       title="Reset your password"
       subtitle="Enter the email you signed up with and we'll send you a link to choose a new password."
       footer={

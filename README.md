@@ -156,9 +156,21 @@ load; a 6000×4000 image completes in ~10 s including the full-resolution mask.
 Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
 `/api/auth/*`, with pages at `/sign-in`, `/sign-up` and `/account`.
 
-- **Email and password** is always available (8–128 characters, hashed with scrypt).
-- **Google** and **GitHub** buttons appear only when both their client ID and
-  secret are set. Register these callback URLs with each provider:
+- **Sign-in and sign-up screens** (`src/app/(auth)`) are focused pages with only
+  the logo and "Back to home" above the form, a badge, and a picture: a
+  draggable before/after of the sneaker on sign-in, and two real cutouts on a
+  transparent canvas on sign-up. On wide screens the picture sits beside the
+  form; on phones it sits between the badge and the heading. Forgot/reset
+  password and email confirmation use the same layout without a picture.
+- **Remember me** (unticked by default): ticked, the session cookie lasts 30
+  days; unticked, it ends when the browser closes (and the session within a
+  day). The password field warns when Caps Lock is on.
+- **Email and password** is always available (12–128 characters, hashed with
+  scrypt). The rule lives in `src/lib/password.ts` and is enforced by the
+  server; the forms count down the characters left. Existing accounts with
+  shorter passwords can still sign in; the rule applies when a password is set.
+- **Google** and **GitHub** buttons ("or" → "Continue with Google") appear
+  under the form only when both their client ID and secret are set. Register these callback URLs with each provider:
   `{BETTER_AUTH_URL}/api/auth/callback/google` and
   `{BETTER_AUTH_URL}/api/auth/callback/github`.
 - **Email confirmation:** with an email service configured, new accounts must
@@ -376,7 +388,8 @@ canvas; the checkerboard is drawn by the preview only.
 ```
 src/
   app/                    routes: / (landing), /editor, /batch, /developers, /pricing,
-                          /sign-in, /sign-up, /account, /privacy, /terms, /support,
+                          (auth)/ sign-in, sign-up, forgot/reset password, verify-email,
+                          /account, /privacy, /terms, /support,
                           /api/auth/*, /api/engines, /api/remove-background
   components/
     landing/              hero, comparison slider, upload panel, sections
@@ -384,7 +397,7 @@ src/
     batch/                batch studio
     ui/                   buttons, sliders, switches, sheets (Radix), progress
     upload/               shared upload + drag-and-drop hooks
-    auth/                 sign-in/up forms, social buttons, account panel
+    auth/                 auth shell + pictures, sign-in/up forms, social buttons, account panel
   lib/
     config.ts             limits and engine configuration (env-driven)
     image/                content sniffing, validation, decoding, mask PNG codec
@@ -462,10 +475,15 @@ empty model folder (so the automatic download is exercised) and with
   doesn't stop the queue and it can be retried; results and edits survive a
   reload; on a phone the export bar stays on screen without covering the last
   image, Export all ready works and settings open in a drawer.
-- **Accounts (`npm run test:auth`): 20/20**, including confirmation email, no
-  session before confirming, blocked sign-in with a fresh link, bad links, the
-  original tab carrying on, duplicate sign-up revealing nothing while emailing
-  the owner, profile, sign out, password change and account deletion.
+- **Accounts (`npm run test:auth`): 34/34**, including the redesigned screens
+  (badge, heading, Back to home with no site menu, the before/after divider,
+  picture beside the form on desktop and above the heading on phones with no
+  sideways scrolling, footer links), the 12-character rule counting down and
+  enforced by the server, Remember me (30-day cookie when ticked, a
+  browser-session cookie when not), confirmation email, no session before
+  confirming, blocked sign-in with a fresh link, bad links, the original tab
+  carrying on, duplicate sign-up revealing nothing while emailing the owner,
+  profile, sign out, password change and account deletion.
 - **Password reset (`npm run test:reset`): 13/13**, through a real SMTP hop.
 - **Plans and payments (`npm run test:billing`): 32/32**, including the price
   and amount sent to checkout, the yearly toggle, free exports capped at

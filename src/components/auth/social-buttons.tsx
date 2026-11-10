@@ -6,7 +6,7 @@ import { BrandIcon, GoogleIcon } from "@/components/ui/brand-icons";
 import { Spinner } from "@/components/ui/progress";
 import { authClient, authErrorMessage, safeNext } from "@/lib/auth-client";
 import type { SocialProvider } from "@/server/auth";
-import { FormAlert } from "./fields";
+import { FormAlert, OrDivider } from "./fields";
 
 const labels: Record<SocialProvider, string> = { google: "Google", github: "GitHub" };
 
@@ -36,31 +36,29 @@ export function SocialButtons({ providers, mode }: { providers: SocialProvider[]
   }
 
   return (
-    <div className="grid gap-2.5">
-      {providers.map((provider) => (
-        <button
-          key={provider}
-          type="button"
-          onClick={() => void go(provider)}
-          disabled={pending !== null}
-          className="inline-flex h-11 items-center justify-center gap-2.5 rounded-[10px] border border-line bg-surface text-sm font-semibold text-ink transition-colors hover:border-line-strong hover:bg-paper disabled:opacity-60"
-        >
-          {pending === provider ? (
-            <Spinner />
-          ) : provider === "google" ? (
-            <GoogleIcon className="size-[18px]" />
-          ) : (
-            <BrandIcon network="github" className="size-[18px]" />
-          )}
-          Continue with {labels[provider]}
-        </button>
-      ))}
-      {error && <FormAlert>{error}</FormAlert>}
-      <div className="my-2 flex items-center gap-3 text-xs text-muted" aria-hidden="true">
-        <span className="h-px flex-1 bg-line" />
-        or with email
-        <span className="h-px flex-1 bg-line" />
+    <div className="grid gap-4">
+      <OrDivider />
+      <div className="grid gap-2.5">
+        {providers.map((provider) => (
+          <button
+            key={provider}
+            type="button"
+            onClick={() => void go(provider)}
+            disabled={pending !== null}
+            className="inline-flex h-12 items-center justify-center gap-2.5 rounded-[12px] border border-line-strong bg-surface text-[15px] font-semibold text-ink transition-colors hover:border-ink/40 hover:bg-paper disabled:opacity-60"
+          >
+            {pending === provider ? (
+              <Spinner />
+            ) : provider === "google" ? (
+              <GoogleIcon className="size-[18px]" />
+            ) : (
+              <BrandIcon network="github" className="size-[18px]" />
+            )}
+            Continue with {labels[provider]}
+          </button>
+        ))}
       </div>
+      {error && <FormAlert>{error}</FormAlert>}
     </div>
   );
 }

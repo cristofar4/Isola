@@ -52,14 +52,53 @@ await page.waitForURL(/\/sign-in\?next=%2Faccount/);
 check("Account page redirects signed-out visitors to sign-in", true);
 await page.screenshot({ path: join(OUT, "auth-sign-in.png") });
 
+// The sign-in screen, as designed: focused, with a way back and a real before/after.
+check(
+  "Sign in shows its badge, heading and line",
+  (await page.getByText("Sign in", { exact: true }).first().isVisible()) &&
+    (await page.getByRole("heading", { level: 1 }).innerText()) === "Welcome back." &&
+    (await page.getByText("Your next great image starts here.").isVisible()),
+);
+check(
+  "Only the logo and Back to home sit above the form (no site menu)",
+  (await page.getByRole("link", { name: "Back to home" }).getAttribute("href")) === "/" && (await page.getByRole("navigation", { name: "Main" }).count()) === 0,
+);
+check("The before/after divider can be dragged or moved with the keyboard", await page.getByRole("slider", { name: /Comparison divider/ }).isVisible());
+check("Remember me starts unticked", (await page.getByRole("checkbox", { name: "Remember me" }).isChecked()) === false);
+{
+  const legal = page.getByRole("contentinfo");
+  check("Footer links to Privacy and Terms", (await legal.getByRole("link", { name: "Privacy" }).getAttribute("href")) === "/privacy" && (await legal.getByRole("link", { name: "Terms" }).getAttribute("href")) === "/terms");
+  const art = await page.getByRole("slider", { name: /Comparison divider/ }).boundingBox();
+  const form = await page.getByLabel("Email").boundingBox();
+  check("On wide screens the picture sits beside the form", art && form && art.x < form.x && Math.abs(art.y - form.y) < 400);
+}
+
 // Sign up.
 await page.getByRole("link", { name: "Create an account" }).click();
 await page.waitForURL(atPath("/sign-up"));
 await page.getByLabel("Name", { exact: true }).filter({ visible: true }).fill("Ada Lovelace");
 await page.getByLabel("Email").filter({ visible: true }).fill(email);
+check(
+  "Create account shows its badge, heading, line and password rule",
+  (await page.getByRole("heading", { level: 1 }).innerText()) === "Make room for your creativity." &&
+    (await page.getByText("Create your ISOLA account to start editing.").isVisible()) &&
+    (await page.getByText("Use at least 12 characters.").isVisible()),
+);
+check(
+  "Terms and Privacy Policy are linked from the agreement, Help from the footer",
+  (await page.getByRole("link", { name: "Privacy Policy" }).getAttribute("href")) === "/privacy" &&
+    (await page.getByRole("contentinfo").getByRole("link", { name: "Help" }).getAttribute("href")) === "/support",
+);
 await page.getByLabel("Password", { exact: true }).filter({ visible: true }).fill("short");
+check("The password rule counts down as you type", await page.getByText("Use at least 12 characters (7 more).").isVisible());
 await page.getByRole("button", { name: "Create account" }).click();
-check("Short passwords are rejected before submitting", await page.getByText("Use at least 8 characters.").filter({ visible: true }).isVisible());
+check("Short passwords are rejected before submitting", await page.getByText("Your password needs at least 12 characters.").filter({ visible: true }).isVisible());
+const shortSignUp = await page.request.post(`${BASE}/api/auth/sign-up/email`, {
+  data: { name: "Too Short", email: `short-${Date.now()}@example.com`, password: "elevenchars" },
+  headers: { origin: BASE },
+});
+check("The server refuses passwords under 12 characters too", shortSignUp.status() === 400, `HTTP ${shortSignUp.status()}`);
+await page.screenshot({ path: join(OUT, "auth-sign-up.png") });
 await page.getByLabel("Password", { exact: true }).filter({ visible: true }).fill(password);
 await page.getByRole("button", { name: "Create account" }).click();
 
@@ -149,9 +188,15 @@ const wrong = page.getByRole("alert").filter({ hasText: "don't match" });
 await wrong.waitFor({ timeout: 10_000 });
 check("Wrong password shows a clear error", true);
 await page.getByLabel("Password", { exact: true }).filter({ visible: true }).fill(password);
+await page.getByRole("checkbox", { name: "Remember me" }).check();
 await submitSignIn(page);
 await page.waitForURL(atPath("/account"));
 check("Sign-in returns to the requested page", true);
+{
+  const cookie = (await context.cookies()).find((c) => c.name.endsWith("session_token"));
+  const days = cookie && cookie.expires > 0 ? (cookie.expires * 1000 - Date.now()) / 86_400_000 : 0;
+  check("Remember me keeps you signed in after the browser closes", days > 2, cookie ? `expires in ${days.toFixed(1)} days` : "no session cookie");
+}
 
 // Change password.
 await page.getByLabel("Current password").filter({ visible: true }).fill(password);
@@ -174,12 +219,42 @@ await submitSignIn(page);
 await page.getByRole("alert").filter({ hasText: "don't match" }).waitFor({ timeout: 15_000 });
 check("Deleted accounts can no longer sign in", true);
 
+// Without Remember me, the session lasts only as long as the browser.
+{
+  const forgetful = await browser.newContext();
+  const fp = await forgetful.newPage();
+  const account = { email: `forget-${Date.now()}@example.com`, password: "forgetful-password-1" };
+  await fp.request.post(`${BASE}/api/auth/sign-up/email`, { data: { name: "Brief Visit", ...account, callbackURL: "/verify-email?next=/account" }, headers: { origin: BASE } });
+  const confirm = await mailbox.waitFor(account.email, /Confirm your email/);
+  await fp.goto(linkIn(confirm, "/api/auth/verify-email"));
+  await fp.waitForURL((u) => u.pathname === "/verify-email");
+  await forgetful.clearCookies();
+  await fp.goto(`${BASE}/sign-in?next=/account`);
+  await fp.getByLabel("Email").fill(account.email);
+  await fp.getByLabel("Password", { exact: true }).fill(account.password);
+  await submitSignIn(fp);
+  await fp.waitForURL(atPath("/account"));
+  const cookie = (await forgetful.cookies()).find((c) => c.name.endsWith("session_token"));
+  check("Without Remember me, the session cookie ends with the browser", cookie?.expires === -1, cookie ? `expires ${cookie.expires}` : "no session cookie");
+  await forgetful.close();
+}
+
 // Mobile menu shows account links.
 const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const m = await mobile.newPage();
 await m.goto(BASE);
 await m.getByRole("button", { name: "Open menu" }).click();
 check("Mobile menu offers sign-in and sign-up", (await m.getByRole("link", { name: "Create account" }).isVisible()) && (await m.getByRole("dialog").getByRole("link", { name: "Sign in" }).isVisible()));
+for (const path of ["/sign-in", "/sign-up"]) {
+  await m.goto(`${BASE}${path}`, { waitUntil: "networkidle" });
+  const art = await m.locator("main img").first().boundingBox();
+  const heading = await m.getByRole("heading", { level: 1 }).boundingBox();
+  check(
+    `On phones, ${path} stacks badge, picture, heading and form without sideways scrolling`,
+    (await m.evaluate(() => document.documentElement.scrollWidth)) <= 390 && art && heading && art.y < heading.y,
+  );
+  await m.screenshot({ path: join(OUT, `auth${path.replace("/", "-")}-mobile.png`), fullPage: true });
+}
 await mobile.close();
 
 await browser.close();

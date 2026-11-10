@@ -53,7 +53,9 @@ export function ForgotPasswordForm({ mode }: { mode: "smtp" | "resend" | "consol
     <form onSubmit={submit} className="grid gap-4">
       {error && <FormAlert>{error}</FormAlert>}
       <TextField
+        tall
         label="Email"
+        placeholder="you@example.com"
         type="email"
         name="email"
         autoComplete="email"

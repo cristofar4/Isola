@@ -7,6 +7,7 @@ import { useState, type FormEvent } from "react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { authClient, authErrorMessage } from "@/lib/auth-client";
+import { PASSWORD_MAX, PASSWORD_MIN, PASSWORD_TOO_SHORT, passwordHint } from "@/lib/password";
 import { FormAlert, PasswordField } from "./fields";
 
 export function ResetPasswordForm() {
@@ -17,6 +18,7 @@ export function ResetPasswordForm() {
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hint = passwordHint(password);
   const [fieldError, setFieldError] = useState<{ password?: string; confirm?: string }>({});
   const [done, setDone] = useState(false);
 
@@ -52,7 +54,7 @@ export function ResetPasswordForm() {
   async function submit(event: FormEvent) {
     event.preventDefault();
     const errors: typeof fieldError = {};
-    if (password.length < 8) errors.password = "Use at least 8 characters.";
+    if (password.length < PASSWORD_MIN) errors.password = PASSWORD_TOO_SHORT;
     if (confirm !== password) errors.confirm = "The passwords don't match.";
     setFieldError(errors);
     if (errors.password || errors.confirm) return;
@@ -77,20 +79,23 @@ export function ResetPasswordForm() {
         </FormAlert>
       )}
       <PasswordField
+        tall
         label="New password"
         autoComplete="new-password"
         required
-        maxLength={128}
-        hint="At least 8 characters."
+        maxLength={PASSWORD_MAX}
+        hint={hint.text}
+        hintTone={hint.tone}
         error={fieldError.password}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
       <PasswordField
+        tall
         label="Confirm new password"
         autoComplete="new-password"
         required
-        maxLength={128}
+        maxLength={PASSWORD_MAX}
         error={fieldError.confirm}
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}

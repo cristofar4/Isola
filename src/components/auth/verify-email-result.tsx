@@ -57,7 +57,7 @@ export function VerifyEmailResult() {
     <form onSubmit={resend} className="grid gap-4">
       <FormAlert>{authErrorMessage({ code: error })}</FormAlert>
       <p className="text-sm text-ink-3">Enter your email and we&apos;ll send a new confirmation link.</p>
-      <TextField label="Email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+      <TextField tall label="Email" placeholder="you@example.com" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
       {notice && <FormAlert tone={notice.tone}>{notice.text}</FormAlert>}
       <Button type="submit" size="lg" disabled={sending || !email.trim()} icon={sending ? <Spinner className="size-5" /> : undefined}>
         Send a new link

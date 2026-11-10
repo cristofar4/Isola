@@ -13,6 +13,8 @@ export const metadata: Metadata = {
 export default function ResetPasswordPage() {
   return (
     <AuthShell
+      badge="New password"
+      links={["help", "privacy", "terms"]}
       title="Choose a new password"
       subtitle="After you save it, you'll be signed out of every device."
       footer={

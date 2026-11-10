@@ -1,6 +1,7 @@
 "use client";
 
 import { createAuthClient } from "better-auth/react";
+import { PASSWORD_MIN } from "./password";
 
 /** Browser client for /api/auth. Same origin, so no base URL is needed. */
 export const authClient = createAuthClient();
@@ -15,7 +16,7 @@ const messages: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: "That email and password don't match an account.",
   USER_ALREADY_EXISTS: "An account with this email already exists. Sign in instead.",
   USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "An account with this email already exists. Sign in instead.",
-  PASSWORD_TOO_SHORT: "Use at least 8 characters for your password.",
+  PASSWORD_TOO_SHORT: `Use at least ${PASSWORD_MIN} characters for your password.`,
   PASSWORD_TOO_LONG: "Use at most 128 characters for your password.",
   INVALID_EMAIL: "Enter a valid email address.",
   INVALID_PASSWORD: "That password is incorrect.",

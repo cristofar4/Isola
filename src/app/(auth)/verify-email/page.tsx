@@ -13,6 +13,8 @@ export const metadata: Metadata = {
 export default function VerifyEmailPage() {
   return (
     <AuthShell
+      badge="Confirm email"
+      links={["help", "privacy", "terms"]}
       title="Confirm your email"
       footer={
         <Link href="/" className="font-semibold text-blue-700 underline-offset-2 hover:underline">
