@@ -796,7 +796,9 @@ Run against a production build in this repository's sandbox, starting from an
 empty model folder (so the automatic download is exercised) and with
 `SMTP_URL=smtp://127.0.0.1:2525` so emails land in the tests' local mailbox:
 
-- **Unit tests:** 60/60 passing, including the consistency rules on synthetic
+- **Unit tests:** 94/94 passing (including 25 for Motion Studio: easing and
+  bezier curves, the film clock and centred transitions, every editing rule,
+  all six motion styles, saved styles, Update from scene and migrations), including the consistency rules on synthetic
   masks (crops, specks vs a pair of shoes, Amazon fill and its fix,
   Instagram's aspect range, scale outliers, enlargement after the plan limit),
   export-set sizes and brand preset validation.
@@ -927,11 +929,33 @@ empty model folder (so the automatic download is exercised) and with
   and subscription management.
 - **Google/GitHub (`node e2e/oauth.mjs`):** both buttons start a real OAuth
   redirect with the right callback URL (completing it needs real credentials).
-- **Accessibility:** axe-core reports 0 violations on 40 pages and states
+- **Scene and Motion Studio (`npm run test:motion`): 35/35**, on Pro: the
+  sample scene has separate title, product, shadow and backdrop layers;
+  backdrops change and undo; numeric placement survives a reload; Square and
+  Wide export together at 1080×1080 and 1920×1080; all six motion styles are
+  previewed by the renderer without changing the scene; Social launch builds
+  five linked shots; reordering the storyboard reorders the timeline (and
+  undoes); split and undo; position keyframes draw a draggable path and an
+  ease-in changes the in-between values; scene camera and layer keyframes are
+  separate; a background grade brightens the backdrop while the product's
+  pixels stay identical; scopes come from the preview; imported sound gets a
+  waveform and the meters read about −21 dB while playing; a video comes in
+  with its sound; media deleted from storage is flagged and relinked; Update
+  from scene shows “Your headline” → “Spring serum” and updates the title;
+  only encodable formats are offered; the export is checked with ffprobe
+  (H.264, 1920×1080, 30 fps, Opus sound, the film's length) and a frame from
+  the file matches the preview (mean difference 6 of 255); the film reloads;
+  it's listed and in Downloads; no sideways scrolling on phones.
+- **Batch Studio in the studio:** the batch (47/47), navigation (33/33),
+  studio (36/36) and account (22/22) suites pass with signed-in Batch Studio
+  at `/studio/batch`.
+- **Accessibility:** axe-core reports 0 violations on 51 pages and states
   (including all seven developer docs pages, /tools, the studio dashboard, its
   ⌘K palette and phone menu, the brand preset editor, the asset library empty
   and with details and a selection, a project board with its Review and
-  History tabs, the new-project sheet, Trash and Downloads),
+  History tabs, the new-project sheet, Trash and Downloads, Batch Studio in
+  the studio, Scene Studio's list, editor tabs and style picker, and every
+  Motion Studio workspace),
   including the editor with an image, the export dialog, the account page, the
   auth screens, and Batch Studio with images, the Export tab and the mobile
   settings drawer.
@@ -1007,9 +1031,15 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 - **Server rate limiting** is in memory per instance; use a shared store for
   multi-instance deployments.
 - **Project persistence:** editor sessions live in the tab and are lost on
-  reload. The asset library, studio projects and the current Batch Studio
-  batch are kept in the browser (IndexedDB), not in the account, so they don't
-  follow you to another device.
+  reload. The asset library, studio projects, scenes, films, saved motion
+  styles and the current Batch Studio batch are kept in the browser
+  (IndexedDB), not in the account, so they don't follow you to another device.
+- **Motion Studio limits:** export runs in the browser and needs WebCodecs
+  (current Chrome, Edge, Safari or Firefox); which codecs are offered depends
+  on the browser (Linux Chrome has no AAC encoder, so MP4 sound is Opus
+  there). No LUTs, no beat detection, no bundled music, and blur needs canvas
+  filters (not every Safari). The viewer plays video through `<video>`
+  elements kept on the project clock; exports decode frames exactly.
 - **Model hosting:** the ~179–224 MB model files must be served by your host or a
   CDN. The built-in `/api/models/` route streams them from the Node server
   (downloading them once on first use), which needs a long-running Node host

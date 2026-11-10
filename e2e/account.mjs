@@ -51,7 +51,7 @@ check("The heading is your name, with your plan beside it", (await page.getByRol
 check("Your email shows as confirmed", await page.getByLabel("Email confirmed").first().isVisible());
 check(
   "Quick links to the editor and Batch Studio",
-  (await page.getByRole("link", { name: "Open the editor" }).last().getAttribute("href")) === "/editor" && (await page.locator("main").getByRole("link", { name: "Batch Studio" }).getAttribute("href")) === "/batch",
+  (await page.getByRole("link", { name: "Open the editor" }).last().getAttribute("href")) === "/editor" && (await page.locator("main").getByRole("link", { name: "Batch Studio" }).getAttribute("href")) === "/studio/batch",
 );
 // Confirming the email signed in one more browser, so count what the server reports.
 const deviceCount = (await (await context.request.get(`${BASE}/api/account/devices`)).json()).devices.length;
