@@ -80,5 +80,6 @@ export function Field({ label, children, hint }: { label: string; children: Reac
   );
 }
 
-export const darkSelect = "h-8 w-full rounded-[8px] border border-white/10 bg-[#1D222B] px-2 text-[13px] text-[#E8EAF0] outline-none focus:border-[#8B9BFF]";
+export const darkSelectBase = "h-8 rounded-[8px] border border-white/10 bg-[#1D222B] px-2 text-[13px] text-[#E8EAF0] outline-none focus:border-[#8B9BFF]";
+export const darkSelect = `${darkSelectBase} w-full`;
 export const darkInput = "h-8 w-full rounded-[8px] border border-white/10 bg-[#1D222B] px-2.5 text-[13px] text-[#E8EAF0] outline-none focus:border-[#8B9BFF]";

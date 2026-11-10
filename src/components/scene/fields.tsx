@@ -63,7 +63,7 @@ export function NumberField({
           disabled={disabled}
           value={shown}
           onChange={(e) => setDraft(e.target.value)}
-          onBlur={(e) => commit(e.target.value)}
+          onBlur={(e) => draft !== null && commit(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
             else if (e.key === "Escape") setDraft(null);

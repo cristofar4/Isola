@@ -2,7 +2,6 @@
 
 import { Expand, Pause, Play, Repeat, SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { cn } from "@/lib/cn";
 import { commit, preview, setPlayhead, useEditor } from "@/lib/motion/editor";
 import { ASPECT_ORDER, ASPECTS, type Aspect, type Clip, type Film } from "@/lib/motion/model";
 import { setKeyframe, updateClip } from "@/lib/motion/ops";
@@ -11,7 +10,7 @@ import { cameraValue, clipValue, filmDuration, timecode, toFrame } from "@/lib/m
 import { ensureFonts, fontFamilies } from "@/lib/scene/fonts";
 import { loadAssetImages, onImagesChanged } from "@/lib/scene/resources";
 import { onVideoFrame, previewResources, togglePlay } from "./playback";
-import { IconButton, darkSelect } from "./ui";
+import { IconButton, darkSelectBase } from "./ui";
 
 /** The viewer's canvas, so scopes can read the real preview pixels. */
 export const viewerCanvas: { current: HTMLCanvasElement | null; version: number } = { current: null, version: 0 };
@@ -202,7 +201,7 @@ export function Viewer() {
         <label className="sr-only" htmlFor="viewer-aspect">
           Aspect ratio
         </label>
-        <select id="viewer-aspect" value={film.aspect} onChange={(e) => commit({ ...film, aspect: e.target.value as Aspect })} className={cn(darkSelect, "w-auto")} title="Output aspect ratio">
+        <select id="viewer-aspect" value={film.aspect} onChange={(e) => commit({ ...film, aspect: e.target.value as Aspect })} className={darkSelectBase} title="Output aspect ratio">
           {ASPECT_ORDER.map((a) => (
             <option key={a} value={a}>
               {ASPECTS[a].label}
@@ -212,7 +211,7 @@ export function Viewer() {
         <label className="sr-only" htmlFor="viewer-quality">
           Preview quality
         </label>
-        <select id="viewer-quality" value={quality} onChange={(e) => setQuality(Number(e.target.value) as Quality)} className={cn(darkSelect, "w-auto")} title="Preview quality (exports are always full quality)">
+        <select id="viewer-quality" value={quality} onChange={(e) => setQuality(Number(e.target.value) as Quality)} className={darkSelectBase} title="Preview quality (exports are always full quality)">
           <option value={1}>Full quality</option>
           <option value={0.5}>Half</option>
           <option value={0.25}>Quarter</option>
@@ -224,7 +223,7 @@ export function Viewer() {
           <label className="sr-only" htmlFor="viewer-zoom">
             Zoom
           </label>
-          <select id="viewer-zoom" value={String(zoom)} onChange={(e) => setZoom(e.target.value === "fit" ? "fit" : (Number(e.target.value) as Zoom))} className={cn(darkSelect, "w-auto")}>
+          <select id="viewer-zoom" value={String(zoom)} onChange={(e) => setZoom(e.target.value === "fit" ? "fit" : (Number(e.target.value) as Zoom))} className={darkSelectBase}>
             <option value="fit">Fit</option>
             <option value="0.5">50%</option>
             <option value="1">100%</option>

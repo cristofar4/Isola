@@ -11,7 +11,7 @@ import { canBlur, clipLocalAt } from "@/lib/motion/render";
 import { detachClip } from "@/lib/motion/scene-link";
 import { bezierOf, cameraValue, clipBase, clipRange, clipValue, secs, shotStart, valueAt } from "@/lib/motion/time";
 import { FONT_LABEL, FONT_WEIGHTS, type FontId } from "@/lib/scene/model";
-import { DarkButton, Diamond, Field, PanelTitle, darkInput, darkSelect } from "./ui";
+import { DarkButton, Diamond, Field, PanelTitle, darkInput, darkSelect, darkSelectBase } from "./ui";
 
 /* --------------------------------------------------------------- props --- */
 
@@ -310,7 +310,7 @@ export function AnimatePanel() {
             <label className="sr-only" htmlFor="curve-prop">
               Property
             </label>
-            <select id="curve-prop" value={curveRow.target.prop} onChange={(e) => setCurveProp(e.target.value)} className={cn(darkSelect, "ml-auto w-auto")}>
+            <select id="curve-prop" value={curveRow.target.prop} onChange={(e) => setCurveProp(e.target.value)} className={cn(darkSelectBase, "ml-auto")}>
               {rows.map((r) => (
                 <option key={r.target.prop} value={r.target.prop}>
                   {r.spec.label}

@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Diamond as DiamondIcon, Eye, EyeOff, Flag, Lock, Magnet, Plus, Scissors, Trash2, Unlock, Volume2, VolumeX, ZoomIn } from "lucide-react";
+import { DropdownMenu } from "radix-ui";
+import { ArrowDown, ArrowUp, Diamond as DiamondIcon, Ellipsis, Eye, EyeOff, Flag, Lock, Magnet, Pencil, Plus, Scissors, Trash2, Unlock, Volume2, VolumeX, ZoomIn } from "lucide-react";
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { askName } from "@/components/studio/name-dialog";
 import { cn } from "@/lib/cn";
@@ -12,7 +13,7 @@ import { assetMissing } from "@/lib/scene/resources";
 import { missingVideos } from "./playback";
 import { IconButton } from "./ui";
 
-const HEADER = 172;
+const HEADER = 196;
 const RULER = 34;
 const rowHeight = (t: Track) => (t.kind === "audio" ? 52 : 44);
 
@@ -305,15 +306,27 @@ export function Timeline() {
                   <IconButton label={track.locked ? `Unlock ${track.name}` : `Lock ${track.name}`} active={track.locked} onClick={() => commit(setTrack(film, track.id, { locked: !track.locked }))} className="size-6">
                     {track.locked ? <Lock className="size-3.5" aria-hidden="true" /> : <Unlock className="size-3.5" aria-hidden="true" />}
                   </IconButton>
-                  <IconButton label={`Move ${track.name} up`} disabled={ti === 0} onClick={() => commit(moveTrack(film, track.id, ti - 1))} className="size-6">
-                    <ArrowUp className="size-3.5" aria-hidden="true" />
-                  </IconButton>
-                  <IconButton label={`Move ${track.name} down`} disabled={ti === film.tracks.length - 1} onClick={() => commit(moveTrack(film, track.id, ti + 1))} className="size-6">
-                    <ArrowDown className="size-3.5" aria-hidden="true" />
-                  </IconButton>
-                  <IconButton label={`Delete ${track.name}`} onClick={() => commit(deleteTrack(film, track.id))} className="size-6">
-                    <Trash2 className="size-3.5" aria-hidden="true" />
-                  </IconButton>
+                  <DropdownMenu.Root modal={false}>
+                    <DropdownMenu.Trigger aria-label={`More for ${track.name}`} className="inline-flex size-6 shrink-0 items-center justify-center rounded-[6px] text-[#9AA1B2] hover:bg-white/[0.08] hover:text-white">
+                      <Ellipsis className="size-3.5" aria-hidden="true" />
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content align="start" sideOffset={4} className="z-50 min-w-[170px] rounded-lg border border-white/10 bg-[#1D222B] p-1 shadow-xl">
+                        {(
+                          [
+                            ["Rename", Pencil, () => void askName("Rename track", { label: "Track name", initial: track.name, action: "Rename" }).then((n) => { if (n) commit(setTrack(film, track.id, { name: n })); }), false],
+                            ["Move up", ArrowUp, () => commit(moveTrack(film, track.id, ti - 1)), ti === 0],
+                            ["Move down", ArrowDown, () => commit(moveTrack(film, track.id, ti + 1)), ti === film.tracks.length - 1],
+                            ["Delete track", Trash2, () => commit(deleteTrack(film, track.id)), false],
+                          ] as const
+                        ).map(([label, Icon, run, disabled]) => (
+                          <DropdownMenu.Item key={label} disabled={disabled} onSelect={run} className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-[#E8EAF0] outline-none data-[disabled]:opacity-35 data-[highlighted]:bg-white/10">
+                            <Icon className="size-3.5" aria-hidden="true" /> {label}
+                          </DropdownMenu.Item>
+                        ))}
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
                 </div>
                 <div className={cn("relative border-b border-white/[0.06]", ti % 2 ? "bg-white/[0.015]" : "", track.locked && "bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgba(255,255,255,0.025)_6px_12px)]")} style={{ width }} onPointerDown={startScrub}>
                   {clips.map((c) => {
