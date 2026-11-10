@@ -65,13 +65,16 @@ interface Layout {
 const DEFAULT_LAYOUT: Layout = { left: 300, right: 320, bottom: 260, leftOpen: true, rightOpen: true, bottomOpen: true };
 
 /** A drag handle between panels. */
-function Splitter({ axis, onDrag, label }: { axis: "x" | "y"; onDrag: (delta: number) => void; label: string }) {
+function Splitter({ axis, onDrag, label, value, min, max }: { axis: "x" | "y"; onDrag: (delta: number) => void; label: string; value: number; min: number; max: number }) {
   const last = useRef<number | null>(null);
   return (
     <div
       role="separator"
       aria-orientation={axis === "x" ? "vertical" : "horizontal"}
       aria-label={label}
+      aria-valuenow={Math.round(value)}
+      aria-valuemin={min}
+      aria-valuemax={max}
       tabIndex={0}
       onKeyDown={(e) => {
         const step = e.shiftKey ? 40 : 12;
@@ -331,7 +334,7 @@ function Editor() {
                 setTab(w.library);
                 if (narrow) setMobilePanel("inspector");
               }}
-              className={cn("h-8 shrink-0 rounded-[8px] px-3.5 text-[13px] font-semibold", workspace === w.id ? "bg-[#6F7FF7] text-white" : "text-[#C9CEDA] hover:bg-white/[0.06]")}
+              className={cn("h-8 shrink-0 rounded-[8px] px-3.5 text-[13px] font-semibold", workspace === w.id ? "bg-[#5465E6] text-white" : "text-[#C9CEDA] hover:bg-white/[0.06]")}
             >
               {w.label}
             </button>
@@ -345,7 +348,7 @@ function Editor() {
           <IconButton label="Redo (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo}>
             <Redo2 className="size-4" aria-hidden="true" />
           </IconButton>
-          <button type="button" onClick={() => setWorkspace("deliver")} className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-[#6F7FF7] px-3 text-[13px] font-semibold text-white hover:bg-[#7F8EFF]">
+          <button type="button" onClick={() => setWorkspace("deliver")} className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-[#5465E6] px-3 text-[13px] font-semibold text-white hover:bg-[#4757D9]">
             <Upload className="size-3.5" aria-hidden="true" /> Export film
           </button>
         </div>
@@ -369,7 +372,8 @@ function Editor() {
       {source && <UpdateDialog film={film} scene={source} open={updating} onOpenChange={setUpdating} />}
 
       {narrow ? (
-        <div className="flex min-h-0 flex-1 flex-col">
+        <main id="main" className="flex min-h-0 flex-1 flex-col">
+          <h1 className="sr-only">Motion Studio: {film.name}</h1>
           <div className="h-[46dvh] min-h-[240px] shrink-0 border-b border-white/[0.08]">
             <Viewer />
           </div>
@@ -391,9 +395,10 @@ function Editor() {
             )}
             {mobilePanel === "inspector" && <div className="h-full overflow-y-auto">{inspector}</div>}
           </div>
-        </div>
+        </main>
       ) : (
-        <>
+        <main id="main" className="flex min-h-0 flex-1 flex-col">
+          <h1 className="sr-only">Motion Studio: {film.name}</h1>
           <div className="flex min-h-0 flex-1">
             {libraryRail}
             {layout.leftOpen && (
@@ -401,27 +406,27 @@ function Editor() {
                 <div className="flex min-h-0 shrink-0 flex-col" style={{ width: layout.left }}>
                   {library}
                 </div>
-                <Splitter axis="x" label="Resize library" onDrag={(d) => resize("left", d)} />
+                <Splitter axis="x" label="Resize library" value={layout.left} min={220} max={520} onDrag={(d) => resize("left", d)} />
               </>
             )}
-            <main id="main" className="flex min-w-0 flex-1 flex-col">
+            <div className="flex min-w-0 flex-1 flex-col">
               <div className="min-h-0 flex-1">
                 <Viewer />
               </div>
               <div className="shrink-0 border-t border-white/[0.08] bg-[#12151B]">
                 <Storyboard />
               </div>
-            </main>
+            </div>
             {layout.rightOpen && (
               <>
-                <Splitter axis="x" label="Resize inspector" onDrag={(d) => resize("right", -d)} />
+                <Splitter axis="x" label="Resize inspector" value={layout.right} min={260} max={520} onDrag={(d) => resize("right", -d)} />
                 <div className="flex min-h-0 shrink-0 flex-col" style={{ width: layout.right }}>
                   {inspector}
                 </div>
               </>
             )}
           </div>
-          {layout.bottomOpen && <Splitter axis="y" label="Resize timeline" onDrag={(d) => resize("bottom", -d)} />}
+          {layout.bottomOpen && <Splitter axis="y" label="Resize timeline" value={layout.bottom} min={140} max={560} onDrag={(d) => resize("bottom", -d)} />}
           <div className="flex shrink-0 items-center gap-1 border-t border-white/[0.08] bg-[#12151B] px-2 py-0.5">
             <IconButton label={layout.leftOpen ? "Hide library" : "Show library"} onClick={() => setLayout((l) => ({ ...l, leftOpen: !l.leftOpen }))}>
               {layout.leftOpen ? <PanelLeftClose className="size-4" aria-hidden="true" /> : <PanelLeftOpen className="size-4" aria-hidden="true" />}
@@ -439,7 +444,7 @@ function Editor() {
               <Timeline />
             </div>
           )}
-        </>
+        </main>
       )}
       {dragging && (
         <div className="pointer-events-none fixed inset-3 z-[70] grid place-items-center rounded-[18px] border-2 border-dashed border-[#8B9BFF] bg-[#101318]/80 text-[16px] font-semibold text-white">Drop images, video or sound to add them</div>

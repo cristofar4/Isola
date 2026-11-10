@@ -278,7 +278,7 @@ export function Viewer() {
             <IconButton label="Previous frame" onClick={() => step(-1)}>
               <StepBack className="size-4" aria-hidden="true" />
             </IconButton>
-            <button type="button" onClick={togglePlay} aria-label={playing ? "Pause" : "Play"} className="inline-flex size-10 items-center justify-center rounded-full bg-[#6F7FF7] text-white hover:bg-[#7F8EFF]">
+            <button type="button" onClick={togglePlay} aria-label={playing ? "Pause" : "Play"} className="inline-flex size-10 items-center justify-center rounded-full bg-[#5465E6] text-white hover:bg-[#4757D9]">
               {playing ? <Pause className="size-5" aria-hidden="true" /> : <Play className="ml-0.5 size-5" aria-hidden="true" />}
             </button>
             <IconButton label="Next frame" onClick={() => step(1)}>

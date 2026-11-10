@@ -505,6 +505,7 @@ function Loaded({ initial }: { initial: Scene }) {
 
   return (
     <div className={cn("flex min-h-[calc(100dvh-4rem)] flex-col", creativeFontClasses)}>
+      <h1 className="sr-only">Scene Studio: {scene.name}</h1>
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-3 py-2 sm:px-4">
         <label className="sr-only" htmlFor="scene-name">
@@ -569,6 +570,7 @@ function Loaded({ initial }: { initial: Scene }) {
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
         <aside aria-label="Backdrops and assets" className="order-2 flex min-h-[320px] flex-col border-t border-line bg-surface lg:order-none lg:max-h-[calc(100dvh-7.5rem)] lg:border-r lg:border-t-0">
+          <h2 className="sr-only">Backdrops and assets</h2>
           <LeftPanel scene={scene} onAddAsset={addAsset} onBackdrop={setBackdrop} notice={notice} />
         </aside>
 
@@ -601,6 +603,7 @@ function Loaded({ initial }: { initial: Scene }) {
         </div>
 
         <aside aria-label="Scene settings" className="order-3 border-t border-line bg-surface lg:max-h-[calc(100dvh-7.5rem)] lg:overflow-y-auto lg:border-l lg:border-t-0 [scrollbar-width:thin]">
+          <h2 className="sr-only">Scene settings</h2>
           <Tabs.Root value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
             <Tabs.List aria-label="Settings" className="sticky top-0 z-10 flex border-b border-line bg-surface px-3">
               {(

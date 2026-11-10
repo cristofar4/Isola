@@ -192,6 +192,7 @@ function CurveEditor({ film, target, keyframes, span, local }: { film: Film; tar
                 stroke="#F5B942"
                 strokeWidth={2}
                 className="cursor-grab"
+                role="img"
                 aria-label={`Curve handle ${i + 1}`}
                 onPointerDown={(e) => {
                   (e.currentTarget as Element).setPointerCapture(e.pointerId);
@@ -286,7 +287,7 @@ export function AnimatePanel() {
             ["camera", "Scene camera"],
           ] as const
         ).map(([v, label]) => (
-          <button key={v} type="button" role="radio" aria-checked={effective === v} disabled={v === "layer" && !clip} onClick={() => setScope(v)} className={cn("h-8 rounded-[8px] text-[12px] font-semibold disabled:opacity-35", effective === v ? "bg-[#6F7FF7] text-white" : "text-[#C9CEDA] hover:bg-white/[0.06]")}>
+          <button key={v} type="button" role="radio" aria-checked={effective === v} disabled={v === "layer" && !clip} onClick={() => setScope(v)} className={cn("h-8 rounded-[8px] text-[12px] font-semibold disabled:opacity-35", effective === v ? "bg-[#5465E6] text-white" : "text-[#C9CEDA] hover:bg-white/[0.06]")}>
             {label}
           </button>
         ))}
@@ -380,7 +381,7 @@ function TextSection({ film, clip }: { film: Film; clip: Clip }) {
       </div>
       <div role="radiogroup" aria-label="Alignment" className="grid grid-cols-3 gap-1">
         {(["left", "center", "right"] as const).map((a) => (
-          <button key={a} type="button" role="radio" aria-checked={style.align === a} onClick={() => set({ align: a })} className={cn("h-7 rounded-[7px] text-[12px] capitalize", style.align === a ? "bg-[#6F7FF7] text-white" : "bg-white/[0.04] text-[#C9CEDA]")}>
+          <button key={a} type="button" role="radio" aria-checked={style.align === a} onClick={() => set({ align: a })} className={cn("h-7 rounded-[7px] text-[12px] capitalize", style.align === a ? "bg-[#5465E6] text-white" : "bg-white/[0.04] text-[#C9CEDA]")}>
             {a === "center" ? "Centre" : a}
           </button>
         ))}
@@ -406,7 +407,7 @@ function TextSection({ film, clip }: { film: Film; clip: Clip }) {
       {(src.anim.in.kind === "stagger" || src.anim.out.kind === "stagger") && (
         <div role="radiogroup" aria-label="Stagger by" className="grid grid-cols-2 gap-1">
           {(["word", "letter"] as const).map((b) => (
-            <button key={b} type="button" role="radio" aria-checked={src.anim.by === b} onClick={() => commit(updateClip(film, clip.id, (c) => (c.source.kind === "text" ? { ...c, source: { ...c.source, anim: { ...c.source.anim, by: b } } } : c)))} className={cn("h-7 rounded-[7px] text-[12px]", src.anim.by === b ? "bg-[#6F7FF7] text-white" : "bg-white/[0.04] text-[#C9CEDA]")}>
+            <button key={b} type="button" role="radio" aria-checked={src.anim.by === b} onClick={() => commit(updateClip(film, clip.id, (c) => (c.source.kind === "text" ? { ...c, source: { ...c.source, anim: { ...c.source.anim, by: b } } } : c)))} className={cn("h-7 rounded-[7px] text-[12px]", src.anim.by === b ? "bg-[#5465E6] text-white" : "bg-white/[0.04] text-[#C9CEDA]")}>
               By {b}
             </button>
           ))}
@@ -451,7 +452,7 @@ function ClipInspector({ film, clip }: { film: Film; clip: Clip }) {
               <div role="radiogroup" aria-label="Anchor point" className="grid w-[84px] grid-cols-3 gap-1">
                 {[0, 0.5, 1].flatMap((y) =>
                   [0, 0.5, 1].map((x) => (
-                    <button key={`${x}${y}`} type="button" role="radio" aria-checked={anchor.anchorX === x && anchor.anchorY === y} aria-label={`Anchor ${y === 0 ? "top" : y === 0.5 ? "middle" : "bottom"} ${x === 0 ? "left" : x === 0.5 ? "centre" : "right"}`} onClick={() => commit(updateClip(film, clip.id, (c) => ({ ...c, transform: { ...c.transform, anchorX: x, anchorY: y } })))} className={cn("size-6 rounded-[5px] border", anchor.anchorX === x && anchor.anchorY === y ? "border-[#8B9BFF] bg-[#6F7FF7]" : "border-white/15 bg-white/[0.04] hover:bg-white/10")} />
+                    <button key={`${x}${y}`} type="button" role="radio" aria-checked={anchor.anchorX === x && anchor.anchorY === y} aria-label={`Anchor ${y === 0 ? "top" : y === 0.5 ? "middle" : "bottom"} ${x === 0 ? "left" : x === 0.5 ? "centre" : "right"}`} onClick={() => commit(updateClip(film, clip.id, (c) => ({ ...c, transform: { ...c.transform, anchorX: x, anchorY: y } })))} className={cn("size-6 rounded-[5px] border", anchor.anchorX === x && anchor.anchorY === y ? "border-[#8B9BFF] bg-[#5465E6]" : "border-white/15 bg-white/[0.04] hover:bg-white/10")} />
                   )),
                 )}
               </div>

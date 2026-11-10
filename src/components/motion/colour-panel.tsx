@@ -141,7 +141,7 @@ export function ColourPanel() {
     <div className="grid gap-3 px-3 pb-4" data-colour-panel>
       <div role="radiogroup" aria-label="Apply colour to" className="grid gap-1">
         {(["background", "frame", "layer"] as Scope[]).map((s) => (
-          <button key={s} type="button" role="radio" aria-checked={effective === s} disabled={s === "layer" && !clip} onClick={() => setScope(s)} className={cn("flex h-9 items-center justify-between rounded-[9px] px-3 text-left text-[13px] disabled:opacity-35", effective === s ? "bg-[#6F7FF7]/20 text-white ring-1 ring-[#8B9BFF]/60" : "bg-white/[0.04] text-[#C9CEDA] hover:bg-white/[0.07]")}>
+          <button key={s} type="button" role="radio" aria-checked={effective === s} disabled={s === "layer" && !clip} onClick={() => setScope(s)} className={cn("flex h-9 items-center justify-between rounded-[9px] px-3 text-left text-[13px] disabled:opacity-35", effective === s ? "bg-[#5465E6]/25 text-white ring-1 ring-[#8B9BFF]/60" : "bg-white/[0.04] text-[#C9CEDA] hover:bg-white/[0.07]")}>
             {scopeLabel[s]}
             {s === "frame" && <span className="text-[11px] text-[#F5D58A]">includes the product</span>}
             {s === "background" && <span className="text-[11px] text-[#9AE6B4]">product untouched</span>}

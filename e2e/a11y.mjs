@@ -98,6 +98,37 @@ await page.goto(`${BASE}/studio/trash`, { waitUntil: "networkidle" });
 await audit("/studio/trash");
 await page.goto(`${BASE}/studio/downloads`, { waitUntil: "networkidle" });
 await audit("/studio/downloads");
+// Batch Studio inside the studio, Scene Studio and Motion Studio.
+await page.goto(`${BASE}/studio/batch`, { waitUntil: "networkidle" });
+await page.locator("#batch-files").waitFor({ state: "attached" });
+await audit("/studio/batch");
+await page.goto(`${BASE}/studio/scenes`, { waitUntil: "networkidle" });
+await audit("/studio/scenes (empty)");
+await page.getByRole("button", { name: "Sample scene" }).click();
+await page.waitForURL("**/studio/scenes/**", { timeout: 60_000 });
+await page.locator("[data-save-state=saved]").filter({ visible: true }).waitFor({ timeout: 30_000 });
+await page.waitForTimeout(800);
+await audit("/studio/scenes/[id] (editor)");
+await page.getByRole("tab", { name: "Scene", exact: true }).click();
+await audit("/studio/scenes/[id] (scene tab)");
+await page.getByRole("tab", { name: "Export", exact: true }).click();
+await audit("/studio/scenes/[id] (export tab)");
+await page.getByRole("button", { name: "Animate scene" }).first().click();
+await page.getByRole("dialog", { name: "Choose a motion style" }).waitFor();
+await page.waitForTimeout(800);
+await audit("/studio/scenes/[id] (choose a motion style)");
+await page.getByRole("dialog", { name: "Choose a motion style" }).getByRole("button", { name: "Animate in Motion Studio" }).click();
+await page.waitForURL("**/motion/**", { timeout: 30_000 });
+await page.locator("[data-viewer]").waitFor({ timeout: 30_000 });
+await page.waitForTimeout(800);
+await audit("/motion/[id] (assemble)");
+for (const ws of ["Animate", "Colour", "Sound", "Deliver"]) {
+  await page.getByRole("button", { name: ws, exact: true }).click();
+  await page.waitForTimeout(700);
+  await audit(`/motion/[id] (${ws.toLowerCase()})`);
+}
+await page.goto(`${BASE}/studio/motion`, { waitUntil: "networkidle" });
+await audit("/studio/motion");
 await page.setViewportSize({ width: 390, height: 844 });
 await page.goto(`${BASE}/studio`, { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Open studio menu" }).click();

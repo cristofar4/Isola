@@ -84,7 +84,7 @@ await page.goto(`${BASE}/studio`, { waitUntil: "networkidle" });
 check("The studio greets you", (await page.getByRole("heading", { level: 1 }).innerText()) === "Your studio, in sync." && (await page.getByText("Welcome back, Ada").isVisible()));
 const sidebar = page.getByRole("navigation", { name: "Studio" });
 const navText = (await sidebar.innerText()).replace(/\s+/g, " ");
-check("The sidebar has the studio's sections and tools", ["Home", "Image editor", "Batch Studio", "Brand presets", "Export sets", "Quality review", "Projects", "Asset library", "Downloads", "Trash", "Help", "Settings"].every((t) => navText.includes(t)), navText);
+check("The sidebar has the studio's sections and tools", ["Home", "Image editor", "Batch Studio", "Brand presets", "Export sets", "Quality review", "Projects", "Asset library", "Scene Studio", "Motion Studio", "Downloads", "Trash", "Help", "Settings"].every((t) => navText.includes(t)), navText);
 const tools = page.getByRole("region", { name: "Quick start tools" });
 const toolHrefs = await tools.getByRole("link").evaluateAll((a) => a.map((x) => x.getAttribute("href")));
 check("Quick start tools open the real tools", JSON.stringify(toolHrefs.slice(0, 4)) === JSON.stringify(["/editor", "/editor?tool=restore", "/studio/batch", "/editor?panel=background"]) && toolHrefs[5] === "/studio/batch?export=set", toolHrefs.join(" "));

@@ -295,7 +295,7 @@ export function UpdateDialog({ film, scene, open, onOpenChange }: { film: Film; 
                             const key = `${c.layerId}:${f.field}`;
                             const on = (conflicts[key] ?? "film") === v;
                             return (
-                              <button key={v} type="button" role="radio" aria-checked={on} onClick={() => setConflicts((x) => ({ ...x, [key]: v }))} className={cn("rounded-full px-2 py-0.5", on ? "bg-[#6F7FF7] text-white" : "bg-white/[0.06] text-[#C9CEDA]")}>
+                              <button key={v} type="button" role="radio" aria-checked={on} onClick={() => setConflicts((x) => ({ ...x, [key]: v }))} className={cn("rounded-full px-2 py-0.5", on ? "bg-[#5465E6] text-white" : "bg-white/[0.06] text-[#C9CEDA]")}>
                                 {v === "film" ? "Keep my edit" : "Take the scene's"}
                               </button>
                             );

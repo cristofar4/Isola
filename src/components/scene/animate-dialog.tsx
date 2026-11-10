@@ -89,9 +89,9 @@ export function AnimateDialog({ scene, open, onOpenChange }: { scene: Scene; ope
             </Dialog.Close>
           </div>
           <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_320px]">
-            <ul role="radiogroup" aria-label="Motion styles" className="grid content-start gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div role="radiogroup" aria-label="Motion styles" className="grid content-start gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
               {previews.map((p) => (
-                <li key={p.id}>
+                <div key={p.id}>
                   <button
                     type="button"
                     role="radio"
@@ -115,9 +115,9 @@ export function AnimateDialog({ scene, open, onOpenChange }: { scene: Scene; ope
                       {p.problem && <span className="mt-1 block text-[12px] font-medium text-warn">{p.problem}</span>}
                     </span>
                   </button>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
             <aside className="grid content-start gap-4 border-t border-line p-5 lg:border-l lg:border-t-0">
               {current?.kit ? (
                 <>

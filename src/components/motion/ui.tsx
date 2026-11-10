@@ -12,7 +12,7 @@ export const M = {
   text: "text-[#E8EAF0]",
   muted: "text-[#9AA1B2]",
   accent: "text-[#A4B1FF]",
-  accentBg: "bg-[#6F7FF7]",
+  accentBg: "bg-[#5465E6]",
 };
 
 export const DarkButton = forwardRef<HTMLButtonElement, ComponentProps<"button"> & { tone?: "primary" | "plain" | "ghost" | "danger"; icon?: ReactNode; size?: "sm" | "md" }>(function DarkButton({ tone = "plain", icon, size = "md", className, children, ...props }, ref) {
@@ -24,7 +24,7 @@ export const DarkButton = forwardRef<HTMLButtonElement, ComponentProps<"button">
       className={cn(
         "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-[9px] font-semibold transition-colors disabled:pointer-events-none disabled:opacity-40",
         size === "sm" ? "h-8 px-2.5 text-[13px]" : "h-9 px-3.5 text-[14px]",
-        tone === "primary" && "bg-[#6F7FF7] text-white hover:bg-[#7F8EFF]",
+        tone === "primary" && "bg-[#5465E6] text-white hover:bg-[#4757D9]",
         tone === "plain" && "border border-white/10 bg-white/[0.04] text-[#E8EAF0] hover:bg-white/[0.08]",
         tone === "ghost" && "text-[#C9CEDA] hover:bg-white/[0.07] hover:text-white",
         tone === "danger" && "border border-[#F07167]/30 text-[#FFB4AD] hover:bg-[#F07167]/10",
@@ -45,7 +45,7 @@ export function IconButton({ label, children, active, className, ...props }: Com
       title={label}
       aria-pressed={active}
       {...props}
-      className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-[8px] text-[#C9CEDA] hover:bg-white/[0.08] hover:text-white disabled:opacity-35", active && "bg-[#6F7FF7]/20 text-[#C3CBFF]", className)}
+      className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-[8px] text-[#C9CEDA] hover:bg-white/[0.08] hover:text-white disabled:opacity-35", active && "bg-[#5465E6]/25 text-[#C3CBFF]", className)}
     >
       {children}
     </button>

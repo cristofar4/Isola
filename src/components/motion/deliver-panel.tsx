@@ -126,9 +126,9 @@ export function DeliverPanel() {
         ) : (
           <div role="radiogroup" aria-label="Format" className="grid gap-1">
             {options.map((o) => (
-              <button key={o.container} type="button" role="radio" aria-checked={encoding?.container === o.container} disabled={busy} onClick={() => set({ container: o.container })} className={cn("flex h-9 items-center justify-between rounded-[8px] px-2.5 text-[13px]", encoding?.container === o.container ? "bg-[#6F7FF7]/20 text-white ring-1 ring-[#8B9BFF]/60" : "bg-white/[0.04] text-[#C9CEDA]")}>
+              <button key={o.container} type="button" role="radio" aria-checked={encoding?.container === o.container} disabled={busy} onClick={() => set({ container: o.container })} className={cn("flex h-9 items-center justify-between rounded-[8px] px-2.5 text-[13px]", encoding?.container === o.container ? "bg-[#5465E6]/25 text-white ring-1 ring-[#8B9BFF]/60" : "bg-white/[0.04] text-[#C9CEDA]")}>
                 {o.label}
-                <span className="text-[11px] text-[#8890A2]">.{o.container}</span>
+                <span className="text-[11px] text-[#B4BBD0]">.{o.container}</span>
               </button>
             ))}
           </div>
