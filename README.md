@@ -21,9 +21,13 @@ npm run dev              # http://localhost:3000
 That's all you need locally:
 
 - **Accounts** use a SQLite database created at `.data/isola.db` on first use.
-- **Removing a background requires a free account.** Create one at `/sign-up`.
-  Without an email service configured, development prints the confirmation
-  link in the terminal running `npm run dev`; open it to confirm and sign in.
+- **Removing a background requires a free account.** Create one at `/sign-up`:
+  without an email service configured you're signed in straight away and land
+  in your studio (the confirmation link is still printed in the terminal if
+  you want to confirm the address).
+- **No secret to set up locally.** Without `BETTER_AUTH_SECRET`, a random one is
+  created once in `.data/auth-secret` (readable only by you), so `npm run dev`
+  and `npm run build && npm start` both work with no settings.
 - **The model** (~179 MB) is downloaded by the server the first time someone
   signs in and removes a background, checked against its SHA-256 checksum and
   cached in `./models`. To download it ahead of time (recommended for
@@ -54,6 +58,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm run test:e2e` | End-to-end checks in Chromium against a running server (`BASE_URL`, default `http://localhost:3000`; start it with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:auth` | Account journey including email confirmation (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:account` | Account page: overview, section links, devices and signing them out, phones, key cleanup on deletion |
+| `npm run test:quickstart` | Accounts with no setup: create account, sign out, sign in, generated secret (start the app with no auth or email settings) |
 | `npm run test:studio` | Studio: dashboard, brand presets, ⌘K, consistency check with the Amazon fix, export sets, recent exports, phones (needs the fake Paystack settings, as for billing) |
 | `npm run test:api` | Public API with real server-side processing; start the app with `ISOLA_API_RATE_LIMIT_PER_HOUR=15` plus the `test:batch` settings |
 | `npm run test:docs` | Developer docs: pages, anchors, search, copy, browser check, feedback, mobile menu |
@@ -94,7 +99,7 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `ISOLA_API_MAX_QUEUE` | `8` | Public API images that may wait for the server engine before `503 server_busy` |
 | `ISOLA_API_THREADS` | all cores | Inference threads for the public API |
 | `ISOLA_REMOTE_ALLOW_CROSS_ORIGIN` | `false` | Allow cross-origin browser calls to the route |
-| `BETTER_AUTH_SECRET` | — | **Required in production.** Signs sessions and encrypts tokens |
+| `BETTER_AUTH_SECRET` | generated | Signs sessions and encrypts tokens. **Set it for real deployments** (required with `DATABASE_URL`); without it a single server on SQLite generates one in `.data/auth-secret` |
 | `BETTER_AUTH_URL` | request origin | Public site URL, used for OAuth callbacks |
 | `DATABASE_URL` | — | `postgres://…` to store accounts in Postgres; otherwise SQLite |
 | `ISOLA_SQLITE_PATH` | `.data/isola.db` | SQLite file location |
@@ -119,7 +124,9 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `NEXT_PUBLIC_ISOLA_LEGAL_ENTITY` | `ISOLA` | Copyright line |
 
 No variable is required for the core workflow; only the model files are.
-Production accounts need `BETTER_AUTH_SECRET` (and should set `BETTER_AUTH_URL`).
+Real deployments should set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`; with a
+shared Postgres database (`DATABASE_URL`) the secret is required, because every
+server must use the same one.
 
 ## How background removal works
 
@@ -177,8 +184,10 @@ Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
   under the form only when both their client ID and secret are set. Register these callback URLs with each provider:
   `{BETTER_AUTH_URL}/api/auth/callback/google` and
   `{BETTER_AUTH_URL}/api/auth/callback/github`.
-- **Email confirmation:** with an email service configured, new accounts must
-  confirm their address before they can sign in. Sign-up shows "Check your
+- **Email confirmation:** with an email service configured (SMTP or Resend),
+  new accounts must confirm their address before they can sign in. Without one,
+  accounts are signed in as soon as they're created (in development the
+  confirmation link is still printed in the terminal). Sign-up shows "Check your
   email"; the link (valid 24 hours) confirms the address and signs you in. The
   tab you signed up in carries on to where you were going (with any images you
   had open) once you return to it. Signing in before confirming sends a fresh
@@ -613,6 +622,11 @@ empty model folder (so the automatic download is exercised) and with
   unchanged; ⌘K opens a batch image in the editor; phones have no sideways
   scrolling and a working menu.
 - **Password reset (`npm run test:reset`): 13/13**, through a real SMTP hop.
+- **No-setup accounts (`npm run test:quickstart`): 7/7** against `npm start`
+  with no secret and no email service: Create account signs you straight into
+  the studio, sign out and sign in work, a wrong password is refused, and the
+  generated secret is saved with owner-only permissions. Also checked by hand
+  under `npm run dev`.
 - **Plans and payments (`npm run test:billing`): 32/32**, including the price
   and amount sent to checkout, the yearly toggle, free exports capped at
   1,000px with a watermark, Batch Studio blocked on Free, upgrade through

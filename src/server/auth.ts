@@ -1,6 +1,7 @@
 import "server-only";
 
-import { mkdirSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { headers } from "next/headers";
@@ -51,16 +52,63 @@ export function enabledSocialProviders(): SocialProvider[] {
   return providers;
 }
 
+function sqlitePath() {
+  return process.env.ISOLA_SQLITE_PATH || join(process.cwd(), ".data", "isola.db");
+}
+
+let localSecret: string | null | undefined;
+
+/**
+ * Without BETTER_AUTH_SECRET, a single server using the local SQLite database
+ * gets a random secret, created once and kept next to the database (readable
+ * only by this user), so `npm run dev` and `npm start` work with no setup.
+ * A shared Postgres database usually means several servers, which must all
+ * use the same secret, so there it has to be set explicitly.
+ */
+function authSecret(): string | null {
+  const fromEnv = process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET;
+  if (fromEnv) return fromEnv;
+  if (process.env.DATABASE_URL) return null;
+  if (localSecret !== undefined) return localSecret;
+  const file = join(dirname(sqlitePath()), "auth-secret");
+  try {
+    localSecret = readFileSync(file, "utf8").trim() || null;
+    if (localSecret) return localSecret;
+  } catch {
+    // Not created yet.
+  }
+  try {
+    mkdirSync(dirname(file), { recursive: true });
+    const secret = randomBytes(32).toString("hex");
+    writeFileSync(file, secret, { mode: 0o600, flag: "wx" });
+    console.info(`[auth] BETTER_AUTH_SECRET isn't set, so a secret was generated in ${file} for this single-server setup.`);
+    localSecret = secret;
+  } catch {
+    // Another process may have just written it; otherwise storage isn't writable.
+    try {
+      localSecret = readFileSync(file, "utf8").trim() || null;
+    } catch {
+      localSecret = null;
+    }
+  }
+  return localSecret;
+}
+
 /** Why accounts can't work on this deployment, or null when they can. */
 export function authConfigurationProblem(): string | null {
-  if (process.env.NODE_ENV === "production" && !process.env.BETTER_AUTH_SECRET && !process.env.AUTH_SECRET) {
-    return "BETTER_AUTH_SECRET is not set on the server.";
+  if (process.env.NODE_ENV === "production" && !authSecret()) {
+    return process.env.DATABASE_URL
+      ? "BETTER_AUTH_SECRET is not set on the server (it's required with DATABASE_URL)."
+      : "BETTER_AUTH_SECRET is not set on the server, and one couldn't be saved in the .data folder.";
   }
   return null;
 }
 
 function list(value: string | undefined): string[] | undefined {
-  const items = value?.split(",").map((s) => s.trim()).filter(Boolean);
+  const items = value
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
   return items?.length ? items : undefined;
 }
 
@@ -156,7 +204,7 @@ function createDatabase(): BetterAuthOptions["database"] {
   if (url && /^postgres(ql)?:\/\//.test(url)) {
     return new Pool({ connectionString: url, max: Number(process.env.DATABASE_POOL_MAX || 5) });
   }
-  const file = process.env.ISOLA_SQLITE_PATH || join(process.cwd(), ".data", "isola.db");
+  const file = sqlitePath();
   mkdirSync(dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
@@ -173,8 +221,13 @@ function createOptions(): BetterAuthOptions {
     process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
       ? { github: { clientId: process.env.GITHUB_CLIENT_ID, clientSecret: process.env.GITHUB_CLIENT_SECRET } }
       : {};
+  // Confirmation is required only when the email can really be delivered. In
+  // development without SMTP or Resend, links are printed in the terminal, so
+  // new accounts are signed in straight away (and can still be confirmed).
+  const confirmByEmail = email !== null && email.id !== "console";
   return {
     appName: "ISOLA",
+    secret: authSecret() ?? undefined,
     baseURL: process.env.BETTER_AUTH_URL || undefined,
     database: createDatabase(),
     emailAndPassword: {
@@ -183,18 +236,23 @@ function createOptions(): BetterAuthOptions {
       maxPasswordLength: PASSWORD_MAX,
       autoSignIn: true,
       // With an email service, new accounts must confirm their address before signing in.
-      requireEmailVerification: Boolean(email),
+      requireEmailVerification: confirmByEmail,
       resetPasswordTokenExpiresIn: RESET_TOKEN_MINUTES * 60,
       revokeSessionsOnPasswordReset: true,
       // Sign-up answers the same way for taken emails (so it can't be used to find
       // accounts); the real owner gets a heads-up instead.
-      onExistingUserSignUp: email
-        ? async ({ user }, request) => {
-            const origin = process.env.BETTER_AUTH_URL || (request ? new URL(request.url).origin : "");
-            const message = accountExistsEmail({ name: user.name, signInUrl: `${origin}/sign-in`, resetUrl: `${origin}/forgot-password` });
-            sendLater(() => email.send({ to: user.email, ...message }));
-          }
-        : undefined,
+      onExistingUserSignUp:
+        confirmByEmail && email
+          ? async ({ user }, request) => {
+              const origin = process.env.BETTER_AUTH_URL || (request ? new URL(request.url).origin : "");
+              const message = accountExistsEmail({
+                name: user.name,
+                signInUrl: `${origin}/sign-in`,
+                resetUrl: `${origin}/forgot-password`,
+              });
+              sendLater(() => email.send({ to: user.email, ...message }));
+            }
+          : undefined,
       // Completing a reset proves control of the mailbox, so the address counts as verified.
       onPasswordReset: async ({ user }) => {
         if (user.emailVerified) return;
