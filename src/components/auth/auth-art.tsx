@@ -31,7 +31,7 @@ export function SignInArt() {
   );
 }
 
-/** Create account: two real cutouts on a transparent canvas. */
+/** Create account: a green handbag and a serum bottle, cut out, on a transparent canvas. */
 export function SignUpArt() {
   return (
     <div className="relative isolate aspect-[16/11] overflow-hidden rounded-[24px] bg-surface shadow-[var(--shadow-float)] ring-1 ring-ink/5 lg:aspect-[4/3] lg:rounded-[28px]">
@@ -39,8 +39,8 @@ export function SignUpArt() {
       <DiagonalBand className="-bottom-[10%] -top-[10%] right-[-8%] w-[50%]" />
       <div className="absolute bottom-[9%] left-[5%] w-[64%] drop-shadow-[0_26px_26px_rgb(32_41_45/0.28)]">
         <Image
-          src="/showcase/batch/handbag-cutout.webp"
-          alt="A woven leather handbag, cut out from its background"
+          src="/showcase/handbag-green-cutout.webp"
+          alt="A green woven leather handbag, cut out from its background"
           width={1000}
           height={730}
           sizes="(min-width: 1024px) 420px, 280px"

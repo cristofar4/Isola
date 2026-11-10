@@ -158,8 +158,10 @@ Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
 
 - **Sign-in and sign-up screens** (`src/app/(auth)`) are focused pages with only
   the logo and "Back to home" above the form, a badge, and a picture: a
-  draggable before/after of the sneaker on sign-in, and two real cutouts on a
-  transparent canvas on sign-up. On wide screens the picture sits beside the
+  draggable before/after of the sneaker on sign-in, and two cutouts on a
+  transparent canvas on sign-up (the green handbag is a recoloured copy of the
+  Batch Studio sample cutout: only the leather's hue was changed, keeping its
+  shading and the gold chain). On wide screens the picture sits beside the
   form; on phones it sits between the badge and the heading. Forgot/reset
   password and email confirmation use the same layout without a picture.
 - **Remember me** (unticked by default): ticked, the session cookie lasts 30
