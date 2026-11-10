@@ -21,6 +21,8 @@ interface Command {
 
 const STATIC: Command[] = [
   { id: "new-project", group: "Actions", label: "New project", hint: "Projects", href: "/studio/projects?new=1", keywords: "master linked versions formats" },
+  { id: "new-scene", group: "Actions", label: "New scene", hint: "Scene Studio", href: "/studio/scenes", keywords: "backdrop plinth shadow composition product photo set" },
+  { id: "new-film", group: "Actions", label: "Animate a scene", hint: "Motion Studio", href: "/studio/motion", keywords: "video film motion animation export mp4 webm" },
   { id: "upload-assets", group: "Actions", label: "Upload assets", hint: "Asset library", href: "/studio/assets", keywords: "library logos backgrounds originals cutouts" },
   { id: "remove", group: "Actions", label: "Remove a background", hint: "Editor", href: "/editor", keywords: "cutout upload image single" },
   { id: "batch", group: "Actions", label: "Start a batch", hint: "Batch Studio", href: "/studio/batch", keywords: "many bulk collection upload" },
@@ -32,6 +34,8 @@ const STATIC: Command[] = [
   { id: "crop", group: "Actions", label: "Resize & crop", hint: "Editor", href: "/editor?tool=crop", keywords: "size canvas" },
   { id: "home", group: "Go to", label: "Studio home", href: "/studio", keywords: "dashboard overview" },
   { id: "projects", group: "Go to", label: "Projects", href: "/studio/projects", keywords: "folders starred" },
+  { id: "scenes", group: "Go to", label: "Scene Studio", href: "/studio/scenes", keywords: "scenes backdrops" },
+  { id: "motion", group: "Go to", label: "Motion Studio", href: "/studio/motion", keywords: "films video" },
   { id: "assets", group: "Go to", label: "Asset library", href: "/studio/assets", keywords: "library logos backgrounds cutouts tags" },
   { id: "presets", group: "Go to", label: "Brand presets", href: "/studio/presets", keywords: "colours style" },
   { id: "downloads", group: "Go to", label: "Downloads", href: "/studio/downloads", keywords: "exports history again" },

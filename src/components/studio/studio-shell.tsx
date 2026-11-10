@@ -214,6 +214,16 @@ function CreateMenu() {
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild className={item}>
+            <Link href="/studio/scenes">
+              <Box className="size-4 text-blue" aria-hidden="true" /> New scene
+            </Link>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item asChild className={item}>
+            <Link href="/studio/motion">
+              <Clapperboard className="size-4 text-blue" aria-hidden="true" /> New film
+            </Link>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item asChild className={item}>
             <Link href="/editor">
               <Wand2 className="size-4 text-blue" aria-hidden="true" /> Remove a background
             </Link>
