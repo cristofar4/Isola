@@ -147,8 +147,16 @@ await page.screenshot({ path: join(OUT, "account.png"), fullPage: true });
   await dialog.getByLabel('Type "delete" to confirm').fill("delete");
   await dialog.getByRole("button", { name: "Delete account" }).click();
   await page.waitForURL(`${BASE}/`);
+  // Pass the server's DATABASE_URL when it runs on Postgres; otherwise the local SQLite file is read.
   const file = process.env.ISOLA_SQLITE_PATH || join(process.cwd(), ".data", "isola.db");
-  if (existsSync(file)) {
+  if (process.env.DATABASE_URL) {
+    const { default: pg } = await import("pg");
+    const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const keys = Number((await client.query('SELECT COUNT(*) AS n FROM "apiKey" WHERE "userId" = $1', [userId])).rows[0].n);
+    await client.end();
+    check("Deleting the account removes its API keys (Postgres)", keys === 0, `${keys} left`);
+  } else if (existsSync(file)) {
     const db = new DatabaseSync(file, { readOnly: true });
     const keys = db.prepare('SELECT COUNT(*) AS n FROM "apiKey" WHERE "userId" = ?').get(userId).n;
     db.close();

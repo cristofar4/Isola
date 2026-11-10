@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { accessSync, constants, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { headers } from "next/headers";
@@ -56,6 +56,36 @@ function sqlitePath() {
   return process.env.ISOLA_SQLITE_PATH || join(process.cwd(), ".data", "isola.db");
 }
 
+/** Postgres connection string. Some hosts' database integrations name it POSTGRES_URL. */
+function databaseUrl(): string | undefined {
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  return url && /^postgres(ql)?:\/\//.test(url) ? url : undefined;
+}
+
+let sqliteWritable: boolean | undefined;
+
+/** Whether this server can keep the local SQLite database (read-only hosts such as serverless platforms can't). */
+function canKeepLocalDatabase(): boolean {
+  if (sqliteWritable !== undefined) return sqliteWritable;
+  try {
+    const dir = dirname(sqlitePath());
+    mkdirSync(dir, { recursive: true });
+    accessSync(dir, constants.W_OK);
+    sqliteWritable = true;
+  } catch {
+    sqliteWritable = false;
+  }
+  return sqliteWritable;
+}
+
+/** Where to add settings on the host this is running on. */
+function hostHint() {
+  if (process.env.VERCEL)
+    return " On Vercel: add a Postgres database from the project's Storage tab (it sets DATABASE_URL), add BETTER_AUTH_SECRET under Settings → Environment Variables, then redeploy.";
+  if (process.env.NETLIFY) return " On Netlify: Site configuration → Environment variables, then redeploy.";
+  return " Add them to the server's environment settings, then restart or redeploy.";
+}
+
 let localSecret: string | null | undefined;
 
 /**
@@ -68,7 +98,7 @@ let localSecret: string | null | undefined;
 function authSecret(): string | null {
   const fromEnv = process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET;
   if (fromEnv) return fromEnv;
-  if (process.env.DATABASE_URL) return null;
+  if (databaseUrl() || !canKeepLocalDatabase()) return null;
   if (localSecret !== undefined) return localSecret;
   const file = join(dirname(sqlitePath()), "auth-secret");
   try {
@@ -94,12 +124,14 @@ function authSecret(): string | null {
   return localSecret;
 }
 
-/** Why accounts can't work on this deployment, or null when they can. */
+/** Why accounts can't work on this deployment (with what to set), or null when they can. */
 export function authConfigurationProblem(): string | null {
+  const hasSecret = Boolean(process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET);
+  if (!databaseUrl() && !canKeepLocalDatabase()) {
+    return `This server can't save files, so accounts need a database: set DATABASE_URL to a Postgres connection string${hasSecret ? "" : " and BETTER_AUTH_SECRET to a long random value"}.${hostHint()}`;
+  }
   if (process.env.NODE_ENV === "production" && !authSecret()) {
-    return process.env.DATABASE_URL
-      ? "BETTER_AUTH_SECRET is not set on the server (it's required with DATABASE_URL)."
-      : "BETTER_AUTH_SECRET is not set on the server, and one couldn't be saved in the .data folder.";
+    return `BETTER_AUTH_SECRET isn't set. With a Postgres database it's required, because every server must share it.${hostHint()}`;
   }
   return null;
 }
@@ -200,8 +232,8 @@ const presetTables = {
 } satisfies BetterAuthPlugin;
 
 function createDatabase(): BetterAuthOptions["database"] {
-  const url = process.env.DATABASE_URL;
-  if (url && /^postgres(ql)?:\/\//.test(url)) {
+  const url = databaseUrl();
+  if (url) {
     return new Pool({ connectionString: url, max: Number(process.env.DATABASE_POOL_MAX || 5) });
   }
   const file = sqlitePath();

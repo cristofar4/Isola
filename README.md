@@ -101,7 +101,7 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `ISOLA_REMOTE_ALLOW_CROSS_ORIGIN` | `false` | Allow cross-origin browser calls to the route |
 | `BETTER_AUTH_SECRET` | generated | Signs sessions and encrypts tokens. **Set it for real deployments** (required with `DATABASE_URL`); without it a single server on SQLite generates one in `.data/auth-secret` |
 | `BETTER_AUTH_URL` | request origin | Public site URL, used for OAuth callbacks |
-| `DATABASE_URL` | — | `postgres://…` to store accounts in Postgres; otherwise SQLite |
+| `DATABASE_URL` | — | `postgres://…` to store accounts in Postgres; otherwise SQLite. `POSTGRES_URL` is used if this isn't set |
 | `ISOLA_SQLITE_PATH` | `.data/isola.db` | SQLite file location |
 | `ISOLA_AUTH_AUTO_MIGRATE` | `true` | Create/upgrade auth tables on first use |
 | `ISOLA_TRUSTED_ORIGINS` | — | Extra origins allowed to call `/api/auth` |
@@ -127,6 +127,38 @@ No variable is required for the core workflow; only the model files are.
 Real deployments should set `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL`; with a
 shared Postgres database (`DATABASE_URL`) the secret is required, because every
 server must use the same one.
+
+## Putting it online
+
+Accounts need somewhere to keep data, and the model files (~179 MB) need to be
+served. What to set depends on the kind of host:
+
+**A host that keeps files** (a VPS, Docker, Render or Railway with a disk,
+Fly.io with a volume): it works as on your computer. Set `BETTER_AUTH_SECRET`
+(any long random value) and `BETTER_AUTH_URL` (your site's address); accounts
+use the SQLite file in `.data/` and models are downloaded to `./models` on
+first use. Keep `.data/` and `models/` on the persistent disk.
+
+**A serverless host that can't keep files** (Vercel, Netlify): the sign-in page
+says "This server can't save files" until these are set, then the site must be
+redeployed:
+
+1. A Postgres database: on Vercel, the project's **Storage** tab → add Neon (or
+   Supabase); it sets `DATABASE_URL` (or `POSTGRES_URL`). Tables are created on
+   first use.
+2. `BETTER_AUTH_SECRET` under **Settings → Environment Variables**: a long random
+   value, for example the output of
+   `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+3. `BETTER_AUTH_URL`: the site's address, e.g. `https://isola.example.com`.
+4. Model files: serverless functions can't stream files this large, so upload
+   the `.onnx` files (`npm run models:fetch` puts them in `./models`) to a CDN
+   or object storage that sends CORS and `Cross-Origin-Resource-Policy:
+   cross-origin`, and set `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` to that folder's
+   address.
+
+Optional for both: `SMTP_URL` (or `RESEND_API_KEY`) so new accounts confirm
+their email and password reset works, `PAYSTACK_SECRET_KEY` for Pro, and the
+Google/GitHub keys for social sign-in.
 
 ## How background removal works
 
