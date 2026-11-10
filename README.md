@@ -654,6 +654,10 @@ empty model folder (so the automatic download is exercised) and with
   unchanged; ⌘K opens a batch image in the editor; phones have no sideways
   scrolling and a working menu.
 - **Password reset (`npm run test:reset`): 13/13**, through a real SMTP hop.
+- **PostgreSQL:** with `DATABASE_URL` pointing at PostgreSQL 16 and the local
+  SQLite folder made unwritable (as on a serverless host), the account (34/34),
+  password reset (13/13), account page (22/22), API (30/30), billing (32/32)
+  and studio (36/36) suites all pass; tables are created on first use.
 - **No-setup accounts (`npm run test:quickstart`): 7/7** against `npm start`
   with no secret and no email service: Create account signs you straight into
   the studio, sign out and sign in work, a wrong password is refused, and the
