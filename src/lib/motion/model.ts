@@ -413,8 +413,9 @@ export function migrateFilm(raw: unknown): Film | null {
     if (!source || !trackIds.has(clip.trackId)) continue;
     const isAudio = source.kind === "audio";
     if ((trackKind.get(clip.trackId) === "audio") !== isAudio) continue;
-    const shotId = clip.shotId && shotIds.has(clip.shotId) && !isAudio ? clip.shotId : null;
-    if (clip.shotId && !shotId && !isAudio) continue; // its shot is gone
+    // Sound can belong to a shot too (a video's own sound follows its shot); music usually doesn't.
+    const shotId = clip.shotId && shotIds.has(clip.shotId) ? clip.shotId : null;
+    if (clip.shotId && !shotId) continue; // its shot is gone
     const t = (clip.transform ?? {}) as Partial<Transform>;
     clips.push({
       id: clip.id,

@@ -7,7 +7,7 @@ import { Spinner } from "@/components/ui/progress";
 import { clearExports, deleteExport, getExport, MAX_RECORDS, type ExportRecord } from "@/lib/studio/export-history";
 import { bytesText, useBlobUrls, useExportHistory, whenText } from "./use-studio-data";
 
-const SOURCE: Record<ExportRecord["source"], string> = { batch: "Batch Studio", editor: "Editor", "export-set": "Export set", library: "Asset library", project: "Project" };
+const SOURCE: Record<ExportRecord["source"], string> = { batch: "Batch Studio", editor: "Editor", "export-set": "Export set", library: "Asset library", project: "Project", scene: "Scene Studio", motion: "Motion Studio" };
 
 function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
