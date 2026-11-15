@@ -1,14 +1,14 @@
 "use client";
 
 import { DropdownMenu } from "radix-ui";
-import { ArrowDown, ArrowUp, Diamond as DiamondIcon, Ellipsis, Eye, EyeOff, Flag, Lock, Magnet, Pencil, Plus, Scissors, Trash2, Unlock, Volume2, VolumeX, ZoomIn } from "lucide-react";
+import { ArrowDown, ArrowLeftToLine, ArrowRightToLine, ArrowUp, Diamond as DiamondIcon, Ellipsis, Eye, EyeOff, Flag, Lock, Magnet, Pencil, Plus, Scissors, Trash2, Unlock, Volume2, VolumeX, ZoomIn } from "lucide-react";
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { askName } from "@/components/studio/name-dialog";
 import { cn } from "@/lib/cn";
 import { commit, notify, preview, select, setPlayhead, useEditor } from "@/lib/motion/editor";
 import type { Clip, ClipProp, Film, Track } from "@/lib/motion/model";
-import { addMarker, addTrack, deleteMarker, deleteTrack, moveClip, moveKeyframe, moveMarker, moveTrack, renameMarker, setTrack, splitClip, trimClip } from "@/lib/motion/ops";
-import { clipRange, filmDuration, shotStarts, snapTime, timecode } from "@/lib/motion/time";
+import { addCameraKeyframes, addMarker, addTrack, addTransformKeyframes, deleteMarker, deleteTrack, moveClip, moveKeyframe, moveMarker, moveTrack, renameMarker, setTrack, splitClip, trimClip } from "@/lib/motion/ops";
+import { clipRange, filmDuration, secs, shotAt, shotStarts, snapTime, timecode } from "@/lib/motion/time";
 import { assetMissing } from "@/lib/scene/resources";
 import { missingVideos } from "./playback";
 import { IconButton } from "./ui";
@@ -200,31 +200,57 @@ export function Timeline() {
     commit({ film: next, problem: next === film ? problem : undefined });
   }
 
+  function addKeyframes() {
+    if (selectedClip) return commit(addTransformKeyframes(film, selectedClip.id, playhead));
+    const at = shotAt(film, Math.min(playhead, Math.max(0, D - 1e-3)));
+    commit(addCameraKeyframes(film, at.shot.id, at.local));
+    notify(`Camera keyframe added in ${at.shot.name}. Select a clip first to keyframe that layer instead.`);
+  }
+
+  function trimTo(edge: "start" | "end") {
+    if (!selectedClip) return notify("Select a clip to trim it to the playhead.", "error");
+    const r = clipRange(film, selectedClip);
+    if (playhead <= r.start + 1e-6 || playhead >= r.end - 1e-6) return notify("Move the playhead inside the selected clip to trim it there.", "error");
+    commit(trimClip(film, selectedClip.id, edge, playhead));
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col" data-timeline>
-      <div className="flex flex-wrap items-center gap-1 border-b border-white/[0.08] px-2 py-1">
+      <div className="flex flex-wrap items-center gap-1 border-b border-m-line px-2 py-1">
         <IconButton label="Split at playhead (S)" onClick={split}>
           <Scissors className="size-4" aria-hidden="true" />
         </IconButton>
+        <button type="button" onClick={addKeyframes} title={selectedClip ? "Keyframe the selected clip's position and scale at the playhead (K)" : "Keyframe the scene camera at the playhead (K)"} className="inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12px] font-semibold text-m-text-2 hover:bg-m-ink/[0.07]">
+          <DiamondIcon className="size-3.5 text-m-key" aria-hidden="true" /> Add keyframe
+        </button>
+        <span role="group" aria-label="Trim" className="inline-flex items-center rounded-md border border-m-line">
+          <span className="pl-2 pr-1 text-[12px] font-semibold text-m-text-2">Trim</span>
+          <IconButton label="Trim start to playhead (Q)" disabled={!selectedClip} onClick={() => trimTo("start")} className="size-7">
+            <ArrowRightToLine className="size-3.5" aria-hidden="true" />
+          </IconButton>
+          <IconButton label="Trim end to playhead (W)" disabled={!selectedClip} onClick={() => trimTo("end")} className="size-7">
+            <ArrowLeftToLine className="size-3.5" aria-hidden="true" />
+          </IconButton>
+        </span>
         <IconButton label="Add marker at playhead (M)" onClick={() => commit(addMarker(film, playhead, `Marker ${film.markers.length + 1}`))}>
           <Flag className="size-4" aria-hidden="true" />
         </IconButton>
         <IconButton label="Snapping" active={snap} onClick={() => setSnap((s) => !s)}>
           <Magnet className="size-4" aria-hidden="true" />
         </IconButton>
-        <span className="mx-1 h-5 w-px bg-white/10" aria-hidden="true" />
-        <button type="button" onClick={() => commit(addTrack(film, "visual"))} className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-semibold text-[#C9CEDA] hover:bg-white/[0.07]">
+        <span className="mx-1 h-5 w-px bg-m-ink/10" aria-hidden="true" />
+        <button type="button" onClick={() => commit(addTrack(film, "visual"))} className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-semibold text-m-text-2 hover:bg-m-ink/[0.07]">
           <Plus className="size-3.5" aria-hidden="true" /> Video track
         </button>
-        <button type="button" onClick={() => commit(addTrack(film, "audio"))} className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-semibold text-[#C9CEDA] hover:bg-white/[0.07]">
+        <button type="button" onClick={() => commit(addTrack(film, "audio"))} className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-semibold text-m-text-2 hover:bg-m-ink/[0.07]">
           <Plus className="size-3.5" aria-hidden="true" /> Audio track
         </button>
         <div className="ml-auto flex items-center gap-2">
-          <ZoomIn className="size-4 text-[#9AA1B2]" aria-hidden="true" />
+          <ZoomIn className="size-4 text-m-muted" aria-hidden="true" />
           <label className="sr-only" htmlFor="tl-zoom">
             Timeline zoom
           </label>
-          <input id="tl-zoom" type="range" min={20} max={400} step={5} value={pps} onChange={(e) => setPps(Number(e.target.value))} className="w-28 accent-[#8B9BFF]" />
+          <input id="tl-zoom" type="range" min={20} max={400} step={5} value={pps} onChange={(e) => setPps(Number(e.target.value))} className="w-28 accent-m-accent-2" />
         </div>
       </div>
       <div
@@ -242,17 +268,17 @@ export function Timeline() {
         <div className="relative" style={{ width: HEADER + width, height: totalH }}>
           {/* Ruler */}
           <div className="sticky top-0 z-20 flex" style={{ height: RULER }}>
-            <div className="sticky left-0 z-30 flex shrink-0 items-center border-b border-r border-white/[0.08] bg-[#161A21] px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8890A2]" style={{ width: HEADER }}>
+            <div className="sticky left-0 z-30 flex shrink-0 items-center border-b border-r border-m-line bg-m-panel px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-m-subtle" style={{ width: HEADER }}>
               Tracks
             </div>
-            <div className="relative cursor-text border-b border-white/[0.08] bg-[#161A21]" style={{ width }} onPointerDown={startScrub} aria-label="Timeline ruler" role="presentation">
+            <div className="relative cursor-text border-b border-m-line bg-m-panel" style={{ width }} onPointerDown={startScrub} aria-label="Timeline ruler" role="presentation">
               {Array.from({ length: Math.ceil(maxEnd + 3) + 1 }, (_, s) => (
-                <span key={s} className="absolute top-0 h-full border-l border-white/10" style={{ left: s * pps }}>
-                  {(pps >= 40 || s % 2 === 0) && <span className="absolute left-1 top-0.5 font-mono text-[10px] text-[#8890A2]">{timecode(s, film.fps).slice(0, -3)}</span>}
+                <span key={s} className="absolute top-0 h-full border-l border-m-line" style={{ left: s * pps }}>
+                  {(pps >= 40 || s % 2 === 0) && <span className="absolute left-1 top-0.5 font-mono text-[10px] text-m-subtle">{timecode(s, film.fps).slice(0, -3)}</span>}
                 </span>
               ))}
               {film.shots.map((s, i) => (
-                <span key={s.id} className={cn("absolute bottom-0 h-3 truncate border-l border-[#8B9BFF]/60 px-1 text-[9px] leading-3 text-[#A4B1FF]", i % 2 ? "bg-white/[0.03]" : "bg-[#8B9BFF]/10")} style={{ left: starts[i] * pps, width: s.duration * pps }}>
+                <span key={s.id} className={cn("absolute bottom-0 h-3 truncate border-l border-m-accent-2/60 px-1 text-[9px] leading-3 text-m-accent-text", i % 2 ? "bg-m-ink/[0.03]" : "bg-m-accent-2/10")} style={{ left: starts[i] * pps, width: s.duration * pps }}>
                   {s.name}
                 </span>
               ))}
@@ -284,9 +310,9 @@ export function Timeline() {
             const clips = film.clips.filter((c) => c.trackId === track.id);
             return (
               <div key={track.id} className="absolute left-0 flex" style={{ top, height: h, width: HEADER + width }} data-track={track.name}>
-                <div className="sticky left-0 z-10 flex shrink-0 items-center gap-0.5 border-b border-r border-white/[0.08] bg-[#161A21] pl-2 pr-1" style={{ width: HEADER }}>
-                  <button type="button" className="min-w-0 flex-1 truncate text-left text-[12px] font-semibold text-[#E8EAF0]" title="Rename track" onClick={() => void askName("Rename track", { label: "Track name", initial: track.name, action: "Rename" }).then((n) => n && commit(setTrack(film, track.id, { name: n })))}>
-                    <span className="mr-1 text-[10px] font-bold text-[#8890A2]">{track.kind === "audio" ? "A" : "V"}</span>
+                <div className="sticky left-0 z-10 flex shrink-0 items-center gap-0.5 border-b border-r border-m-line bg-m-panel pl-2 pr-1" style={{ width: HEADER }}>
+                  <button type="button" className="min-w-0 flex-1 truncate text-left text-[12px] font-semibold text-m-text" title="Rename track" onClick={() => void askName("Rename track", { label: "Track name", initial: track.name, action: "Rename" }).then((n) => n && commit(setTrack(film, track.id, { name: n })))}>
+                    <span className="mr-1 text-[10px] font-bold text-m-subtle">{track.kind === "audio" ? "A" : "V"}</span>
                     {track.name}
                   </button>
                   {track.kind === "visual" ? (
@@ -307,11 +333,11 @@ export function Timeline() {
                     {track.locked ? <Lock className="size-3.5" aria-hidden="true" /> : <Unlock className="size-3.5" aria-hidden="true" />}
                   </IconButton>
                   <DropdownMenu.Root modal={false}>
-                    <DropdownMenu.Trigger aria-label={`More for ${track.name}`} className="inline-flex size-6 shrink-0 items-center justify-center rounded-[6px] text-[#9AA1B2] hover:bg-white/[0.08] hover:text-white">
+                    <DropdownMenu.Trigger aria-label={`More for ${track.name}`} className="inline-flex size-6 shrink-0 items-center justify-center rounded-[6px] text-m-muted hover:bg-m-ink/[0.08] hover:text-m-strong">
                       <Ellipsis className="size-3.5" aria-hidden="true" />
                     </DropdownMenu.Trigger>
                     <DropdownMenu.Portal>
-                      <DropdownMenu.Content align="start" sideOffset={4} className="z-50 min-w-[170px] rounded-lg border border-white/10 bg-[#1D222B] p-1 shadow-xl">
+                      <DropdownMenu.Content align="start" sideOffset={4} className="z-50 min-w-[170px] rounded-lg border border-m-line bg-m-raised p-1 shadow-xl">
                         {(
                           [
                             ["Rename", Pencil, () => void askName("Rename track", { label: "Track name", initial: track.name, action: "Rename" }).then((n) => { if (n) commit(setTrack(film, track.id, { name: n })); }), false],
@@ -320,7 +346,7 @@ export function Timeline() {
                             ["Delete track", Trash2, () => commit(deleteTrack(film, track.id)), false],
                           ] as const
                         ).map(([label, Icon, run, disabled]) => (
-                          <DropdownMenu.Item key={label} disabled={disabled} onSelect={run} className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-[#E8EAF0] outline-none data-[disabled]:opacity-35 data-[highlighted]:bg-white/10">
+                          <DropdownMenu.Item key={label} disabled={disabled} onSelect={run} className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-m-text outline-none data-[disabled]:opacity-35 data-[highlighted]:bg-m-ink/10">
                             <Icon className="size-3.5" aria-hidden="true" /> {label}
                           </DropdownMenu.Item>
                         ))}
@@ -328,7 +354,7 @@ export function Timeline() {
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
                 </div>
-                <div className={cn("relative border-b border-white/[0.06]", ti % 2 ? "bg-white/[0.015]" : "", track.locked && "bg-[repeating-linear-gradient(135deg,transparent_0_6px,rgba(255,255,255,0.025)_6px_12px)]")} style={{ width }} onPointerDown={startScrub}>
+                <div className={cn("relative border-b border-m-line", ti % 2 ? "bg-m-ink/[0.02]" : "", track.locked && "bg-[repeating-linear-gradient(135deg,transparent_0_6px,var(--color-m-line)_6px_12px)]")} style={{ width }} onPointerDown={startScrub}>
                   {clips.map((c) => {
                     const r = clipRange(film, c);
                     const left = r.start * pps;
@@ -344,7 +370,7 @@ export function Timeline() {
                         aria-pressed={isSel}
                         aria-label={`${c.name}, ${timecode(r.start, film.fps)} to ${timecode(r.end, film.fps)}`}
                         onPointerDown={(e) => onClipDown(e, c, "body")}
-                        className={cn("absolute top-1 bottom-1 cursor-grab overflow-hidden rounded-[6px] border text-[11px] text-white/90", KIND_COLOUR[c.source.kind], isSel && "ring-2 ring-[#C3CBFF]", missing && "border-[#F07167] bg-[repeating-linear-gradient(135deg,rgba(240,113,103,0.25)_0_6px,transparent_6px_12px)]")}
+                        className={cn("absolute top-1 bottom-1 cursor-grab overflow-hidden rounded-[6px] border text-[11px] text-white/90", KIND_COLOUR[c.source.kind], isSel && "ring-2 ring-m-accent-2", missing && "border-m-danger bg-[repeating-linear-gradient(135deg,rgba(240,113,103,0.25)_0_6px,transparent_6px_12px)]")}
                         style={{ left, width: w }}
                       >
                         {c.source.kind === "audio" && <Waveform film={film} clip={c} width={w} height={h - 8} />}
@@ -353,6 +379,11 @@ export function Timeline() {
                           {c.source.kind === "text" ? c.source.style.text : c.name}
                           {c.link && !c.link.detached ? " ↔" : ""}
                         </span>
+                        {w > 76 && h >= 44 && c.source.kind !== "audio" && (
+                          <span className="pointer-events-none absolute bottom-0.5 right-2.5 text-[10px] tabular-nums text-white/70" data-clip-length>
+                            {secs(c.duration)}
+                          </span>
+                        )}
                         {(c.audio?.fadeIn ?? 0) > 0 && <span className="pointer-events-none absolute bottom-0 left-0 top-0 bg-gradient-to-r from-black/40 to-transparent" style={{ width: (c.audio!.fadeIn) * pps }} />}
                         {(c.audio?.fadeOut ?? 0) > 0 && <span className="pointer-events-none absolute bottom-0 right-0 top-0 bg-gradient-to-l from-black/40 to-transparent" style={{ width: (c.audio!.fadeOut) * pps }} />}
                         {keyTimes(c).map(([t]) => (
@@ -382,17 +413,17 @@ export function Timeline() {
 
           {/* Shot boundaries, snap line, film end and playhead */}
           {starts.slice(1).map((s) => (
-            <span key={s} className="pointer-events-none absolute z-[5] w-px bg-[#8B9BFF]/30" style={{ left: HEADER + s * pps, top: RULER, height: totalH - RULER }} aria-hidden="true" />
+            <span key={s} className="pointer-events-none absolute z-[5] w-px bg-m-accent-2/30" style={{ left: HEADER + s * pps, top: RULER, height: totalH - RULER }} aria-hidden="true" />
           ))}
-          <span className="pointer-events-none absolute z-[5] w-px bg-white/40" style={{ left: HEADER + D * pps, top: 0, height: totalH }} aria-hidden="true" />
+          <span className="pointer-events-none absolute z-[5] w-px bg-m-ink/40" style={{ left: HEADER + D * pps, top: 0, height: totalH }} aria-hidden="true" />
           {snapAt !== null && <span className="pointer-events-none absolute z-[25] w-px bg-[#F472B6]" style={{ left: HEADER + snapAt * pps, top: 0, height: totalH }} aria-hidden="true" />}
-          <span className="pointer-events-none absolute z-[26] w-0.5 bg-[#8B9BFF]" style={{ left: HEADER + playhead * pps - 1, top: 0, height: totalH }} aria-hidden="true">
-            <span className="absolute -left-[5px] top-0 size-3 rotate-45 bg-[#8B9BFF]" />
+          <span className="pointer-events-none absolute z-[26] w-0.5 bg-m-accent-2" style={{ left: HEADER + playhead * pps - 1, top: 0, height: totalH }} aria-hidden="true">
+            <span className="absolute -left-[5px] top-0 size-3 rotate-45 bg-m-accent-2" />
           </span>
         </div>
       </div>
       {selectedClip && Object.keys(selectedClip.keyframes).length > 0 && (
-        <p className="flex items-center gap-1.5 border-t border-white/[0.08] px-3 py-1 text-[11px] text-[#8890A2]">
+        <p className="flex items-center gap-1.5 border-t border-m-line px-3 py-1 text-[11px] text-m-subtle">
           <DiamondIcon className="size-3" aria-hidden="true" /> Drag a keyframe diamond to move it in time. Edit values and curves in Animate.
         </p>
       )}

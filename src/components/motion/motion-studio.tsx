@@ -1,38 +1,74 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, Check, CircleAlert, PanelBottomClose, PanelBottomOpen, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Redo2, Undo2, Upload, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, CircleAlert, Link2, Moon, PanelBottomClose, PanelBottomOpen, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Redo2, RefreshCw, Sun, Undo2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { NameDialogHost } from "@/components/studio/name-dialog";
 import { Spinner } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
 import { closeFilm, commit, flushSave, openFilm, redo, select, setPlayhead, setWorkspace, undo, useEditor, type Workspace } from "@/lib/motion/editor";
-import { addMarker, deleteClips, duplicateClip, splitClip } from "@/lib/motion/ops";
+import { addCameraKeyframes, addMarker, addTransformKeyframes, deleteClips, duplicateClip, splitClip, trimClip } from "@/lib/motion/ops";
 import { sceneChangedSince } from "@/lib/motion/scene-link";
 import { getFilm, loadFilms, useFilms } from "@/lib/motion/store";
-import { filmDuration, toFrame } from "@/lib/motion/time";
+import { filmDuration, secs, shotAt, toFrame } from "@/lib/motion/time";
 import { creativeFontClasses } from "@/lib/scene/fonts";
 import { loadScenes, useScenes } from "@/lib/scene/store";
 import { useLibraryReady } from "@/components/studio/library-hooks";
 import { importFiles } from "./add-media";
 import { ColourPanel } from "./colour-panel";
 import { DeliverPanel } from "./deliver-panel";
-import { AnimatePanel, AssemblePanel } from "./inspector";
 import { LIBRARY_TABS, LibraryPanel, UpdateDialog, type LibraryTab } from "./library-panel";
 import { togglePlay, usePlayback } from "./playback";
+import { MotionPanel, TextPanel } from "./quick-motion";
 import { SoundPanel } from "./sound-panel";
 import { Storyboard } from "./storyboard";
 import { Timeline } from "./timeline";
 import { IconButton } from "./ui";
 import { Viewer } from "./viewer";
 
-const WORKSPACES: Array<{ id: Workspace; label: string; library: LibraryTab; inspector: string }> = [
-  { id: "assemble", label: "Assemble", library: "media", inspector: "Inspector" },
-  { id: "animate", label: "Animate", library: "styles", inspector: "Animate" },
-  { id: "colour", label: "Colour", library: "media", inspector: "Colour" },
-  { id: "sound", label: "Sound", library: "audio", inspector: "Sound" },
-  { id: "deliver", label: "Deliver", library: "media", inspector: "Deliver" },
+const INSPECTOR_TABS: Array<{ id: Workspace; label: string }> = [
+  { id: "motion", label: "Motion" },
+  { id: "colour", label: "Colour" },
+  { id: "text", label: "Text" },
+  { id: "sound", label: "Sound" },
+  { id: "export", label: "Export" },
 ];
+
+type Theme = "light" | "dark";
+const themeListeners = new Set<() => void>();
+function readTheme(): Theme {
+  try {
+    return localStorage.getItem("isola-motion-theme") === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+function writeTheme(theme: Theme) {
+  try {
+    localStorage.setItem("isola-motion-theme", theme);
+  } catch {
+    /* private mode: the choice lasts for this visit */
+  }
+  document.documentElement.dataset.motionTheme = theme;
+  themeListeners.forEach((l) => l());
+}
+/** Light by default (the studio's own look); a dark workspace for grading and long edits. Menus and dialogs follow it too. */
+function useMotionTheme(): Theme {
+  const theme = useSyncExternalStore(
+    (cb) => {
+      themeListeners.add(cb);
+      return () => themeListeners.delete(cb);
+    },
+    readTheme,
+    () => "light" as Theme,
+  );
+  useEffect(() => {
+    document.documentElement.dataset.motionTheme = theme;
+    return () => {
+      delete document.documentElement.dataset.motionTheme;
+    };
+  }, [theme]);
+  return theme;
+}
 
 function useNarrow() {
   return useSyncExternalStore(
@@ -92,7 +128,7 @@ function Splitter({ axis, onDrag, label, value, min, max }: { axis: "x" | "y"; o
         last.current = v;
       }}
       onPointerUp={() => (last.current = null)}
-      className={cn("shrink-0 bg-white/[0.04] transition-colors hover:bg-[#8B9BFF]/40 focus:bg-[#8B9BFF]/50 focus:outline-none", axis === "x" ? "w-1 cursor-col-resize" : "h-1 cursor-row-resize")}
+      className={cn("shrink-0 bg-m-ink/[0.04] transition-colors hover:bg-m-accent-2/40 focus:bg-m-accent-2/50 focus:outline-none", axis === "x" ? "w-1 cursor-col-resize" : "h-1 cursor-row-resize")}
     />
   );
 }
@@ -101,7 +137,7 @@ function SaveBadge() {
   const save = useEditor((s) => s.save);
   if (save.state === "error")
     return (
-      <span role="alert" className="inline-flex items-center gap-1 text-[12px] text-[#FFB4AD]">
+      <span role="alert" className="inline-flex items-center gap-1 text-[12px] text-m-danger-text">
         <CircleAlert className="size-3.5" aria-hidden="true" /> Not saved
         <button type="button" onClick={() => void flushSave()} className="font-semibold underline" title={save.error ?? undefined}>
           Retry
@@ -110,12 +146,12 @@ function SaveBadge() {
     );
   if (save.state !== "saved")
     return (
-      <span className="inline-flex items-center gap-1 text-[12px] text-[#9AA1B2]" aria-live="polite">
+      <span className="inline-flex items-center gap-1 text-[12px] text-m-muted" aria-live="polite">
         <Spinner className="size-3" /> Saving…
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-1 text-[12px] text-[#9AE6B4]" aria-live="polite" data-save-state="saved" title="Saved in this browser (local draft, not synced to your account)">
+    <span className="inline-flex items-center gap-1 text-[12px] text-m-success-text" aria-live="polite" data-save-state="saved" title="Saved in this browser (local draft, not synced to your account)">
       <Check className="size-3.5" aria-hidden="true" /> Saved in this browser
     </span>
   );
@@ -141,17 +177,38 @@ function Notice() {
 
 function Inspector({ workspace }: { workspace: Workspace }) {
   switch (workspace) {
-    case "animate":
-      return <AnimatePanel />;
     case "colour":
       return <ColourPanel />;
+    case "text":
+      return <TextPanel />;
     case "sound":
       return <SoundPanel />;
-    case "deliver":
+    case "export":
       return <DeliverPanel />;
     default:
-      return <AssemblePanel />;
+      return <MotionPanel />;
   }
+}
+
+/** A row of tabs heading a side panel. */
+function PanelTabs<T extends string>({ label, tabs, value, onChange }: { label: string; tabs: Array<{ id: T; label: string; icon?: typeof Upload }>; value: T; onChange: (id: T) => void }) {
+  return (
+    <div role="tablist" aria-label={label} className="flex shrink-0 gap-0.5 overflow-x-auto border-b border-m-line px-2 [scrollbar-width:none]">
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          type="button"
+          role="tab"
+          aria-selected={value === t.id}
+          onClick={() => onChange(t.id)}
+          className={cn("relative inline-flex h-10 shrink-0 items-center gap-1.5 px-2.5 text-[13px] font-semibold", value === t.id ? "text-m-accent-text after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-m-accent" : "text-m-muted hover:text-m-strong")}
+        >
+          {t.icon && <t.icon className="size-4" aria-hidden="true" />}
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function useShortcuts() {
@@ -193,6 +250,15 @@ function useShortcuts() {
         for (const id of ids) next = splitClip(next, id, st.playhead).film;
         commit(next === film ? { film, problem: "Move the playhead inside the selected clip to split it." } : next);
       } else if (e.key.toLowerCase() === "m" && !mod) commit(addMarker(film, st.playhead, `Marker ${film.markers.length + 1}`));
+      else if (e.key.toLowerCase() === "k" && !mod) {
+        const id = st.selection.clipIds.length === 1 ? st.selection.clipIds[0] : null;
+        const at = shotAt(film, Math.min(st.playhead, Math.max(0, filmDuration(film) - 1e-3)));
+        commit(id ? addTransformKeyframes(film, id, st.playhead) : addCameraKeyframes(film, at.shot.id, at.local));
+      } else if ((e.key.toLowerCase() === "q" || e.key.toLowerCase() === "w") && !mod) {
+        const id = st.selection.clipIds.length === 1 ? st.selection.clipIds[0] : null;
+        if (!id) return;
+        commit(trimClip(film, id, e.key.toLowerCase() === "q" ? "start" : "end", st.playhead));
+      }
       else if (e.key === "Escape") select({ clipIds: [], keyframe: null });
     }
     window.addEventListener("keydown", onKey);
@@ -207,8 +273,9 @@ function Editor() {
   const canUndo = useEditor((s) => s.past.length > 0);
   const canRedo = useEditor((s) => s.future.length > 0);
   const narrow = useNarrow();
+  const theme = useMotionTheme();
   const [layout, setLayout] = useState<Layout>(readLayout);
-  const [tab, setTab] = useState<LibraryTab>("media");
+  const [tab, setTab] = useState<LibraryTab>("styles");
   const [mobilePanel, setMobilePanel] = useState<"timeline" | "storyboard" | "library" | "inspector">("timeline");
   const [updating, setUpdating] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -237,57 +304,67 @@ function Editor() {
 
   const source = film.source ? (scenes.find((s) => s.id === film.source!.sceneId) ?? null) : null;
   const sceneChanged = sceneChangedSince(film, source);
-  const ws = WORKSPACES.find((w) => w.id === workspace)!;
   const resize = useCallback((key: "left" | "right" | "bottom", delta: number) => {
     setLayout((l) => {
-      const limits = { left: [220, 520], right: [260, 520], bottom: [140, 560] } as const;
+      const limits = { left: [240, 520], right: [280, 520], bottom: [140, 560] } as const;
       const [lo, hi] = limits[key];
       return { ...l, [key]: Math.min(hi, Math.max(lo, l[key] + delta)) };
     });
   }, []);
-
-  const libraryRail = (
-    <nav aria-label="Creative library" className="flex w-[60px] shrink-0 flex-col items-center gap-1 border-r border-white/[0.08] bg-[#12151B] py-2">
-      {LIBRARY_TABS.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          onClick={() => {
-            setTab(t.id);
-            setLayout((l) => ({ ...l, leftOpen: true }));
-            if (narrow) setMobilePanel("library");
-          }}
-          aria-pressed={tab === t.id && (layout.leftOpen || narrow)}
-          className={cn("grid w-[52px] place-items-center gap-0.5 rounded-[8px] py-1.5 text-[10px] font-medium", tab === t.id ? "bg-white/[0.08] text-white" : "text-[#9AA1B2] hover:bg-white/[0.05] hover:text-white")}
-        >
-          <t.icon className="size-[18px]" aria-hidden="true" />
-          {t.label}
-        </button>
-      ))}
-    </nav>
-  );
+  const openInspector = (id: Workspace) => {
+    setWorkspace(id);
+    setLayout((l) => ({ ...l, rightOpen: true }));
+    if (narrow) setMobilePanel("inspector");
+  };
 
   const library = (
-    <aside aria-label={`Library: ${LIBRARY_TABS.find((t) => t.id === tab)?.label}`} className="min-h-0 overflow-y-auto bg-[#161A21] [scrollbar-width:thin]">
-      <div className="flex items-center justify-between px-3 pt-3">
-        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#C9CEDA]">{tab === "styles" ? "Motion styles" : LIBRARY_TABS.find((t) => t.id === tab)?.label}</h2>
+    <aside aria-label="Library" className="flex min-h-0 flex-1 flex-col bg-m-panel">
+      <PanelTabs label="Library" tabs={LIBRARY_TABS} value={tab} onChange={setTab} />
+      <div role="tabpanel" aria-label={LIBRARY_TABS.find((t) => t.id === tab)?.label} className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+        <LibraryPanel tab={tab} />
       </div>
-      <LibraryPanel tab={tab} />
     </aside>
   );
 
   const inspector = (
-    <aside aria-label={ws.inspector} className="min-h-0 overflow-y-auto bg-[#161A21] [scrollbar-width:thin]" data-inspector-panel={workspace}>
-      <div className="sticky top-0 z-10 flex items-center justify-between bg-[#161A21] px-3 pb-2 pt-3">
-        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#C9CEDA]">{ws.inspector}</h2>
+    <aside aria-label="Inspector" className="flex min-h-0 flex-1 flex-col bg-m-panel">
+      <PanelTabs label="Inspector" tabs={INSPECTOR_TABS} value={workspace} onChange={openInspector} />
+      <div role="tabpanel" aria-label={INSPECTOR_TABS.find((t) => t.id === workspace)?.label} className="min-h-0 flex-1 overflow-y-auto pt-3 [scrollbar-width:thin]" data-inspector-panel={workspace}>
+        <Inspector workspace={workspace} />
       </div>
-      <Inspector workspace={workspace} />
     </aside>
+  );
+
+  const statusBar = (
+    <div className="flex shrink-0 items-center gap-3 border-t border-m-line bg-m-chrome px-3 py-1 text-[11px] text-m-subtle" data-status-bar>
+      <span className="inline-flex min-w-0 items-center gap-1.5" data-linked-source>
+        <Link2 className="size-3.5 shrink-0" aria-hidden="true" />
+        {film.source ? (
+          <>
+            <span className="shrink-0">Linked source:</span>
+            {source ? (
+              <Link href={`/studio/scenes/${source.id}`} className="truncate font-semibold text-m-text-2 hover:text-m-accent-text hover:underline">
+                {source.name}
+              </Link>
+            ) : (
+              <span className="truncate font-semibold text-m-text-2">{film.source.sceneName} (not in this browser)</span>
+            )}
+          </>
+        ) : (
+          <span>Not linked to a scene</span>
+        )}
+      </span>
+      <span className="hidden shrink-0 tabular-nums sm:inline">
+        {secs(filmDuration(film))} · {film.fps} fps · {film.aspect}
+      </span>
+      <span className="ml-auto hidden truncate lg:inline">Space play · ←/→ frame · S split · K keyframe · Q/W trim · M marker · Ctrl+Z undo · Ctrl+D duplicate</span>
+    </div>
   );
 
   return (
     <div
-      className={cn("flex h-dvh flex-col overflow-hidden bg-[#101318] text-[#E8EAF0] [color-scheme:dark]", creativeFontClasses)}
+      className={cn("flex h-[calc(100dvh-4rem)] min-h-[520px] flex-col overflow-hidden bg-m-bg text-m-text", theme === "dark" ? "[color-scheme:dark]" : "[color-scheme:light]", creativeFontClasses)}
+      data-motion-studio={theme}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) {
           e.preventDefault();
@@ -302,60 +379,65 @@ function Editor() {
         void importFiles(Array.from(e.dataTransfer.files), setImporting);
       }}
     >
-      {/* Header */}
-      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-white/[0.08] bg-[#12151B] px-3 py-2">
-        <Link href="/studio/motion" aria-label="Back to Motion Studio films" className="inline-flex size-8 items-center justify-center rounded-[8px] text-[#C9CEDA] hover:bg-white/[0.08]">
-          <ArrowLeft className="size-4" aria-hidden="true" />
-        </Link>
-        <span className="hidden leading-none sm:block">
-          <span className="block font-display text-[16px] font-extrabold tracking-[0.22em] text-white">ISOLA</span>
-          <span className="block text-[9px] font-semibold tracking-[0.24em] text-[#9AA1B2]">MOTION STUDIO</span>
-        </span>
-        <label htmlFor="film-name" className="sr-only">
-          Film name
-        </label>
-        <input
-          id="film-name"
-          key={film.name}
-          defaultValue={film.name}
-          maxLength={80}
-          onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== film.name && commit({ ...film, name: e.target.value.trim() })}
-          onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-          className="h-8 w-[180px] min-w-0 rounded-[8px] border border-transparent bg-transparent px-2 text-[14px] font-semibold text-white hover:border-white/10 focus:border-[#8B9BFF] focus:outline-none"
-        />
-        <nav aria-label="Workspaces" className="order-last flex w-full gap-1 overflow-x-auto rounded-[10px] bg-white/[0.04] p-1 md:order-none md:mx-auto md:w-auto">
-          {WORKSPACES.map((w) => (
-            <button
-              key={w.id}
-              type="button"
-              aria-current={workspace === w.id ? "page" : undefined}
-              onClick={() => {
-                setWorkspace(w.id);
-                setTab(w.library);
-                if (narrow) setMobilePanel("inspector");
-              }}
-              className={cn("h-8 shrink-0 rounded-[8px] px-3.5 text-[13px] font-semibold", workspace === w.id ? "bg-[#5465E6] text-white" : "text-[#C9CEDA] hover:bg-white/[0.06]")}
-            >
-              {w.label}
-            </button>
-          ))}
+      <h1 className="sr-only">Motion Studio: {film.name}</h1>
+      {/* Film bar */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-m-line bg-m-chrome px-3 py-1.5" data-film-bar>
+        <nav aria-label="Film" className="flex min-w-0 items-center gap-1 text-[13px]">
+          <Link href={source ? `/studio/scenes/${source.id}` : "/studio/scenes"} className="hidden shrink-0 rounded-md px-1.5 py-1 text-m-muted hover:bg-m-ink/[0.06] hover:text-m-strong sm:inline" title={source ? `Open “${source.name}” in Scene Studio` : "Scene Studio"}>
+            Scene Studio
+          </Link>
+          <ChevronRight className="hidden size-3.5 shrink-0 text-m-subtle sm:block" aria-hidden="true" />
+          <Link href="/studio/motion" className="shrink-0 rounded-md px-1.5 py-1 font-semibold text-m-text-2 hover:bg-m-ink/[0.06] hover:text-m-strong" title="All films">
+            Motion Studio
+          </Link>
+          <span className="text-m-subtle" aria-hidden="true">
+            /
+          </span>
+          <label htmlFor="film-name" className="sr-only">
+            Film name
+          </label>
+          <input
+            id="film-name"
+            key={film.name}
+            defaultValue={film.name}
+            maxLength={80}
+            onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== film.name && commit({ ...film, name: e.target.value.trim() })}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+            className="h-8 w-[200px] min-w-0 rounded-[8px] border border-transparent bg-transparent px-2 text-[14px] font-semibold text-m-strong hover:border-m-line-strong focus:border-m-accent-2 focus:outline-none"
+          />
         </nav>
-        <div className="ml-auto flex items-center gap-1 md:ml-0">
-          <SaveBadge />
+        <SaveBadge />
+        <div className="ml-auto flex items-center gap-1">
+          {film.source && source && (
+            <button
+              type="button"
+              onClick={() => setUpdating(true)}
+              title={sceneChanged ? "The scene has changed since this film last took it in" : "The film is up to date with its scene"}
+              className={cn("inline-flex h-8 items-center gap-1.5 rounded-[9px] border px-2.5 text-[13px] font-semibold", sceneChanged ? "border-m-key/60 bg-m-warn-bg text-m-warn-text" : "border-m-line text-m-text-2 hover:bg-m-ink/[0.06]")}
+              data-update-from-scene={sceneChanged ? "changed" : "current"}
+            >
+              <RefreshCw className="size-3.5" aria-hidden="true" />
+              <span className="hidden md:inline">Update from scene</span>
+              <span className="md:hidden">Update</span>
+            </button>
+          )}
           <IconButton label="Undo (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
             <Undo2 className="size-4" aria-hidden="true" />
           </IconButton>
           <IconButton label="Redo (Ctrl+Shift+Z)" onClick={redo} disabled={!canRedo}>
             <Redo2 className="size-4" aria-hidden="true" />
           </IconButton>
-          <button type="button" onClick={() => setWorkspace("deliver")} className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-[#5465E6] px-3 text-[13px] font-semibold text-white hover:bg-[#4757D9]">
-            <Upload className="size-3.5" aria-hidden="true" /> Export film
+          <IconButton label={theme === "dark" ? "Use the light workspace" : "Use the dark workspace"} onClick={() => writeTheme(theme === "dark" ? "light" : "dark")}>
+            {theme === "dark" ? <Sun className="size-4" aria-hidden="true" /> : <Moon className="size-4" aria-hidden="true" />}
+          </IconButton>
+          <button type="button" onClick={() => openInspector("export")} className="ml-1 inline-flex h-8 items-center gap-1.5 rounded-[9px] bg-m-accent px-3 text-[13px] font-semibold text-white shadow-[0_6px_14px_-8px_var(--color-m-accent)] hover:bg-m-accent-hover">
+            <Upload className="size-3.5" aria-hidden="true" /> Export video
           </button>
         </div>
-      </header>
+      </div>
 
       {(sceneChanged || saveState === "error") && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/[0.08] bg-[#2A2414] px-3 py-1.5 text-[12px] text-[#F5D58A]" role="status">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-m-line bg-m-warn-bg px-3 py-1.5 text-[12px] text-m-warn-text" role="status">
           <AlertTriangle className="size-3.5" aria-hidden="true" />
           {saveState === "error" ? (
             <span>{useEditor.getState().save.error ?? "This film couldn't be saved in this browser."}</span>
@@ -372,62 +454,55 @@ function Editor() {
       {source && <UpdateDialog film={film} scene={source} open={updating} onOpenChange={setUpdating} />}
 
       {narrow ? (
-        <main id="main" className="flex min-h-0 flex-1 flex-col">
-          <h1 className="sr-only">Motion Studio: {film.name}</h1>
-          <div className="h-[46dvh] min-h-[240px] shrink-0 border-b border-white/[0.08]">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="h-[42dvh] min-h-[220px] shrink-0 border-b border-m-line">
             <Viewer />
           </div>
-          <div role="tablist" aria-label="Panels" className="flex shrink-0 gap-1 border-b border-white/[0.08] px-2 py-1">
+          <div role="tablist" aria-label="Panels" className="flex shrink-0 gap-1 border-b border-m-line bg-m-chrome px-2 py-1">
             {(["timeline", "storyboard", "library", "inspector"] as const).map((p) => (
-              <button key={p} type="button" role="tab" aria-selected={mobilePanel === p} onClick={() => setMobilePanel(p)} className={cn("h-8 flex-1 rounded-[8px] text-[12px] font-semibold capitalize", mobilePanel === p ? "bg-white/[0.1] text-white" : "text-[#9AA1B2]")}>
-                {p === "inspector" ? ws.inspector : p}
+              <button key={p} type="button" role="tab" aria-selected={mobilePanel === p} onClick={() => setMobilePanel(p)} className={cn("h-8 flex-1 rounded-[8px] text-[12px] font-semibold capitalize", mobilePanel === p ? "bg-m-accent/15 text-m-accent-text" : "text-m-muted")}>
+                {p}
               </button>
             ))}
           </div>
-          <div className="min-h-0 flex-1 overflow-hidden">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-m-chrome">
             {mobilePanel === "timeline" && <Timeline />}
             {mobilePanel === "storyboard" && <Storyboard />}
-            {mobilePanel === "library" && (
-              <div className="flex h-full">
-                {libraryRail}
-                <div className="min-w-0 flex-1 overflow-y-auto">{library}</div>
-              </div>
-            )}
-            {mobilePanel === "inspector" && <div className="h-full overflow-y-auto">{inspector}</div>}
+            {mobilePanel === "library" && library}
+            {mobilePanel === "inspector" && inspector}
           </div>
-        </main>
+          {statusBar}
+        </div>
       ) : (
-        <main id="main" className="flex min-h-0 flex-1 flex-col">
-          <h1 className="sr-only">Motion Studio: {film.name}</h1>
+        <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1">
-            {libraryRail}
             {layout.leftOpen && (
               <>
-                <div className="flex min-h-0 shrink-0 flex-col" style={{ width: layout.left }}>
+                <div className="flex min-h-0 shrink-0 flex-col border-r border-m-line" style={{ width: layout.left }}>
                   {library}
                 </div>
-                <Splitter axis="x" label="Resize library" value={layout.left} min={220} max={520} onDrag={(d) => resize("left", d)} />
+                <Splitter axis="x" label="Resize library" value={layout.left} min={240} max={520} onDrag={(d) => resize("left", d)} />
               </>
             )}
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="min-h-0 flex-1">
                 <Viewer />
               </div>
-              <div className="shrink-0 border-t border-white/[0.08] bg-[#12151B]">
+              <div className="shrink-0 border-t border-m-line bg-m-chrome">
                 <Storyboard />
               </div>
             </div>
             {layout.rightOpen && (
               <>
-                <Splitter axis="x" label="Resize inspector" value={layout.right} min={260} max={520} onDrag={(d) => resize("right", -d)} />
-                <div className="flex min-h-0 shrink-0 flex-col" style={{ width: layout.right }}>
+                <Splitter axis="x" label="Resize inspector" value={layout.right} min={280} max={520} onDrag={(d) => resize("right", -d)} />
+                <div className="flex min-h-0 shrink-0 flex-col border-l border-m-line" style={{ width: layout.right }}>
                   {inspector}
                 </div>
               </>
             )}
           </div>
           {layout.bottomOpen && <Splitter axis="y" label="Resize timeline" value={layout.bottom} min={140} max={560} onDrag={(d) => resize("bottom", -d)} />}
-          <div className="flex shrink-0 items-center gap-1 border-t border-white/[0.08] bg-[#12151B] px-2 py-0.5">
+          <div className="flex shrink-0 items-center gap-1 border-t border-m-line bg-m-chrome px-2 py-0.5">
             <IconButton label={layout.leftOpen ? "Hide library" : "Show library"} onClick={() => setLayout((l) => ({ ...l, leftOpen: !l.leftOpen }))}>
               {layout.leftOpen ? <PanelLeftClose className="size-4" aria-hidden="true" /> : <PanelLeftOpen className="size-4" aria-hidden="true" />}
             </IconButton>
@@ -437,25 +512,25 @@ function Editor() {
             <IconButton label={layout.rightOpen ? "Hide inspector" : "Show inspector"} onClick={() => setLayout((l) => ({ ...l, rightOpen: !l.rightOpen }))}>
               {layout.rightOpen ? <PanelRightClose className="size-4" aria-hidden="true" /> : <PanelRightOpen className="size-4" aria-hidden="true" />}
             </IconButton>
-            <span className="ml-2 truncate text-[11px] text-[#8890A2]">Space play · ←/→ frame · S split · M marker · Delete · Ctrl+Z/Shift+Z · Ctrl+D duplicate</span>
+            <span className="ml-1 text-[12px] font-semibold text-m-text-2">Timeline</span>
           </div>
           {layout.bottomOpen && (
-            <div className="shrink-0 bg-[#13161C]" style={{ height: layout.bottom }}>
+            <div className="shrink-0 bg-m-chrome" style={{ height: layout.bottom }}>
               <Timeline />
             </div>
           )}
-        </main>
+          {statusBar}
+        </div>
       )}
       {dragging && (
-        <div className="pointer-events-none fixed inset-3 z-[70] grid place-items-center rounded-[18px] border-2 border-dashed border-[#8B9BFF] bg-[#101318]/80 text-[16px] font-semibold text-white">Drop images, video or sound to add them</div>
+        <div className="pointer-events-none fixed inset-3 z-[70] grid place-items-center rounded-[18px] border-2 border-dashed border-m-accent-2 bg-m-bg/80 text-[16px] font-semibold text-m-strong">Drop images, video or sound to add them</div>
       )}
       {importing && (
-        <div role="status" className="fixed right-4 top-16 z-[60] flex items-center gap-2 rounded-[10px] bg-[#1D222B] px-3 py-2 text-[13px] text-[#C9CEDA] shadow-xl">
+        <div role="status" className="fixed right-4 top-20 z-[60] flex items-center gap-2 rounded-[10px] border border-m-line bg-m-raised px-3 py-2 text-[13px] text-m-text-2 shadow-xl">
           <Spinner className="size-4" /> {importing}
         </div>
       )}
       <Notice />
-      <NameDialogHost />
     </div>
   );
 }
@@ -487,7 +562,7 @@ export function MotionStudio({ id }: { id: string }) {
     return (
       <Shell>
         This film isn&apos;t in this browser.{" "}
-        <Link href="/studio/motion" className="font-semibold text-[#A4B1FF] underline">
+        <Link href="/studio/motion" className="font-semibold text-blue-700 underline">
           See your films
         </Link>
       </Shell>
@@ -495,7 +570,7 @@ export function MotionStudio({ id }: { id: string }) {
   if (!loaded || libStatus === "loading" || libStatus === "idle")
     return (
       <Shell>
-        <Spinner className="mr-2 text-[#8B9BFF]" /> Opening Motion Studio…
+        <Spinner className="mr-2 text-blue" /> Opening Motion Studio…
       </Shell>
     );
   return <Editor />;
@@ -503,9 +578,8 @@ export function MotionStudio({ id }: { id: string }) {
 
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <main id="main" className="flex h-dvh items-center justify-center bg-[#101318] px-6 text-center text-[14px] text-[#C9CEDA]" role="status">
+    <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center px-6 text-center text-[14px] text-muted" role="status">
       {children}
-    </main>
+    </div>
   );
 }
-

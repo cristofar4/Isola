@@ -197,7 +197,7 @@ export function Viewer() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.08] px-2 py-1.5">
+      <div className="flex flex-wrap items-center gap-2 border-b border-m-line px-2 py-1.5">
         <label className="sr-only" htmlFor="viewer-aspect">
           Aspect ratio
         </label>
@@ -236,9 +236,9 @@ export function Viewer() {
           )}
         </div>
       </div>
-      <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-auto bg-[#0B0D11]">
+      <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-auto bg-m-well">
         <div className="flex min-h-full min-w-full items-center justify-center p-3">
-          <div ref={stageRef} className="relative shrink-0 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]" style={{ width: size.w, height: size.h }}>
+          <div ref={stageRef} className="relative shrink-0 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.45)]" style={{ width: size.w, height: size.h }}>
             <canvas ref={canvasRef} role="img" aria-label={`Preview at ${timecode(playhead, film.fps)}`} data-viewer className="block size-full" />
             <div className="absolute inset-0 touch-none" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} style={{ cursor: movable ? "move" : "default" }}>
               <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden="true">
@@ -261,16 +261,16 @@ export function Viewer() {
         </div>
       </div>
       {/* Transport */}
-      <div className="grid gap-1.5 border-t border-white/[0.08] px-3 py-2">
+      <div className="grid gap-1.5 border-t border-m-line px-3 py-2">
         <label className="sr-only" htmlFor="scrub">
           Playhead
         </label>
-        <input id="scrub" type="range" min={0} max={D} step={1 / film.fps} value={Math.min(playhead, D)} onChange={(e) => setPlayhead(Number(e.target.value))} className="w-full accent-[#8B9BFF]" />
+        <input id="scrub" type="range" min={0} max={D} step={1 / film.fps} value={Math.min(playhead, D)} onChange={(e) => setPlayhead(Number(e.target.value))} className="w-full accent-m-accent-2" />
         <div className="flex items-center gap-1">
-          <span className="font-mono text-[13px] tabular-nums text-[#E8EAF0]" data-timecode>
+          <span className="font-mono text-[13px] tabular-nums text-m-text" data-timecode>
             {timecode(playhead, film.fps)}
           </span>
-          <span className="font-mono text-[13px] tabular-nums text-[#8890A2]">/ {timecode(D, film.fps)}</span>
+          <span className="font-mono text-[13px] tabular-nums text-m-subtle">/ {timecode(D, film.fps)}</span>
           <div className="mx-auto flex items-center gap-1">
             <IconButton label="Go to start" onClick={() => setPlayhead(0)}>
               <SkipBack className="size-4" aria-hidden="true" />
@@ -278,7 +278,7 @@ export function Viewer() {
             <IconButton label="Previous frame" onClick={() => step(-1)}>
               <StepBack className="size-4" aria-hidden="true" />
             </IconButton>
-            <button type="button" onClick={togglePlay} aria-label={playing ? "Pause" : "Play"} className="inline-flex size-10 items-center justify-center rounded-full bg-[#5465E6] text-white hover:bg-[#4757D9]">
+            <button type="button" onClick={togglePlay} aria-label={playing ? "Pause" : "Play"} className="inline-flex size-10 items-center justify-center rounded-full bg-m-accent text-white hover:bg-m-accent-hover">
               {playing ? <Pause className="size-5" aria-hidden="true" /> : <Play className="ml-0.5 size-5" aria-hidden="true" />}
             </button>
             <IconButton label="Next frame" onClick={() => step(1)}>
@@ -291,7 +291,7 @@ export function Viewer() {
           <IconButton label="Loop playback" active={loop} onClick={() => useEditor.setState({ loop: !loop })}>
             <Repeat className="size-4" aria-hidden="true" />
           </IconButton>
-          <span className="hidden text-[12px] text-[#8890A2] sm:inline">{film.fps} fps</span>
+          <span className="hidden text-[12px] text-m-subtle sm:inline">{film.fps} fps</span>
         </div>
       </div>
     </div>

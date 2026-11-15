@@ -1,19 +1,17 @@
-import type { Metadata } from "next";
-import { MotionStudio } from "@/components/motion/motion-studio";
-import { StudioGate } from "@/components/studio/studio-gate";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
-export const metadata: Metadata = { title: "Motion Studio", description: "Animate your product scenes and export video.", robots: { index: false } };
-
-async function Editor({ params }: { params: Promise<{ id: string }> }) {
+async function Go({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <MotionStudio id={id} />;
+  redirect(`/studio/motion/${encodeURIComponent(id)}`);
+  return null;
 }
 
-/** Motion Studio takes the whole window (its own dark workspace), outside the studio sidebar. */
-export default function MotionPage({ params }: { params: Promise<{ id: string }> }) {
+/** Films used to open full-window at /motion/<id>; the editor now lives inside the studio. */
+export default function OldFilmPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <StudioGate path="/studio/motion" label="Motion Studio">
-      <Editor params={params} />
-    </StudioGate>
+    <Suspense fallback={null}>
+      <Go params={params} />
+    </Suspense>
   );
 }

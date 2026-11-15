@@ -100,18 +100,18 @@ function ScopesView() {
   return (
     <div className="grid gap-2" data-scopes>
       <div className="flex items-center justify-between">
-        <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#C9CEDA]">Colour scopes</h3>
-        <span className="text-[11px] text-[#8890A2]">From the preview</span>
+        <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Colour scopes</h3>
+        <span className="text-[11px] text-m-subtle">From the preview</span>
       </div>
       <figure className="grid gap-1">
         <canvas ref={parade} role="img" aria-label="RGB parade" className="h-[96px] w-full rounded-[6px] bg-black [image-rendering:pixelated]" />
-        <figcaption className="flex justify-between text-[10px] text-[#8890A2]">
+        <figcaption className="flex justify-between text-[10px] text-m-subtle">
           <span>RGB parade: red, green, blue across the frame</span>
         </figcaption>
       </figure>
       <figure className="grid gap-1">
         <canvas ref={hist} role="img" aria-label="Luma histogram" className="h-[56px] w-full rounded-[6px] bg-black" />
-        <figcaption className="text-[10px] text-[#8890A2]">
+        <figcaption className="text-[10px] text-m-subtle">
           Luma histogram
           {scopes && (scopes.clipped.black > 0.005 || scopes.clipped.white > 0.005) ? ` · clipped: ${(scopes.clipped.black * 100).toFixed(1)}% black, ${(scopes.clipped.white * 100).toFixed(1)}% white` : ""}
         </figcaption>
@@ -141,14 +141,14 @@ export function ColourPanel() {
     <div className="grid gap-3 px-3 pb-4" data-colour-panel>
       <div role="radiogroup" aria-label="Apply colour to" className="grid gap-1">
         {(["background", "frame", "layer"] as Scope[]).map((s) => (
-          <button key={s} type="button" role="radio" aria-checked={effective === s} disabled={s === "layer" && !clip} onClick={() => setScope(s)} className={cn("flex h-9 items-center justify-between rounded-[9px] px-3 text-left text-[13px] disabled:opacity-35", effective === s ? "bg-[#5465E6]/25 text-white ring-1 ring-[#8B9BFF]/60" : "bg-white/[0.04] text-[#C9CEDA] hover:bg-white/[0.07]")}>
+          <button key={s} type="button" role="radio" aria-checked={effective === s} disabled={s === "layer" && !clip} onClick={() => setScope(s)} className={cn("flex h-9 items-center justify-between rounded-[9px] px-3 text-left text-[13px] disabled:opacity-35", effective === s ? "bg-m-accent/25 text-m-strong ring-1 ring-m-accent-2/60" : "bg-m-ink/[0.04] text-m-text-2 hover:bg-m-ink/[0.07]")}>
             {scopeLabel[s]}
-            {s === "frame" && <span className="text-[11px] text-[#F5D58A]">includes the product</span>}
-            {s === "background" && <span className="text-[11px] text-[#9AE6B4]">product untouched</span>}
+            {s === "frame" && <span className="text-[11px] text-m-warn-text">includes the product</span>}
+            {s === "background" && <span className="text-[11px] text-m-success-text">product untouched</span>}
           </button>
         ))}
       </div>
-      <p className="text-[11px] leading-snug text-[#8890A2]">
+      <p className="text-[11px] leading-snug text-m-subtle">
         {effective === "background" ? "Backdrops, background images and background video only. Product cutouts, shadows and titles keep their colours." : effective === "frame" ? "Everything in the frame, including your product. Use it lightly if colour accuracy matters." : "Just this layer. Adjustments never change the source file."}
       </p>
       {SLIDERS.map((s) => (
@@ -171,7 +171,7 @@ export function ColourPanel() {
       <DarkButton size="sm" tone="ghost" icon={<RotateCcw className="size-3.5" aria-hidden="true" />} onClick={() => commit(withAdjust(film, effective, clip?.id ?? null, { ...NEUTRAL }))}>
         Reset {scopeLabel[effective].toLowerCase()}
       </DarkButton>
-      <div className="border-t border-white/[0.08] pt-3">
+      <div className="border-t border-m-line pt-3">
         <ScopesView />
       </div>
     </div>

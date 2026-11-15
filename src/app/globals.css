@@ -24,6 +24,32 @@
   --color-warn: #8a5a00;
   --color-warn-50: #fbf3df;
 
+  /* Motion Studio surfaces (light by default; the dark set is below). */
+  --color-m-bg: #f1f2ee;
+  --color-m-chrome: #ffffff;
+  --color-m-panel: #ffffff;
+  --color-m-raised: #ffffff;
+  --color-m-well: #e7e9e4;
+  --color-m-ink: #20292d;
+  --color-m-strong: #161d20;
+  --color-m-text: #20292d;
+  --color-m-text-2: #3a4549;
+  --color-m-muted: #586266;
+  --color-m-subtle: #626c70;
+  --color-m-line: #dfe2dc;
+  --color-m-line-strong: #c8ccc5;
+  --color-m-accent: #4163f4;
+  --color-m-accent-hover: #2e4fdc;
+  --color-m-accent-2: #4163f4;
+  --color-m-accent-text: #2742bd;
+  --color-m-key: #b97800;
+  --color-m-warn-text: #7a4f00;
+  --color-m-warn-bg: #fbf3df;
+  --color-m-danger: #b93a26;
+  --color-m-danger-text: #a8321f;
+  --color-m-success: #1d7a52;
+  --color-m-success-text: #17694a;
+
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-inter-tight), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
@@ -75,6 +101,33 @@
 }
 
 @layer base {
+  /* Motion Studio's dark workspace (the editor sets this on <html> while it's open). */
+  html[data-motion-theme="dark"] {
+    --color-m-bg: #101318;
+    --color-m-chrome: #12151b;
+    --color-m-panel: #161a21;
+    --color-m-raised: #1d222b;
+    --color-m-well: #0b0d11;
+    --color-m-ink: #ffffff;
+    --color-m-strong: #ffffff;
+    --color-m-text: #e8eaf0;
+    --color-m-text-2: #c9ceda;
+    --color-m-muted: #9aa1b2;
+    --color-m-subtle: #8890a2;
+    --color-m-line: rgb(255 255 255 / 0.09);
+    --color-m-line-strong: rgb(255 255 255 / 0.16);
+    --color-m-accent: #5465e6;
+    --color-m-accent-hover: #4757d9;
+    --color-m-accent-2: #8b9bff;
+    --color-m-accent-text: #a4b1ff;
+    --color-m-key: #f5b942;
+    --color-m-warn-text: #f5d58a;
+    --color-m-warn-bg: #2a2414;
+    --color-m-danger: #f07167;
+    --color-m-danger-text: #ffb4ad;
+    --color-m-success: #3bb273;
+    --color-m-success-text: #9ae6b4;
+  }
   html {
     -webkit-text-size-adjust: 100%;
     /* Keep in-page anchors clear of the fixed site header. */

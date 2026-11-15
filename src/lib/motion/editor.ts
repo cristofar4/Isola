@@ -16,7 +16,10 @@ import { filmDuration } from "./time";
  * "Saved" is only shown once the browser has actually stored the film.
  */
 
-export type Workspace = "assemble" | "animate" | "colour" | "sound" | "deliver";
+/** The inspector's tabs. */
+export type Workspace = "motion" | "colour" | "text" | "sound" | "export";
+/** Inside Motion: one-step controls, the keyframe editor, or the selected layer's details. */
+export type MotionMode = "quick" | "keyframes" | "layer";
 
 export interface Selection {
   clipIds: string[];
@@ -33,6 +36,7 @@ interface EditorState {
   playing: boolean;
   loop: boolean;
   workspace: Workspace;
+  motionMode: MotionMode;
   save: { state: "saved" | "saving" | "unsaved" | "error"; error: string | null; at: number | null };
   notice: { tone: "ok" | "error"; text: string; at: number } | null;
 }
@@ -48,7 +52,8 @@ export const useEditor = create<EditorState>(() => ({
   playhead: 0,
   playing: false,
   loop: false,
-  workspace: "assemble",
+  workspace: "motion",
+  motionMode: "quick",
   save: { state: "saved", error: null, at: null },
   notice: null,
 }));
@@ -176,4 +181,8 @@ export function notify(text: string, tone: "ok" | "error" = "ok") {
 
 export function setWorkspace(workspace: Workspace) {
   useEditor.setState({ workspace });
+}
+
+export function setMotionMode(motionMode: MotionMode) {
+  useEditor.setState({ workspace: "motion", motionMode });
 }

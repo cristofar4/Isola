@@ -39,13 +39,13 @@ export function Storyboard() {
   const selectedShot = useEditor((s) => s.selection.shotId);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const starts = shotStarts(film);
-  const item = "flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-[#E8EAF0] outline-none data-[highlighted]:bg-white/10";
+  const item = "flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] text-m-text outline-none data-[highlighted]:bg-m-ink/10";
 
   return (
     <section aria-label="Shot storyboard" className="flex min-h-0 flex-col">
       <div className="flex items-center gap-2 px-3 pb-1.5 pt-2">
-        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#C9CEDA]">Shot storyboard</h2>
-        <span className="text-[12px] text-[#8890A2]">({film.shots.length} shot{film.shots.length === 1 ? "" : "s"})</span>
+        <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-m-text-2">Shot storyboard</h2>
+        <span className="text-[12px] text-m-subtle">({film.shots.length} shot{film.shots.length === 1 ? "" : "s"})</span>
       </div>
       <ol className="flex min-h-0 gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:thin]">
         {film.shots.map((s, i) => {
@@ -65,7 +65,7 @@ export function Storyboard() {
                 if (dragFrom !== null && dragFrom !== i) commit(reorderShots(film, dragFrom, i));
                 setDragFrom(null);
               }}
-              className={cn("w-[176px] shrink-0 overflow-hidden rounded-[10px] border bg-[#1D222B]", active ? "border-[#8B9BFF] ring-1 ring-[#8B9BFF]/50" : "border-white/[0.08]")}
+              className={cn("w-[176px] shrink-0 overflow-hidden rounded-[10px] border bg-m-raised", active ? "border-m-accent-2 ring-1 ring-m-accent-2/50" : "border-m-line")}
             >
               <button
                 type="button"
@@ -80,19 +80,19 @@ export function Storyboard() {
               </button>
               <div className="flex items-start gap-1 px-2 py-1.5">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] font-semibold text-[#E8EAF0]">
+                  <p className="truncate text-[12px] font-semibold text-m-text">
                     {String(i + 1).padStart(2, "0")} {s.name}
                   </p>
-                  <p className="font-mono text-[10px] tabular-nums text-[#8890A2]">
+                  <p className="font-mono text-[10px] tabular-nums text-m-subtle">
                     {timecode(starts[i], film.fps).slice(0, -3)} – {timecode(starts[i] + s.duration, film.fps).slice(0, -3)} ({secs(s.duration)})
                   </p>
                 </div>
                 <DropdownMenu.Root modal={false}>
-                  <DropdownMenu.Trigger aria-label={`Actions for ${s.name}`} className="inline-flex size-6 items-center justify-center rounded text-[#9AA1B2] hover:bg-white/10 hover:text-white">
+                  <DropdownMenu.Trigger aria-label={`Actions for ${s.name}`} className="inline-flex size-6 items-center justify-center rounded text-m-muted hover:bg-m-ink/10 hover:text-m-strong">
                     <Ellipsis className="size-4" aria-hidden="true" />
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Portal>
-                    <DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-[180px] rounded-lg border border-white/10 bg-[#1D222B] p-1 shadow-xl">
+                    <DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-[180px] rounded-lg border border-m-line bg-m-raised p-1 shadow-xl">
                       <DropdownMenu.Item className={item} onSelect={() => void askName("Rename shot", { label: "Shot name", initial: s.name, action: "Rename" }).then((n) => n && commit(renameShot(film, s.id, n)))}>
                         <Pencil className="size-3.5" aria-hidden="true" /> Rename
                       </DropdownMenu.Item>
@@ -105,7 +105,7 @@ export function Storyboard() {
                       <DropdownMenu.Item className={item} disabled={i === film.shots.length - 1} onSelect={() => commit(reorderShots(film, i, i + 1))}>
                         <ChevronRight className="size-3.5" aria-hidden="true" /> Move later
                       </DropdownMenu.Item>
-                      <DropdownMenu.Item className={cn(item, "text-[#FFB4AD]")} disabled={film.shots.length <= 1} onSelect={() => commit(deleteShot(film, s.id))}>
+                      <DropdownMenu.Item className={cn(item, "text-m-danger-text")} disabled={film.shots.length <= 1} onSelect={() => commit(deleteShot(film, s.id))}>
                         <Trash2 className="size-3.5" aria-hidden="true" /> Delete shot
                       </DropdownMenu.Item>
                     </DropdownMenu.Content>
@@ -116,7 +116,7 @@ export function Storyboard() {
           );
         })}
         <li className="shrink-0">
-          <button type="button" onClick={() => commit(addShot(film, film.shots.findIndex((s) => s.id === selectedShot) >= 0 ? film.shots.findIndex((s) => s.id === selectedShot) : film.shots.length - 1, 3))} className="grid h-full min-h-[104px] w-[120px] place-items-center rounded-[10px] border border-dashed border-white/15 text-[12px] font-semibold text-[#9AA1B2] hover:border-[#8B9BFF]/60 hover:text-white">
+          <button type="button" onClick={() => commit(addShot(film, film.shots.findIndex((s) => s.id === selectedShot) >= 0 ? film.shots.findIndex((s) => s.id === selectedShot) : film.shots.length - 1, 3))} className="grid h-full min-h-[104px] w-[120px] place-items-center rounded-[10px] border border-dashed border-m-line-strong text-[12px] font-semibold text-m-muted hover:border-m-accent-2/60 hover:text-m-strong">
             <span className="grid place-items-center gap-1">
               <Plus className="size-4" aria-hidden="true" /> Add shot
             </span>

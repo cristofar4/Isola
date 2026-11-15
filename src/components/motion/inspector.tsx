@@ -75,7 +75,7 @@ function setBase(film: Film, clip: Clip, prop: ClipProp, v: number): Film {
 }
 
 /** One animatable property: its value at the playhead, a keyframe toggle, and jumps to the previous/next keyframe. */
-function PropRow({ film, target, spec, value, keyframes, local, offset, enabled }: { film: Film; target: KeyTarget; spec: PropSpec; value: number; keyframes: Keyframe[] | undefined; local: number | null; offset: number; enabled: boolean }) {
+export function PropRow({ film, target, spec, value, keyframes, local, offset, enabled }: { film: Film; target: KeyTarget; spec: PropSpec; value: number; keyframes: Keyframe[] | undefined; local: number | null; offset: number; enabled: boolean }) {
   const half = 0.5 / film.fps;
   const here = local !== null ? keyframes?.find((k) => Math.abs(k.t - local) <= half) : undefined;
   const animated = !!keyframes?.length;
@@ -100,10 +100,10 @@ function PropRow({ film, target, spec, value, keyframes, local, offset, enabled 
     <div className="flex items-center gap-1" data-prop={spec.label}>
       <Diamond on={!!here} animated={animated} disabled={!enabled || local === null} label={here ? `Remove ${spec.label} keyframe` : `Add ${spec.label} keyframe`} onClick={toggle} />
       <NumberField tone="dark" className="flex-1" label={spec.label} unit={spec.unit} decimals={spec.decimals} step={spec.step} min={spec.min} max={spec.max} value={spec.toUi(value, film)} onChange={change} disabled={!enabled} />
-      <button type="button" aria-label={`Previous ${spec.label} keyframe`} disabled={!prev} onClick={() => prev && setPlayhead(offset + prev.t)} className="inline-flex size-6 items-center justify-center rounded text-[#9AA1B2] hover:bg-white/10 disabled:opacity-25">
+      <button type="button" aria-label={`Previous ${spec.label} keyframe`} disabled={!prev} onClick={() => prev && setPlayhead(offset + prev.t)} className="inline-flex size-6 items-center justify-center rounded text-m-muted hover:bg-m-ink/10 disabled:opacity-25">
         <ChevronLeft className="size-3.5" aria-hidden="true" />
       </button>
-      <button type="button" aria-label={`Next ${spec.label} keyframe`} disabled={!next} onClick={() => next && setPlayhead(offset + next.t)} className="inline-flex size-6 items-center justify-center rounded text-[#9AA1B2] hover:bg-white/10 disabled:opacity-25">
+      <button type="button" aria-label={`Next ${spec.label} keyframe`} disabled={!next} onClick={() => next && setPlayhead(offset + next.t)} className="inline-flex size-6 items-center justify-center rounded text-m-muted hover:bg-m-ink/10 disabled:opacity-25">
         <ChevronRight className="size-3.5" aria-hidden="true" />
       </button>
     </div>
@@ -169,27 +169,27 @@ function CurveEditor({ film, target, keyframes, span, local }: { film: Film; tar
 
   return (
     <div className="grid gap-2">
-      <svg ref={svgRef} width={W} height={H} className="w-full rounded-[8px] border border-white/[0.08] bg-[#0F1216]" viewBox={`0 0 ${W} ${H}`} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} role="img" aria-label="Value over time">
+      <svg ref={svgRef} width={W} height={H} className="w-full rounded-[8px] border border-m-line bg-m-well" viewBox={`0 0 ${W} ${H}`} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} role="img" aria-label="Value over time">
         {[0.25, 0.5, 0.75].map((f) => (
-          <line key={f} x1={pad} x2={W - pad} y1={pad + f * (H - pad * 2)} y2={pad + f * (H - pad * 2)} stroke="rgba(255,255,255,0.05)" />
+          <line key={f} x1={pad} x2={W - pad} y1={pad + f * (H - pad * 2)} y2={pad + f * (H - pad * 2)} stroke="var(--color-m-line)" />
         ))}
-        {local !== null && <line x1={sx(local)} x2={sx(local)} y1={0} y2={H} stroke="#8B9BFF" strokeOpacity={0.5} />}
-        <polyline points={pts.join(" ")} fill="none" stroke="#A4B1FF" strokeWidth={2} />
+        {local !== null && <line x1={sx(local)} x2={sx(local)} y1={0} y2={H} stroke="var(--color-m-accent-2)" strokeOpacity={0.5} />}
+        <polyline points={pts.join(" ")} fill="none" stroke="var(--color-m-accent-2)" strokeWidth={2} />
         {keyframes.slice(0, -1).map((k, i) => (
           <rect key={k.id} x={sx(k.t)} y={0} width={Math.max(1, sx(keyframes[i + 1].t) - sx(k.t))} height={H} fill={i === seg ? "rgba(139,155,255,0.07)" : "transparent"} onClick={() => setSegment(i)} className="cursor-pointer" />
         ))}
         {handles && a && b && (
           <>
-            <line x1={sx(a.t)} y1={sy(a.v)} x2={handles[0][0]} y2={handles[0][1]} stroke="#F5B942" strokeOpacity={0.7} />
-            <line x1={sx(b.t)} y1={sy(b.v)} x2={handles[1][0]} y2={handles[1][1]} stroke="#F5B942" strokeOpacity={0.7} />
+            <line x1={sx(a.t)} y1={sy(a.v)} x2={handles[0][0]} y2={handles[0][1]} stroke="var(--color-m-key)" strokeOpacity={0.7} />
+            <line x1={sx(b.t)} y1={sy(b.v)} x2={handles[1][0]} y2={handles[1][1]} stroke="var(--color-m-key)" strokeOpacity={0.7} />
             {handles.map(([x, y], i) => (
               <circle
                 key={i}
                 cx={x}
                 cy={y}
                 r={6}
-                fill="#101318"
-                stroke="#F5B942"
+                fill="var(--color-m-well)"
+                stroke="var(--color-m-key)"
                 strokeWidth={2}
                 className="cursor-grab"
                 role="img"
@@ -203,10 +203,10 @@ function CurveEditor({ film, target, keyframes, span, local }: { film: Film; tar
           </>
         )}
         {keyframes.map((k) => (
-          <rect key={k.id} x={sx(k.t) - 4} y={sy(k.v) - 4} width={8} height={8} transform={`rotate(45 ${sx(k.t)} ${sy(k.v)})`} fill="#F5B942" />
+          <rect key={k.id} x={sx(k.t) - 4} y={sy(k.v) - 4} width={8} height={8} transform={`rotate(45 ${sx(k.t)} ${sy(k.v)})`} fill="var(--color-m-key)" />
         ))}
       </svg>
-      <p className="text-[11px] leading-snug text-[#8890A2]">
+      <p className="text-[11px] leading-snug text-m-subtle">
         {keyframes.length < 2 ? "Add two keyframes to shape the movement between them." : flat ? "This segment's start and end values are equal, so its curve has no visible effect." : `Segment ${seg + 1} of ${keyframes.length - 1} (click a shaded area to pick another). Drag the handles to shape it.`}
       </p>
     </div>
@@ -217,8 +217,8 @@ function KeyframeList({ film, target, keyframes, spec, offset, local }: { film: 
   return (
     <ul className="grid gap-1" aria-label={`${spec.label} keyframes`}>
       {keyframes.map((k) => (
-        <li key={k.id} className="flex items-center gap-1.5 rounded-[8px] bg-white/[0.03] px-1.5 py-1 text-[12px] text-[#C9CEDA]">
-          <button type="button" className="w-12 text-left font-mono tabular-nums hover:text-white" onClick={() => setPlayhead(offset + k.t)} title="Go to this keyframe">
+        <li key={k.id} className="flex items-center gap-1.5 rounded-[8px] bg-m-ink/[0.03] px-1.5 py-1 text-[12px] text-m-text-2">
+          <button type="button" className="w-12 text-left font-mono tabular-nums hover:text-m-strong" onClick={() => setPlayhead(offset + k.t)} title="Go to this keyframe">
             {secs(k.t)}
           </button>
           <span className="w-16 tabular-nums">
@@ -235,10 +235,10 @@ function KeyframeList({ film, target, keyframes, spec, offset, local }: { film: 
               </option>
             ))}
           </select>
-          <button type="button" aria-label="Copy this keyframe to the playhead" disabled={local === null} onClick={() => local !== null && commit(duplicateKeyframe(film, target, k.id, local))} className="inline-flex size-6 items-center justify-center rounded hover:bg-white/10 disabled:opacity-25">
+          <button type="button" aria-label="Copy this keyframe to the playhead" disabled={local === null} onClick={() => local !== null && commit(duplicateKeyframe(film, target, k.id, local))} className="inline-flex size-6 items-center justify-center rounded hover:bg-m-ink/10 disabled:opacity-25">
             <Copy className="size-3.5" aria-hidden="true" />
           </button>
-          <button type="button" aria-label="Delete this keyframe" onClick={() => commit(deleteKeyframe(film, target, k.id))} className="inline-flex size-6 items-center justify-center rounded hover:bg-white/10">
+          <button type="button" aria-label="Delete this keyframe" onClick={() => commit(deleteKeyframe(film, target, k.id))} className="inline-flex size-6 items-center justify-center rounded hover:bg-m-ink/10">
             <Trash2 className="size-3.5" aria-hidden="true" />
           </button>
         </li>
@@ -280,34 +280,34 @@ export function AnimatePanel() {
 
   return (
     <div className="grid gap-3 px-3 pb-4">
-      <div role="radiogroup" aria-label="What to animate" className="grid grid-cols-2 gap-1 rounded-[10px] bg-white/[0.04] p-1">
+      <div role="radiogroup" aria-label="What to animate" className="grid grid-cols-2 gap-1 rounded-[10px] bg-m-ink/[0.04] p-1">
         {(
           [
             ["layer", "Selected layer"],
             ["camera", "Scene camera"],
           ] as const
         ).map(([v, label]) => (
-          <button key={v} type="button" role="radio" aria-checked={effective === v} disabled={v === "layer" && !clip} onClick={() => setScope(v)} className={cn("h-8 rounded-[8px] text-[12px] font-semibold disabled:opacity-35", effective === v ? "bg-[#5465E6] text-white" : "text-[#C9CEDA] hover:bg-white/[0.06]")}>
+          <button key={v} type="button" role="radio" aria-checked={effective === v} disabled={v === "layer" && !clip} onClick={() => setScope(v)} className={cn("h-8 rounded-[8px] text-[12px] font-semibold disabled:opacity-35", effective === v ? "bg-m-accent text-white" : "text-m-text-2 hover:bg-m-ink/[0.06]")}>
             {label}
           </button>
         ))}
       </div>
-      <p className="text-[11px] leading-snug text-[#8890A2]">
+      <p className="text-[11px] leading-snug text-m-subtle">
         {effective === "layer"
           ? `Moves only “${clip?.name}”. Keyframe times are relative to the clip.`
           : `Moves the whole of ${shot.name}: every layer follows by its depth (backdrops less, titles not at all), which is what makes parallax.`}
       </p>
-      {local === null && <p className="rounded-[8px] bg-[#F5B942]/10 px-2.5 py-2 text-[12px] text-[#F5D58A]">Move the playhead {effective === "layer" ? "over this clip" : "into this shot"} to add or change keyframes.</p>}
-      {locked && <p className="rounded-[8px] bg-white/[0.05] px-2.5 py-2 text-[12px] text-[#C9CEDA]">This clip&apos;s track is locked.</p>}
+      {local === null && <p className="rounded-[8px] bg-m-key/10 px-2.5 py-2 text-[12px] text-m-warn-text">Move the playhead {effective === "layer" ? "over this clip" : "into this shot"} to add or change keyframes.</p>}
+      {locked && <p className="rounded-[8px] bg-m-ink/[0.05] px-2.5 py-2 text-[12px] text-m-text-2">This clip&apos;s track is locked.</p>}
       <div className="grid gap-1.5">
         {rows.map((r) => (
           <PropRow key={r.spec.label} film={film} target={r.target} spec={r.spec} value={r.value} keyframes={r.keyframes} local={local} offset={offset} enabled={!locked} />
         ))}
       </div>
       {curveRow && (
-        <div className="grid gap-2 border-t border-white/[0.08] pt-3">
+        <div className="grid gap-2 border-t border-m-line pt-3">
           <div className="flex items-center gap-2">
-            <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#C9CEDA]">Curve</h3>
+            <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Curve</h3>
             <label className="sr-only" htmlFor="curve-prop">
               Property
             </label>
@@ -329,7 +329,7 @@ export function AnimatePanel() {
               </DarkButton>
             </>
           ) : (
-            <p className="text-[12px] text-[#8890A2]">No keyframes on {curveRow.spec.label.toLowerCase()} yet. Use its ◆ to add one at the playhead.</p>
+            <p className="text-[12px] text-m-subtle">No keyframes on {curveRow.spec.label.toLowerCase()} yet. Use its ◆ to add one at the playhead.</p>
           )}
         </div>
       )}
@@ -339,18 +339,18 @@ export function AnimatePanel() {
 
 /* -------------------------------------------------------------- assemble --- */
 
-function TextSection({ film, clip }: { film: Film; clip: Clip }) {
+export function TextSection({ film, clip }: { film: Film; clip: Clip }) {
   if (clip.source.kind !== "text") return null;
   const src = clip.source;
   const style = src.style;
   const set = (patch: Partial<typeof style>) => commit(updateClip(film, clip.id, (c) => (c.source.kind === "text" ? { ...c, source: { ...c.source, style: { ...c.source.style, ...patch } } } : c)), { coalesce: `text:${clip.id}:${Object.keys(patch).join()}` });
   const setAnim = (phase: "in" | "out", patch: Partial<(typeof src.anim)["in"]>) => commit(updateClip(film, clip.id, (c) => (c.source.kind === "text" ? { ...c, source: { ...c.source, anim: { ...c.source.anim, [phase]: { ...c.source.anim[phase], ...patch } } } } : c)));
   return (
-    <div className="grid gap-2 border-t border-white/[0.08] pt-3">
-      <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#C9CEDA]">Text</h3>
-      <label className="grid gap-1 text-[12px] text-[#9AA1B2]">
+    <div className="grid gap-2 border-t border-m-line pt-3">
+      <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Text</h3>
+      <label className="grid gap-1 text-[12px] text-m-muted">
         Words
-        <textarea key={clip.id} defaultValue={style.text} rows={2} maxLength={400} onBlur={(e) => e.target.value !== style.text && set({ text: e.target.value })} className="rounded-[8px] border border-white/10 bg-[#1D222B] px-2.5 py-1.5 text-[13px] text-[#E8EAF0] outline-none focus:border-[#8B9BFF]" />
+        <textarea key={clip.id} defaultValue={style.text} rows={2} maxLength={400} onBlur={(e) => e.target.value !== style.text && set({ text: e.target.value })} className="rounded-[8px] border border-m-line bg-m-raised px-2.5 py-1.5 text-[13px] text-m-text outline-none focus:border-m-accent-2" />
       </label>
       <div className="grid grid-cols-2 gap-2">
         <Field label="Font">
@@ -375,20 +375,20 @@ function TextSection({ film, clip }: { film: Film; clip: Clip }) {
       <NumberField tone="dark" label="Size" unit="%" decimals={1} step={0.5} min={1} max={50} value={style.size * 100} onChange={(v) => set({ size: v / 100 })} />
       <NumberField tone="dark" label="Letter spacing" unit="em" decimals={2} step={0.01} min={-0.1} max={1} value={style.letterSpacing} onChange={(v) => set({ letterSpacing: v })} />
       <NumberField tone="dark" label="Line height" unit="×" decimals={2} step={0.05} min={0.7} max={3} value={style.lineHeight} onChange={(v) => set({ lineHeight: v })} />
-      <div className="flex items-center justify-between gap-2 text-[12px] text-[#9AA1B2]">
+      <div className="flex items-center justify-between gap-2 text-[12px] text-m-muted">
         Colour
         <input type="color" aria-label="Text colour" value={style.color.toLowerCase()} onChange={(e) => set({ color: e.target.value.toUpperCase() })} className="h-7 w-12 cursor-pointer rounded border-0 bg-transparent" />
       </div>
       <div role="radiogroup" aria-label="Alignment" className="grid grid-cols-3 gap-1">
         {(["left", "center", "right"] as const).map((a) => (
-          <button key={a} type="button" role="radio" aria-checked={style.align === a} onClick={() => set({ align: a })} className={cn("h-7 rounded-[7px] text-[12px] capitalize", style.align === a ? "bg-[#5465E6] text-white" : "bg-white/[0.04] text-[#C9CEDA]")}>
+          <button key={a} type="button" role="radio" aria-checked={style.align === a} onClick={() => set({ align: a })} className={cn("h-7 rounded-[7px] text-[12px] capitalize", style.align === a ? "bg-m-accent text-white" : "bg-m-ink/[0.04] text-m-text-2")}>
             {a === "center" ? "Centre" : a}
           </button>
         ))}
       </div>
-      <label className="flex items-center justify-between text-[12px] text-[#9AA1B2]">
+      <label className="flex items-center justify-between text-[12px] text-m-muted">
         Capitals
-        <input type="checkbox" checked={style.uppercase} onChange={(e) => set({ uppercase: e.target.checked })} className="size-4 accent-[#8B9BFF]" />
+        <input type="checkbox" checked={style.uppercase} onChange={(e) => set({ uppercase: e.target.checked })} className="size-4 accent-m-accent-2" />
       </label>
       {(["in", "out"] as const).map((phase) => (
         <div key={phase} className="grid grid-cols-[1fr_88px] items-end gap-2">
@@ -407,13 +407,13 @@ function TextSection({ film, clip }: { film: Film; clip: Clip }) {
       {(src.anim.in.kind === "stagger" || src.anim.out.kind === "stagger") && (
         <div role="radiogroup" aria-label="Stagger by" className="grid grid-cols-2 gap-1">
           {(["word", "letter"] as const).map((b) => (
-            <button key={b} type="button" role="radio" aria-checked={src.anim.by === b} onClick={() => commit(updateClip(film, clip.id, (c) => (c.source.kind === "text" ? { ...c, source: { ...c.source, anim: { ...c.source.anim, by: b } } } : c)))} className={cn("h-7 rounded-[7px] text-[12px]", src.anim.by === b ? "bg-[#5465E6] text-white" : "bg-white/[0.04] text-[#C9CEDA]")}>
+            <button key={b} type="button" role="radio" aria-checked={src.anim.by === b} onClick={() => commit(updateClip(film, clip.id, (c) => (c.source.kind === "text" ? { ...c, source: { ...c.source, anim: { ...c.source.anim, by: b } } } : c)))} className={cn("h-7 rounded-[7px] text-[12px]", src.anim.by === b ? "bg-m-accent text-white" : "bg-m-ink/[0.04] text-m-text-2")}>
               By {b}
             </button>
           ))}
         </div>
       )}
-      <p className="text-[11px] text-[#8890A2]">Titles say only what you type. ISOLA doesn&apos;t write product claims.</p>
+      <p className="text-[11px] text-m-subtle">Titles say only what you type. ISOLA doesn&apos;t write product claims.</p>
     </div>
   );
 }
@@ -426,22 +426,22 @@ function ClipInspector({ film, clip }: { film: Film; clip: Clip }) {
   const anchor = clip.transform;
   return (
     <div className="grid gap-3 px-3 pb-4" data-inspector="clip">
-      <label className="grid gap-1 text-[12px] text-[#9AA1B2]">
+      <label className="grid gap-1 text-[12px] text-m-muted">
         Name
         <input key={clip.id} defaultValue={clip.name} maxLength={80} onBlur={(e) => e.target.value.trim() && e.target.value !== clip.name && commit(updateClip(film, clip.id, (c) => ({ ...c, name: e.target.value.trim() })))} className={darkInput} />
       </label>
-      {locked && <p className="rounded-[8px] bg-white/[0.05] px-2.5 py-2 text-[12px] text-[#C9CEDA]">This clip&apos;s track is locked.</p>}
+      {locked && <p className="rounded-[8px] bg-m-ink/[0.05] px-2.5 py-2 text-[12px] text-m-text-2">This clip&apos;s track is locked.</p>}
       <div className="grid gap-1.5">
-        <p className="text-[12px] text-[#9AA1B2]">
+        <p className="text-[12px] text-m-muted">
           Starts at {secs(r.start)}
           {clip.shotId ? ` (in ${film.shots.find((s) => s.id === clip.shotId)?.name})` : " (film time)"}
         </p>
         <NumberField tone="dark" label="Duration" unit="s" decimals={2} step={0.1} min={0.1} max={600} value={clip.duration} onChange={(v) => commit(setClipDuration(film, clip.id, v))} disabled={locked} />
-        {(clip.source.kind === "video" || clip.source.kind === "audio") && <p className="text-[12px] text-[#9AA1B2]">Source starts at {secs(clip.source.in)} (trim the clip&apos;s start on the timeline to change it).</p>}
+        {(clip.source.kind === "video" || clip.source.kind === "audio") && <p className="text-[12px] text-m-muted">Source starts at {secs(clip.source.in)} (trim the clip&apos;s start on the timeline to change it).</p>}
       </div>
       {clip.source.kind !== "audio" && (
-        <div className="grid gap-1.5 border-t border-white/[0.08] pt-3">
-          <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#C9CEDA]">Transform</h3>
+        <div className="grid gap-1.5 border-t border-m-line pt-3">
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Transform</h3>
           {propsFor(clip)
             .filter((p) => p !== "blur" && p !== "intensity")
             .map((prop) => (
@@ -452,7 +452,7 @@ function ClipInspector({ film, clip }: { film: Film; clip: Clip }) {
               <div role="radiogroup" aria-label="Anchor point" className="grid w-[84px] grid-cols-3 gap-1">
                 {[0, 0.5, 1].flatMap((y) =>
                   [0, 0.5, 1].map((x) => (
-                    <button key={`${x}${y}`} type="button" role="radio" aria-checked={anchor.anchorX === x && anchor.anchorY === y} aria-label={`Anchor ${y === 0 ? "top" : y === 0.5 ? "middle" : "bottom"} ${x === 0 ? "left" : x === 0.5 ? "centre" : "right"}`} onClick={() => commit(updateClip(film, clip.id, (c) => ({ ...c, transform: { ...c.transform, anchorX: x, anchorY: y } })))} className={cn("size-6 rounded-[5px] border", anchor.anchorX === x && anchor.anchorY === y ? "border-[#8B9BFF] bg-[#5465E6]" : "border-white/15 bg-white/[0.04] hover:bg-white/10")} />
+                    <button key={`${x}${y}`} type="button" role="radio" aria-checked={anchor.anchorX === x && anchor.anchorY === y} aria-label={`Anchor ${y === 0 ? "top" : y === 0.5 ? "middle" : "bottom"} ${x === 0 ? "left" : x === 0.5 ? "centre" : "right"}`} onClick={() => commit(updateClip(film, clip.id, (c) => ({ ...c, transform: { ...c.transform, anchorX: x, anchorY: y } })))} className={cn("size-6 rounded-[5px] border", anchor.anchorX === x && anchor.anchorY === y ? "border-m-accent-2 bg-m-accent" : "border-m-line-strong bg-m-ink/[0.04] hover:bg-m-ink/10")} />
                   )),
                 )}
               </div>
@@ -464,8 +464,8 @@ function ClipInspector({ film, clip }: { film: Film; clip: Clip }) {
         </div>
       )}
       {clip.source.kind === "shadow" && (
-        <div className="grid gap-1.5 border-t border-white/[0.08] pt-3">
-          <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#C9CEDA]">Shadow</h3>
+        <div className="grid gap-1.5 border-t border-m-line pt-3">
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Shadow</h3>
           {(
             [
               ["softness", "Softness", 0, 100, "%", 100],
@@ -475,12 +475,12 @@ function ClipInspector({ film, clip }: { film: Film; clip: Clip }) {
           ).map(([key, label, min, max, unit, k]) => (
             <NumberField key={key} tone="dark" label={label} unit={unit} min={min} max={max} value={(clip.source as unknown as Record<string, number>)[key] * k} onChange={(v) => commit(updateClip(film, clip.id, (c) => (c.source.kind === "shadow" ? { ...c, source: { ...c.source, [key]: v / k } } : c)))} />
           ))}
-          <p className="text-[11px] text-[#8890A2]">A separate layer under the product: the product&apos;s own pixels are never changed.</p>
+          <p className="text-[11px] text-m-subtle">A separate layer under the product: the product&apos;s own pixels are never changed.</p>
         </div>
       )}
       {clip.source.kind === "light" && (
-        <div className="grid gap-1.5 border-t border-white/[0.08] pt-3">
-          <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#C9CEDA]">Light</h3>
+        <div className="grid gap-1.5 border-t border-m-line pt-3">
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Light</h3>
           <Field label="Style">
             <select value={clip.source.style} onChange={(e) => commit(updateClip(film, clip.id, (c) => (c.source.kind === "light" ? { ...c, source: { ...c.source, style: e.target.value as "spotlight" } } : c)))} className={darkSelect} aria-label="Light style">
               <option value="spotlight">Spotlight (darkens around a pool of light)</option>
@@ -488,24 +488,24 @@ function ClipInspector({ film, clip }: { film: Film; clip: Clip }) {
               <option value="glow">Glow</option>
             </select>
           </Field>
-          <div className="flex items-center justify-between text-[12px] text-[#9AA1B2]">
+          <div className="flex items-center justify-between text-[12px] text-m-muted">
             Colour
             <input type="color" aria-label="Light colour" value={clip.source.color.toLowerCase()} onChange={(e) => commit(updateClip(film, clip.id, (c) => (c.source.kind === "light" ? { ...c, source: { ...c.source, color: e.target.value.toUpperCase() } } : c)))} className="h-7 w-12 cursor-pointer border-0 bg-transparent" />
           </div>
-          <p className="text-[11px] text-[#8890A2]">An overlay on its own track: it changes how the frame looks, not the product image.</p>
+          <p className="text-[11px] text-m-subtle">An overlay on its own track: it changes how the frame looks, not the product image.</p>
         </div>
       )}
       {clip.source.kind === "solid" && (
-        <div className="flex items-center justify-between border-t border-white/[0.08] pt-3 text-[12px] text-[#9AA1B2]">
+        <div className="flex items-center justify-between border-t border-m-line pt-3 text-[12px] text-m-muted">
           Colour
           <input type="color" aria-label="Solid colour" value={clip.source.color.toLowerCase()} onChange={(e) => commit(updateClip(film, clip.id, (c) => (c.source.kind === "solid" ? { ...c, source: { ...c.source, color: e.target.value.toUpperCase() } } : c)))} className="h-7 w-12 cursor-pointer border-0 bg-transparent" />
         </div>
       )}
       <TextSection film={film} clip={clip} />
       {clip.link && (
-        <div className="grid gap-1.5 border-t border-white/[0.08] pt-3">
-          <p className="flex items-center gap-1.5 text-[12px] text-[#C9CEDA]">
-            {clip.link.detached ? <Link2Off className="size-3.5" aria-hidden="true" /> : <Link2 className="size-3.5 text-[#A4B1FF]" aria-hidden="true" />}
+        <div className="grid gap-1.5 border-t border-m-line pt-3">
+          <p className="flex items-center gap-1.5 text-[12px] text-m-text-2">
+            {clip.link.detached ? <Link2Off className="size-3.5" aria-hidden="true" /> : <Link2 className="size-3.5 text-m-accent-text" aria-hidden="true" />}
             {clip.link.detached ? "Detached from its scene layer" : `Linked to “${String(clip.link.imported.name ?? "a layer")}” in ${film.source?.sceneName ?? "the scene"}`}
           </p>
           {!clip.link.detached && (
@@ -515,7 +515,7 @@ function ClipInspector({ film, clip }: { film: Film; clip: Clip }) {
           )}
         </div>
       )}
-      <div className="flex gap-2 border-t border-white/[0.08] pt-3">
+      <div className="flex gap-2 border-t border-m-line pt-3">
         <DarkButton size="sm" icon={<Copy className="size-3.5" aria-hidden="true" />} onClick={() => commit(duplicateClip(film, clip.id))}>
           Duplicate
         </DarkButton>
@@ -532,11 +532,11 @@ function ShotInspector({ film, shotId }: { film: Film; shotId: string }) {
   const index = film.shots.indexOf(shot);
   return (
     <div className="grid gap-3 px-3 pb-4" data-inspector="shot">
-      <p className="text-[14px] font-semibold text-[#E8EAF0]">
+      <p className="text-[14px] font-semibold text-m-text">
         {String(index + 1).padStart(2, "0")} {shot.name}
       </p>
       <NumberField tone="dark" label="Shot length" unit="s" decimals={2} step={0.1} min={MIN_SHOT} max={600} value={shot.duration} onChange={(v) => commit(setShotDuration(film, shot.id, v))} />
-      <p className="text-[11px] leading-snug text-[#8890A2]">Clips that run to the end of the shot stretch with it; others are trimmed so nothing runs past the end.</p>
+      <p className="text-[11px] leading-snug text-m-subtle">Clips that run to the end of the shot stretch with it; others are trimmed so nothing runs past the end.</p>
       <Field label={index === 0 ? "Transition in (the first shot starts the film)" : "Transition from the previous shot"}>
         <select value={shot.transition.kind} disabled={index === 0} onChange={(e) => commit(setTransition(film, shot.id, e.target.value as TransitionKind, shot.transition.duration || 0.6))} className={darkSelect} aria-label="Transition">
           {(Object.keys(TRANSITION_LABEL) as TransitionKind[]).map((t) => (
@@ -549,10 +549,10 @@ function ShotInspector({ film, shotId }: { film: Film; shotId: string }) {
       {index > 0 && shot.transition.kind !== "cut" && (
         <>
           <NumberField tone="dark" label="Transition length" unit="s" decimals={2} step={0.1} min={0.05} max={5} value={shot.transition.duration} onChange={(v) => commit(setTransition(film, shot.id, shot.transition.kind, v))} />
-          <p className="text-[11px] leading-snug text-[#8890A2]">Centred on the cut, and never longer than half of either shot. Each shot holds its last or first moment while they overlap.</p>
+          <p className="text-[11px] leading-snug text-m-subtle">Centred on the cut, and never longer than half of either shot. Each shot holds its last or first moment while they overlap.</p>
         </>
       )}
-      <p className="text-[12px] text-[#9AA1B2]">Animate the whole shot with the scene camera in Animate.</p>
+      <p className="text-[12px] text-m-muted">Animate the whole shot with Camera movement in Quick, or the scene camera in Keyframes.</p>
       <button type="button" onClick={() => select({ clipIds: [], shotId: shot.id })} className="sr-only">
         Selected shot
       </button>
@@ -567,7 +567,7 @@ export function AssemblePanel() {
   if (selection.clipIds.length > 1)
     return (
       <div className="grid gap-3 px-3 pb-4">
-        <p className="text-[13px] text-[#C9CEDA]">{selection.clipIds.length} clips selected.</p>
+        <p className="text-[13px] text-m-text-2">{selection.clipIds.length} clips selected.</p>
         <DarkButton tone="danger" size="sm" onClick={() => commit(deleteClips(film, selection.clipIds))}>
           Delete selected clips
         </DarkButton>

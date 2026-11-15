@@ -39,18 +39,18 @@ function Meters() {
   return (
     <div className="grid gap-1.5" data-meters aria-label="Master level" role="group">
       {(["L", "R"] as const).map((ch, i) => (
-        <div key={ch} className="flex items-center gap-2 text-[11px] text-[#9AA1B2]">
+        <div key={ch} className="flex items-center gap-2 text-[11px] text-m-muted">
           <span className="w-3 font-bold">{ch}</span>
-          <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-m-ink/[0.06]">
             <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#3BB273] via-[#C9D94A] to-[#F07167]" style={{ width: `${pct(levels[i].peak)}%` }} />
-            <div className="absolute inset-y-0 w-0.5 bg-white/80" style={{ left: `${pct(state.hold[i])}%` }} />
+            <div className="absolute inset-y-0 w-0.5 bg-m-ink/80" style={{ left: `${pct(state.hold[i])}%` }} />
           </div>
           <span className="w-14 text-right font-mono tabular-nums" data-meter-db={ch}>
             {Number.isFinite(levels[i].peak) ? `${levels[i].peak.toFixed(1)} dB` : "−∞ dB"}
           </span>
         </div>
       ))}
-      <p className="text-[10px] text-[#8890A2]">Peak level of the master output while playing.</p>
+      <p className="text-[10px] text-m-subtle">Peak level of the master output while playing.</p>
     </div>
   );
 }
@@ -88,15 +88,15 @@ export function SoundPanel() {
           }}
         />
         <Meters />
-        <p className="text-[11px] text-[#8890A2]">{heard ? `${heard} sound clip${heard === 1 ? "" : "s"} will be heard (muted tracks are silent; with any track on solo, only solo tracks play).` : "No sound yet."}</p>
+        <p className="text-[11px] text-m-subtle">{heard ? `${heard} sound clip${heard === 1 ? "" : "s"} will be heard (muted tracks are silent; with any track on solo, only solo tracks play).` : "No sound yet."}</p>
       </div>
       {clip && clip.source.kind === "audio" && clip.audio && (
-        <div className="grid gap-2 border-t border-white/[0.08] pt-3">
-          <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#C9CEDA]">{clip.name}</h3>
+        <div className="grid gap-2 border-t border-m-line pt-3">
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">{clip.name}</h3>
           <NumberField tone="dark" label="Volume" unit="dB" decimals={1} step={0.5} min={-60} max={12} value={clip.audio.gain} onChange={(v) => commit(updateClip(film, clip.id, (c) => ({ ...c, audio: { ...c.audio!, gain: v } })), { coalesce: `gain:${clip.id}` })} />
           <NumberField tone="dark" label="Fade in" unit="s" decimals={2} step={0.1} min={0} max={clip.duration} value={clip.audio.fadeIn} onChange={(v) => commit(updateClip(film, clip.id, (c) => ({ ...c, audio: { ...c.audio!, fadeIn: Math.min(v, c.duration) } })))} />
           <NumberField tone="dark" label="Fade out" unit="s" decimals={2} step={0.1} min={0} max={clip.duration} value={clip.audio.fadeOut} onChange={(v) => commit(updateClip(film, clip.id, (c) => ({ ...c, audio: { ...c.audio!, fadeOut: Math.min(v, c.duration) } })))} />
-          <p className="text-[11px] text-[#8890A2]">
+          <p className="text-[11px] text-m-subtle">
             Plays {secs(clip.source.in)}–{secs(clip.source.in + clip.duration)} of the file. Trim or move it on the timeline.
           </p>
           {track && (
@@ -111,28 +111,28 @@ export function SoundPanel() {
           )}
         </div>
       )}
-      <div className="grid gap-2 border-t border-white/[0.08] pt-3">
+      <div className="grid gap-2 border-t border-m-line pt-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#C9CEDA]">Sound files</h3>
+          <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Sound files</h3>
           <input ref={inputRef} id="motion-sound-files" type="file" multiple accept={MEDIA_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(e) => void importFiles(Array.from(e.target.files ?? []), setBusy).finally(() => (e.target.value = ""))} />
           <DarkButton size="sm" icon={<Upload className="size-3.5" aria-hidden="true" />} onClick={() => inputRef.current?.click()} disabled={!!busy}>
             Add sound
           </DarkButton>
         </div>
-        {busy && <p className="text-[12px] text-[#A4B1FF]" role="status">{busy}</p>}
+        {busy && <p className="text-[12px] text-m-accent-text" role="status">{busy}</p>}
         <ul className="grid gap-1">
           {sounds.map((m) => (
-            <li key={m.id} className="flex items-center gap-2 rounded-[8px] bg-white/[0.03] px-2 py-1.5 text-[12px] text-[#C9CEDA]">
-              <Music className="size-3.5 shrink-0 text-[#7FD3DC]" aria-hidden="true" />
+            <li key={m.id} className="flex items-center gap-2 rounded-[8px] bg-m-ink/[0.03] px-2 py-1.5 text-[12px] text-m-text-2">
+              <Music className="size-3.5 shrink-0 text-m-accent-text" aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate">{m.name}</span>
-              <span className="tabular-nums text-[#8890A2]">{secs(m.duration)}</span>
-              <button type="button" aria-label={`Add ${m.name} at the playhead`} onClick={() => addMediaClip({ ...m, kind: "audio" })} className="inline-flex size-6 items-center justify-center rounded hover:bg-white/10">
+              <span className="tabular-nums text-m-subtle">{secs(m.duration)}</span>
+              <button type="button" aria-label={`Add ${m.name} at the playhead`} onClick={() => addMediaClip({ ...m, kind: "audio" })} className="inline-flex size-6 items-center justify-center rounded hover:bg-m-ink/10">
                 <Plus className="size-3.5" aria-hidden="true" />
               </button>
             </li>
           ))}
         </ul>
-        <p className={cn("text-[11px] leading-snug text-[#8890A2]")}>ISOLA doesn&apos;t include music or sound effects. Add sound you have the rights to use; it stays on this device.</p>
+        <p className={cn("text-[11px] leading-snug text-m-subtle")}>ISOLA doesn&apos;t include music or sound effects. Add sound you have the rights to use; it stays on this device.</p>
       </div>
     </div>
   );

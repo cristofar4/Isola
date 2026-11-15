@@ -132,6 +132,9 @@ export interface KitResult {
   grade: Film["grade"];
 }
 
+export type KitMood = "Cinematic" | "Luxury" | "Social" | "Minimal";
+export const KIT_MOODS: KitMood[] = ["Cinematic", "Luxury", "Social", "Minimal"];
+
 export interface KitDefinition {
   id: string;
   name: string;
@@ -139,6 +142,8 @@ export interface KitDefinition {
   /** What the style does, in plain words (shown before applying). */
   details: string[];
   pace: "Slow" | "Medium" | "Fast";
+  /** The kind of film it suits (used to filter the style library). */
+  moods: KitMood[];
   params: KitParam[];
   /** Layers the style needs to look as intended; null when the set qualifies. */
   check(set: LayerSet): string | null;
@@ -287,6 +292,7 @@ export const KITS: KitDefinition[] = [
     summary: "A gentle push in with a controlled fade.",
     details: ["Fades up from black", "The camera pushes in slowly across the whole shot", "The product fades in, then the title"],
     pace: "Slow",
+    moods: ["Cinematic", "Minimal"],
     params: [
       { id: "duration", label: "Length", min: 3, max: 15, step: 0.5, value: 6, unit: "s" },
       { id: "push", label: "Push in", min: 0, max: 1, step: 0.05, value: 0.5 },
@@ -311,6 +317,7 @@ export const KITS: KitDefinition[] = [
     summary: "A moving spotlight finds the product, then the lights come up.",
     details: ["A spotlight layer sweeps in over the set", "The product appears as the light reaches it", "The light opens up and the title staggers in"],
     pace: "Medium",
+    moods: ["Cinematic"],
     params: [
       { id: "duration", label: "Length", min: 4, max: 14, step: 0.5, value: 7, unit: "s" },
       { id: "search", label: "Spotlight share", min: 0.3, max: 0.8, step: 0.05, value: 0.6 },
@@ -343,6 +350,7 @@ export const KITS: KitDefinition[] = [
     summary: "Restrained depth: the backdrop drifts slower than the product.",
     details: ["The scene camera pans and zooms gently", "The backdrop moves less than the product (depth 0.35), which reads as depth", "A second, closer framing dissolves in with the title"],
     pace: "Slow",
+    moods: ["Cinematic", "Luxury"],
     params: [
       { id: "duration", label: "Length", min: 4, max: 14, step: 0.5, value: 7, unit: "s" },
       { id: "depth", label: "Depth", min: 0.1, max: 1, step: 0.05, value: 0.5 },
@@ -376,6 +384,7 @@ export const KITS: KitDefinition[] = [
     summary: "Timed cuts between framings, with clean typography.",
     details: ["Four shots: wide, close-up, detail and hero", "Hard cuts, timed to a steady pace", "The hero shot wipes the title on in wide-spaced capitals"],
     pace: "Medium",
+    moods: ["Minimal", "Social"],
     params: [
       { id: "pace", label: "Shot length", min: 0.6, max: 2.5, step: 0.1, value: 1.4, unit: "s" },
       { id: "closeup", label: "Close-up zoom", min: 1.3, max: 2.6, step: 0.1, value: 1.8 },
@@ -410,6 +419,7 @@ export const KITS: KitDefinition[] = [
     summary: "Subtle movement, slow dissolves and an elegant serif title.",
     details: ["Three slow shots joined by long dissolves", "Barely-there camera drift", "A serif title appears letter by letter", "A warm grade on the background only (the product's colours stay true) and a soft vignette"],
     pace: "Slow",
+    moods: ["Luxury"],
     params: [
       { id: "duration", label: "Length", min: 6, max: 18, step: 0.5, value: 10, unit: "s" },
       { id: "dissolve", label: "Dissolve", min: 0.4, max: 2, step: 0.1, value: 1.2, unit: "s" },
@@ -436,6 +446,7 @@ export const KITS: KitDefinition[] = [
     summary: "Fast pacing, bold captions and a clear end card.",
     details: ["Five quick shots with punch-in zooms", "The product pops in with a small bounce", "A bold condensed caption", "An end card in your brand colour with your logo (if the scene has one) and a call to action you can edit"],
     pace: "Fast",
+    moods: ["Social"],
     params: [
       { id: "pace", label: "Shot length", min: 0.5, max: 1.6, step: 0.05, value: 0.9, unit: "s" },
       { id: "card", label: "End card", min: 1, max: 4, step: 0.1, value: 1.8, unit: "s" },

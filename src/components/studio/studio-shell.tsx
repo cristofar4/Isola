@@ -66,6 +66,7 @@ const PAGES: Array<[string, string]> = [
   ["/studio/batch", "Batch Studio"],
   ["/studio/scenes/", "Scene"],
   ["/studio/scenes", "Scene Studio"],
+  ["/studio/motion/", "Film"],
   ["/studio/motion", "Motion Studio"],
   ["/studio/projects/", "Project"],
   ["/studio/projects", "Projects"],

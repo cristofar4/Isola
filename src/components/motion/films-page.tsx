@@ -20,12 +20,12 @@ function FilmCard({ film, onMessage }: { film: Film; onMessage: (t: string) => v
   const item = "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] text-ink outline-none data-[highlighted]:bg-paper";
   return (
     <li data-film={film.name} className="overflow-hidden rounded-[16px] border border-line bg-surface shadow-[var(--shadow-card)]" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <Link href={`/motion/${film.id}`} aria-label={`Open ${film.name}`} className="block bg-black">
+      <Link href={`/studio/motion/${film.id}`} aria-label={`Open ${film.name}`} className="block bg-black">
         <FilmPreview film={film} playing={hover} label={`${film.name} preview`} className="aspect-video object-contain" still={0.4} />
       </Link>
       <div className="flex items-start gap-2 px-4 py-3">
         <div className="min-w-0 flex-1">
-          <Link href={`/motion/${film.id}`} className="block truncate text-[16px] font-bold text-ink hover:text-blue-700">
+          <Link href={`/studio/motion/${film.id}`} className="block truncate text-[16px] font-bold text-ink hover:text-blue-700">
             {film.name}
           </Link>
           <p className="truncate text-[13px] text-muted">
@@ -72,7 +72,7 @@ export function FilmsPage() {
     setBusy(aspect);
     try {
       const f = await createFilm("Untitled film", aspect);
-      router.push(`/motion/${f.id}`);
+      router.push(`/studio/motion/${f.id}`);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "The film couldn't be created.");
       setBusy(null);

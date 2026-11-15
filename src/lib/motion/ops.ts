@@ -14,7 +14,7 @@
  */
 
 import { MAX_FILM, MIN_CLIP, MIN_SHOT, newShot, newTrack, uid, type CameraProp, type Clip, type ClipProp, type Ease, type Film, type Keyframe, type Shot, type Track, type TransitionKind } from "./model";
-import { clipRange, filmDuration, shotAt, shotStart, valueAt } from "./time";
+import { cameraValue, clipRange, clipValue, filmDuration, shotAt, shotStart, valueAt } from "./time";
 
 const EPS = 1e-6;
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -471,6 +471,155 @@ export function scaleFilm(film: Film, factor: number): EditResult {
 /** Use one transition between every pair of shots. */
 export function setAllTransitions(film: Film, kind: TransitionKind, duration = 0.8): EditResult {
   return { film: { ...film, shots: film.shots.map((s, i) => (i === 0 ? s : { ...s, transition: { kind, duration: kind === "cut" ? 0 : round(clamp(duration, 0.05, 5)) } })) } };
+}
+
+/** Pin a clip where it is at a film time: keyframes on its position and scale (or a light's, or a shadow's opacity). */
+export function addTransformKeyframes(film: Film, clipId: string, abs: number): EditResult {
+  const clip = film.clips.find((c) => c.id === clipId);
+  if (!clip || clip.source.kind === "audio") return { film, problem: "Sound has no position to keyframe. Select a visual clip." };
+  if (locked(film, clip)) return { film, problem: "Unlock the track to animate this clip." };
+  const r = clipRange(film, clip);
+  if (abs < r.start - 1e-6 || abs > r.end + 1e-6) return { film, problem: "Move the playhead over the selected clip to add keyframes." };
+  const t = clamp(abs - r.start, 0, clip.duration);
+  const props: ClipProp[] = clip.source.kind === "light" ? ["lightX", "lightY", "scale"] : clip.source.kind === "shadow" || clip.source.kind === "solid" ? ["opacity"] : ["x", "y", "scale"];
+  let next = film;
+  for (const prop of props) next = setList(next, { kind: "clip", clipId, prop }, upsertKeyframe(clip.keyframes[prop], t, clipValue(clip, prop, t), halfFrame(film)));
+  return { film: next };
+}
+
+/** Pin the scene camera where it is at a time in a shot: keyframes on zoom and pan. */
+export function addCameraKeyframes(film: Film, shotId: string, local: number): EditResult {
+  const shot = film.shots.find((s) => s.id === shotId);
+  if (!shot) return { film, problem: "That shot no longer exists." };
+  const t = clamp(local, 0, shot.duration);
+  let next = film;
+  for (const prop of ["zoom", "panX", "panY"] as CameraProp[]) next = setList(next, { kind: "camera", shotId, prop }, upsertKeyframe(shot.camera[prop], t, cameraValue(shot, prop, t), halfFrame(film)));
+  return { film: next };
+}
+
+/* ----------------------------------------------------------- quick motion --- */
+
+/**
+ * One-step camera moves for a shot. Each is ordinary camera keyframes (at the
+ * shot's start and end), so they show on the timeline and stay editable in
+ * Keyframes. Pans keep a little zoom so the edges of the set never show.
+ */
+export type CameraMove = "none" | "push-in" | "pull-out" | "pan-left" | "pan-right" | "rise" | "drift";
+export const CAMERA_MOVES: CameraMove[] = ["none", "push-in", "pull-out", "pan-left", "pan-right", "rise", "drift"];
+export const CAMERA_MOVE_LABEL: Record<CameraMove | "custom", string> = {
+  none: "None (locked off)",
+  "push-in": "Push in",
+  "pull-out": "Pull out",
+  "pan-left": "Pan left",
+  "pan-right": "Pan right",
+  rise: "Rise",
+  drift: "Drift",
+  custom: "Custom keyframes",
+};
+
+const PUSH = 0.3;
+const PAN_ZOOM = 0.12;
+const PAN = 0.045;
+const DRIFT = { from: 0.06, to: 0.14, pan: 0.025 };
+
+/** Start and end camera values of a move at an intensity of 0–1. */
+function moveValues(move: CameraMove, i: number): Array<[CameraProp, number, number]> {
+  switch (move) {
+    case "push-in":
+      return [["zoom", 1, 1 + PUSH * i]];
+    case "pull-out":
+      return [["zoom", 1 + PUSH * i, 1]];
+    case "pan-left":
+      return [["zoom", 1 + PAN_ZOOM * i, 1 + PAN_ZOOM * i], ["panX", PAN * i, -PAN * i]];
+    case "pan-right":
+      return [["zoom", 1 + PAN_ZOOM * i, 1 + PAN_ZOOM * i], ["panX", -PAN * i, PAN * i]];
+    case "rise":
+      return [["zoom", 1 + PAN_ZOOM * i, 1 + PAN_ZOOM * i], ["panY", PAN * i, -PAN * i]];
+    case "drift":
+      return [["zoom", 1 + DRIFT.from * i, 1 + DRIFT.to * i], ["panX", -DRIFT.pan * i, DRIFT.pan * i]];
+    default:
+      return [];
+  }
+}
+
+export function cameraMoveKeys(duration: number, move: CameraMove, intensity: number, ease: Ease = "ease-in-out"): Shot["camera"] {
+  const i = clamp(intensity, 0.05, 1);
+  const out: Shot["camera"] = {};
+  for (const [prop, a, b] of moveValues(move, i)) out[prop] = [{ id: uid(), t: 0, v: round(a), ease }, { id: uid(), t: round(duration), v: round(b), ease }];
+  return out;
+}
+
+/** Replace a shot's camera animation with a move. */
+export function applyCameraMove(film: Film, shotId: string, move: CameraMove, intensity: number, ease: Ease = "ease-in-out"): EditResult {
+  const shot = film.shots.find((s) => s.id === shotId);
+  if (!shot) return { film, problem: "That shot no longer exists." };
+  return { film: { ...film, shots: film.shots.map((s) => (s.id === shotId ? { ...s, camera: cameraMoveKeys(s.duration, move, intensity, ease === "custom" ? "ease-in-out" : ease) } : s)) } };
+}
+
+/** Which move a shot's camera keyframes are (so the control shows what's really there), or "custom". */
+export function describeCameraMove(shot: Shot): { move: CameraMove | "custom"; intensity: number; ease: Ease } {
+  const lists = (Object.entries(shot.camera) as Array<[CameraProp, Keyframe[] | undefined]>).filter(([, list]) => list && list.length) as Array<[CameraProp, Keyframe[]]>;
+  if (!lists.length) return { move: "none", intensity: 0.4, ease: "ease-in-out" };
+  const custom = { move: "custom" as const, intensity: 0.4, ease: lists[0][1][0].ease };
+  const near = (a: number, b: number) => Math.abs(a - b) < 2e-3;
+  if (lists.some(([, list]) => list.length !== 2 || !near(list[0].t, 0) || !near(list[1].t, shot.duration))) return custom;
+  const ease = lists[0][1][0].ease;
+  const ends = new Map(lists.map(([prop, list]) => [prop, [list[0].v, list[1].v] as const]));
+  for (const move of CAMERA_MOVES.slice(1)) {
+    const shape = moveValues(move, 1);
+    if (shape.length !== ends.size || shape.some(([prop]) => !ends.has(prop))) continue;
+    // The intensity that would give this zoom (or pan), then check every value against it.
+    const [zProp, z0, z1] = shape[0];
+    const got = ends.get(zProp)!;
+    const span = Math.max(Math.abs(z0 - 1), Math.abs(z1 - 1));
+    const i = Math.max(Math.abs(got[0] - 1), Math.abs(got[1] - 1)) / span;
+    if (!(i > 0.01 && i < 1.01)) continue;
+    if (moveValues(move, i).every(([prop, a, b]) => near(ends.get(prop)![0], a) && near(ends.get(prop)![1], b))) return { move, intensity: Math.round(clamp(i, 0.05, 1) * 100) / 100, ease };
+  }
+  return custom;
+}
+
+/** The light sweeps that run in a shot. */
+export function shotSweeps(film: Film, shotId: string) {
+  return film.clips.filter((c) => c.shotId === shotId && c.source.kind === "light" && c.source.style === "sweep");
+}
+
+/** Add a band of light that crosses the frame over a shot (its own overlay clip, keyframed), or remove the shot's sweeps. */
+export function setLightSweep(film: Film, shotId: string, on: boolean): EditResult {
+  const shot = film.shots.find((s) => s.id === shotId);
+  if (!shot) return { film, problem: "That shot no longer exists." };
+  const existing = shotSweeps(film, shotId);
+  if (!on) {
+    if (existing.some((c) => trackOf(film, c.trackId)?.locked)) return { film, problem: "Unlock the lighting track to remove the sweep." };
+    const gone = new Set(existing.map((c) => c.id));
+    return { film: withClips(film, film.clips.filter((c) => !gone.has(c.id))) };
+  }
+  if (existing.length) return { film };
+  const make = (trackId: string): Clip => ({
+    id: uid(),
+    trackId,
+    shotId,
+    start: 0,
+    duration: shot.duration,
+    source: { kind: "light", style: "sweep", color: "#FFF1DC" },
+    name: "Light sweep",
+    role: "overlay",
+    depth: 0,
+    transform: { x: 0.5, y: 0.5, scale: 0.5, rotation: 0, opacity: 1, anchorX: 0.5, anchorY: 0.5 },
+    keyframes: { lightX: [{ id: uid(), t: 0, v: -0.25, ease: "ease-in-out" }, { id: uid(), t: round(shot.duration), v: 1.25, ease: "ease-in-out" }] },
+    effects: { blur: 0, intensity: 0.8 },
+    grade: null,
+    audio: null,
+    link: null,
+  });
+  // An unlocked lighting track with the whole shot free, or a new one in front.
+  for (const t of film.tracks.filter((x) => x.kind === "visual" && !x.locked && /^light/i.test(x.name))) {
+    const r = addClip(film, make(t.id));
+    const added = r.film.clips.at(-1);
+    if (!r.problem && added && added.start < 1e-6 && Math.abs(added.duration - shot.duration) < 1e-6) return r;
+  }
+  const track = newTrack("visual", "Lighting");
+  return addClip({ ...film, tracks: [track, ...film.tracks] }, make(track.id));
 }
 
 /* ----------------------------------------------------------------- tracks --- */

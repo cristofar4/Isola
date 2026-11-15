@@ -114,21 +114,21 @@ export function DeliverPanel() {
           </select>
         </Field>
       </div>
-      <p className="text-[12px] text-[#C9CEDA]" data-output-size>
+      <p className="text-[12px] text-m-text-2" data-output-size>
         Output: {size.width} × {size.height} · {secs(D)} · {Math.round(D * film.fps)} frames
       </p>
-      {policy.watermark && <p className="rounded-[8px] bg-white/[0.04] px-2.5 py-2 text-[11px] leading-snug text-[#C9CEDA]">Free plan: ISOLA watermark, up to 1,000px on the longest side (like every Free export). Pro exports full size without the watermark.</p>}
+      {policy.watermark && <p className="rounded-[8px] bg-m-ink/[0.04] px-2.5 py-2 text-[11px] leading-snug text-m-text-2">Free plan: ISOLA watermark, up to 1,000px on the longest side (like every Free export). Pro exports full size without the watermark.</p>}
       <Field label="Format" hint={options && !options.length ? undefined : encoding?.note ?? undefined}>
         {options === null ? (
-          <p className="text-[12px] text-[#8890A2]">Checking what this browser can encode…</p>
+          <p className="text-[12px] text-m-subtle">Checking what this browser can encode…</p>
         ) : options.length === 0 ? (
-          <p role="alert" className="text-[12px] text-[#FFB4AD]">This browser can&apos;t encode video at {size.width} × {size.height} and {film.fps} fps. Try a lower resolution or frame rate, or Chrome or Edge (WebCodecs).</p>
+          <p role="alert" className="text-[12px] text-m-danger-text">This browser can&apos;t encode video at {size.width} × {size.height} and {film.fps} fps. Try a lower resolution or frame rate, or Chrome or Edge (WebCodecs).</p>
         ) : (
           <div role="radiogroup" aria-label="Format" className="grid gap-1">
             {options.map((o) => (
-              <button key={o.container} type="button" role="radio" aria-checked={encoding?.container === o.container} disabled={busy} onClick={() => set({ container: o.container })} className={cn("flex h-9 items-center justify-between rounded-[8px] px-2.5 text-[13px]", encoding?.container === o.container ? "bg-[#5465E6]/25 text-white ring-1 ring-[#8B9BFF]/60" : "bg-white/[0.04] text-[#C9CEDA]")}>
+              <button key={o.container} type="button" role="radio" aria-checked={encoding?.container === o.container} disabled={busy} onClick={() => set({ container: o.container })} className={cn("flex h-9 items-center justify-between rounded-[8px] px-2.5 text-[13px]", encoding?.container === o.container ? "bg-m-accent/25 text-m-strong ring-1 ring-m-accent-2/60" : "bg-m-ink/[0.04] text-m-text-2")}>
                 {o.label}
-                <span className="text-[11px] text-[#B4BBD0]">.{o.container}</span>
+                <span className="text-[11px] text-m-text-2">.{o.container}</span>
               </button>
             ))}
           </div>
@@ -141,20 +141,20 @@ export function DeliverPanel() {
           <option value="max">Maximum (larger file)</option>
         </select>
       </Field>
-      <label className="flex items-center justify-between gap-2 text-[13px] text-[#C9CEDA]">
+      <label className="flex items-center justify-between gap-2 text-[13px] text-m-text-2">
         <span>
           Include sound
-          {!hasSound && <span className="block text-[11px] text-[#8890A2]">No audible sound clips.</span>}
-          {hasSound && encoding && !encoding.audio && <span className="block text-[11px] text-[#F5D58A]">This browser can&apos;t encode sound for this format.</span>}
+          {!hasSound && <span className="block text-[11px] text-m-subtle">No audible sound clips.</span>}
+          {hasSound && encoding && !encoding.audio && <span className="block text-[11px] text-m-warn-text">This browser can&apos;t encode sound for this format.</span>}
         </span>
-        <input type="checkbox" checked={settings.includeAudio && hasSound && !!encoding?.audio} disabled={!hasSound || !encoding?.audio || busy} onChange={(e) => set({ includeAudio: e.target.checked })} className="size-4 accent-[#8B9BFF]" />
+        <input type="checkbox" checked={settings.includeAudio && hasSound && !!encoding?.audio} disabled={!hasSound || !encoding?.audio || busy} onChange={(e) => set({ includeAudio: e.target.checked })} className="size-4 accent-m-accent-2" />
       </label>
       <Field label="File name">
         <input value={settings.fileName} placeholder={safeName(film.name, encoding?.container ?? "mp4")} disabled={busy} onChange={(e) => commit({ ...film, export: { ...settings, fileName: e.target.value.slice(0, 120) } }, { coalesce: "export-name" })} className={darkInput} aria-label="File name" />
       </Field>
 
       {problems.length > 0 && (
-        <ul role="alert" className="grid gap-1 rounded-[8px] border border-[#F07167]/30 bg-[#F07167]/10 px-2.5 py-2 text-[12px] text-[#FFB4AD]">
+        <ul role="alert" className="grid gap-1 rounded-[8px] border border-m-danger/30 bg-m-danger/10 px-2.5 py-2 text-[12px] text-m-danger-text">
           {problems.slice(0, 4).map((p) => (
             <li key={p} className="flex gap-1.5">
               <CircleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
@@ -165,13 +165,13 @@ export function DeliverPanel() {
       )}
 
       {busy ? (
-        <div className="grid gap-2 rounded-[10px] bg-white/[0.04] p-3" role="status" aria-live="polite" data-export-progress>
-          <div className="flex items-center justify-between text-[12px] text-[#C9CEDA]">
+        <div className="grid gap-2 rounded-[10px] bg-m-ink/[0.04] p-3" role="status" aria-live="polite" data-export-progress>
+          <div className="flex items-center justify-between text-[12px] text-m-text-2">
             <span>{PHASE[progress.phase]}</span>
             <span className="tabular-nums">{progress.phase === "rendering" ? `${progress.frame} / ${progress.frames} frames · ${Math.round(progress.done * 100)}%` : ""}</span>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-white/10">
-            <div className="h-full bg-[#8B9BFF] transition-[width]" style={{ width: `${Math.round(progress.done * 100)}%` }} />
+          <div className="h-2 overflow-hidden rounded-full bg-m-ink/10">
+            <div className="h-full bg-m-accent-2 transition-[width]" style={{ width: `${Math.round(progress.done * 100)}%` }} />
           </div>
           <DarkButton size="sm" tone="danger" icon={<X className="size-3.5" aria-hidden="true" />} onClick={() => abort.current?.abort()}>
             Cancel export
@@ -183,26 +183,26 @@ export function DeliverPanel() {
         </DarkButton>
       )}
       {error && (
-        <p role="alert" className="text-[12px] text-[#FFB4AD]">
+        <p role="alert" className="text-[12px] text-m-danger-text">
           {error}
         </p>
       )}
       {result && (
-        <div className="grid gap-2 rounded-[10px] border border-[#3BB273]/40 bg-[#3BB273]/10 p-3" data-export-ready>
-          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-[#9AE6B4]">
+        <div className="grid gap-2 rounded-[10px] border border-m-success/40 bg-m-success/10 p-3" data-export-ready>
+          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-m-success-text">
             <CircleCheck className="size-4" aria-hidden="true" /> Ready: {result.fileName}
           </p>
-          <p className="text-[12px] text-[#C9CEDA]">
+          <p className="text-[12px] text-m-text-2">
             {result.label}
             {!result.hasAudio ? " (no sound)" : ""} · {result.width} × {result.height} · {result.fps} fps · {secs(result.duration)} · {(result.blob.size / 1024 / 1024).toFixed(1)} MB
           </p>
           <DarkButton tone="primary" icon={<Download className="size-4" aria-hidden="true" />} onClick={() => downloadBlob(result.blob, result.fileName)}>
             Download
           </DarkButton>
-          <p className="text-[11px] text-[#8890A2]">Also kept in Downloads in this browser while it fits.</p>
+          <p className="text-[11px] text-m-subtle">Also kept in Downloads in this browser while it fits.</p>
         </div>
       )}
-      <p className="text-[11px] leading-snug text-[#8890A2]">Rendered on this device frame by frame with the same renderer as the viewer, then encoded by your browser. Nothing is uploaded.</p>
+      <p className="text-[11px] leading-snug text-m-subtle">Rendered on this device frame by frame with the same renderer as the viewer, then encoded by your browser. Nothing is uploaded.</p>
     </div>
   );
 }

@@ -7,9 +7,10 @@ type Tone = "light" | "dark";
 
 const fieldTone: Record<Tone, string> = {
   light: "border-line bg-surface text-ink focus:border-blue focus:ring-blue/15",
-  dark: "border-white/10 bg-white/5 text-white focus:border-[#8B9BFF] focus:ring-[#8B9BFF]/20",
+  // Motion Studio: follows its theme tokens (light by default, dark when chosen).
+  dark: "border-m-line-strong bg-m-raised text-m-text focus:border-m-accent-2 focus:ring-m-accent-2/20",
 };
-const labelTone: Record<Tone, string> = { light: "text-ink-3", dark: "text-white/70" };
+const labelTone: Record<Tone, string> = { light: "text-ink-3", dark: "text-m-muted" };
 
 /**
  * A number field that edits in display units (px, %, °, s) and commits on
@@ -76,7 +77,7 @@ export function NumberField({
           }}
           className={cn("h-8 w-[84px] rounded-[8px] border pl-2.5 pr-7 text-right text-[13px] tabular-nums outline-none focus:ring-3 disabled:opacity-50", fieldTone[tone])}
         />
-        {unit && <span className={cn("pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[12px]", tone === "light" ? "text-muted" : "text-white/50")}>{unit}</span>}
+        {unit && <span className={cn("pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[12px]", tone === "light" ? "text-muted" : "text-m-subtle")}>{unit}</span>}
       </div>
     </div>
   );
@@ -111,7 +112,7 @@ export function RangeField({
     <div className="grid gap-1.5">
       <label htmlFor={id} className={cn("flex items-center justify-between text-[13px]", labelTone[tone])}>
         {label}
-        <span className={cn("tabular-nums", tone === "light" ? "text-muted" : "text-white/55")}>{format(value)}</span>
+        <span className={cn("tabular-nums", tone === "light" ? "text-muted" : "text-m-muted")}>{format(value)}</span>
       </label>
       <input
         id={id}
@@ -124,7 +125,7 @@ export function RangeField({
         onChange={(e) => onChange(Number(e.target.value))}
         onPointerUp={onCommit}
         onKeyUp={onCommit}
-        className={cn("w-full disabled:opacity-40", tone === "light" ? "accent-blue" : "accent-[#8B9BFF]")}
+        className={cn("w-full disabled:opacity-40", tone === "light" ? "accent-blue" : "accent-m-accent-2")}
       />
     </div>
   );
@@ -132,9 +133,9 @@ export function RangeField({
 
 export function Section({ title, children, action, tone = "light" }: { title: string; children: ReactNode; action?: ReactNode; tone?: Tone }) {
   return (
-    <section className={cn("grid gap-3 border-b py-4 last:border-b-0", tone === "light" ? "border-line" : "border-white/8")}>
+    <section className={cn("grid gap-3 border-b py-4 last:border-b-0", tone === "light" ? "border-line" : "border-m-line")}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className={cn("text-[14px] font-semibold", tone === "light" ? "text-ink" : "text-white")}>{title}</h3>
+        <h3 className={cn("text-[14px] font-semibold", tone === "light" ? "text-ink" : "text-m-strong")}>{title}</h3>
         {action}
       </div>
       {children}
