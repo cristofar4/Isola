@@ -95,6 +95,7 @@ export function RangeField({
   onCommit,
   tone = "light",
   disabled,
+  id: givenId,
 }: {
   label: string;
   value: number;
@@ -106,8 +107,11 @@ export function RangeField({
   onCommit?: () => void;
   tone?: Tone;
   disabled?: boolean;
+  /** A fixed id, for controls other buttons move focus to. */
+  id?: string;
 }) {
-  const id = useId();
+  const autoId = useId();
+  const id = givenId ?? autoId;
   return (
     <div className="grid gap-1.5">
       <label htmlFor={id} className={cn("flex items-center justify-between text-[13px]", labelTone[tone])}>

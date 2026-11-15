@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { askName } from "@/components/studio/name-dialog";
 import { editedText } from "@/components/studio/project-hooks";
 import { useLibraryReady } from "@/components/studio/library-hooks";
+import { defaultPreset, usePresets } from "@/components/studio/use-presets";
 import { Spinner } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
 import { ASPECT_ORDER, ASPECTS, type Aspect, type Film } from "@/lib/motion/model";
@@ -71,7 +72,9 @@ export function FilmsPage() {
   async function start(aspect: Aspect) {
     setBusy(aspect);
     try {
-      const f = await createFilm("Untitled film", aspect);
+      // Start from the default brand preset's video settings (container, resolution, frame rate), when there is one.
+      if (!usePresets.getState().presets) await usePresets.getState().load().catch(() => undefined);
+      const f = await createFilm("Untitled film", aspect, defaultPreset(usePresets.getState().presets)?.identity?.export);
       router.push(`/studio/motion/${f.id}`);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "The film couldn't be created.");

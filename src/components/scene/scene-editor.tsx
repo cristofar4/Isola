@@ -730,7 +730,7 @@ function Loaded({ initial }: { initial: Scene }) {
               </Section>
               <Section title="Lighting">
                 <RangeField
-                  label="Key light direction"
+                  id="key-light" label="Key light direction"
                   value={light}
                   min={-75}
                   max={75}
