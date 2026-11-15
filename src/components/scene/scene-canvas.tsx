@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { corners, hitTest, type Placement } from "@/lib/scene/draw";
-import { fontFamilies } from "@/lib/scene/fonts";
+import { ensureFonts, fontFamilies } from "@/lib/scene/fonts";
 import { backdropInfo, SCENE_FORMATS, type Scene, type SceneFormatId, type SceneLayer } from "@/lib/scene/model";
 import { layerPlacement, renderScene } from "@/lib/scene/render";
 import { assetImage, loadAssetImages, onImagesChanged } from "@/lib/scene/resources";
@@ -250,7 +250,7 @@ export function SceneCanvas({ scene, format, selectedId, mode, snap, compare, on
 }
 
 /** A small rendering of a scene in one format (format strip, cards). */
-export function SceneThumb({ scene, format, className, label }: { scene: Scene; format: SceneFormatId; className?: string; label: string }) {
+export function SceneThumb({ scene, format, className, label, size = 240 }: { scene: Scene; format: SceneFormatId; className?: string; label: string; size?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [version, setVersion] = useState(0);
   useEffect(() => {
@@ -261,13 +261,22 @@ export function SceneThumb({ scene, format, className, label }: { scene: Scene; 
     const canvas = ref.current;
     if (!canvas) return;
     const f = SCENE_FORMATS[format];
-    const s = 240 / Math.max(f.width, f.height);
+    const s = size / Math.max(f.width, f.height);
     canvas.width = Math.round(f.width * s);
     canvas.height = Math.round(f.height * s);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const t = setTimeout(() => renderScene(ctx, scene, canvas.width, canvas.height, { image: assetImage, fonts: fontFamilies() }, { showMissing: true }), 60);
-    return () => clearTimeout(t);
-  }, [scene, format, version]);
+    const draw = () => renderScene(ctx, scene, canvas.width, canvas.height, { image: assetImage, fonts: fontFamilies() }, { showMissing: true });
+    let alive = true;
+    const t = setTimeout(() => {
+      draw();
+      // Draw again once the fonts this scene uses have loaded.
+      void ensureFonts(scene.layers.flatMap((l) => (l.kind === "text" ? [{ font: l.font, weight: l.weight }] : []))).then(() => alive && draw());
+    }, 60);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [scene, format, version, size]);
   return <canvas ref={ref} role="img" aria-label={label} className={className} />;
 }

@@ -8,6 +8,7 @@ import { FilmPreview } from "@/components/motion/kit-preview";
 import { defaultPreset, usePresets } from "@/components/studio/use-presets";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
+import { BRAND_TRANSITION_LABEL, MOTION_STYLE_LABEL } from "@/lib/brand-presets";
 import { cn } from "@/lib/cn";
 import { applyKitResult, buildFromStyle, defaultParams, KITS, layerSetFromScene } from "@/lib/motion/kits";
 import { emptyFilm } from "@/lib/motion/model";
@@ -25,12 +26,17 @@ export function AnimateDialog({ scene, open, onOpenChange }: { scene: Scene; ope
   const router = useRouter();
   const presets = usePresets((s) => s.presets);
   const styles = useFilms((s) => s.styles);
-  const [chosen, setChosen] = useState("slow-reveal");
+  const [picked, setPicked] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [params, setParams] = useState<Record<string, Record<string, number>>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const brand = useMemo(() => defaultPreset(presets)?.colors.map((c) => c.hex) ?? [], [presets]);
+  const preset = defaultPreset(presets);
+  const brand = useMemo(() => preset?.colors.map((c) => c.hex) ?? [], [preset]);
+  // Your default brand preset's motion defaults are the starting point; any choice here overrides them.
+  const motion = preset?.identity?.motion ?? null;
+  const exportDefaults = preset?.identity?.export;
+  const chosen = picked ?? motion?.style ?? "slow-reveal";
   const set = useMemo(() => layerSetFromScene(scene), [scene]);
 
   useEffect(() => {
@@ -42,16 +48,19 @@ export function AnimateDialog({ scene, open, onOpenChange }: { scene: Scene; ope
   const previews = useMemo(() => {
     if (!open) return [];
     const kits = KITS.map((k) => {
-      const p = { ...defaultParams(k), ...(params[k.id] ?? {}) };
+      const length = k.params.find((x) => x.id === "duration");
+      const custom = params[k.id];
+      const defaults = { duration: custom ? undefined : motion?.duration, transition: motion?.transition };
+      const p: Record<string, number> = { ...defaultParams(k), ...(length && motion && !custom ? { duration: Math.min(length.max, Math.max(length.min, motion.duration)) } : {}), ...(custom ?? {}) };
       const problem = k.check(set);
-      return { id: k.id, name: k.name, summary: k.summary, pace: k.pace, problem, kit: k, params: p, film: filmFromScene(scene, { kitId: k.id, params: p, brand }) };
+      return { id: k.id, name: k.name, summary: k.summary, pace: k.pace, problem, kit: k, params: p, custom, defaults, film: filmFromScene(scene, { kitId: k.id, params: custom, brand, defaults }) };
     });
     const saved = styles.map((st) => {
       const film = { ...applyKitResult(emptyFilm(scene.name, ASPECT_FOR_FORMAT[scene.format]), buildFromStyle(st, set), st.id) };
-      return { id: st.id, name: st.name, summary: "Your saved style", pace: null, problem: set.products.length ? null : "Needs at least one product layer.", kit: null, params: {}, film };
+      return { id: st.id, name: st.name, summary: "Your saved style", pace: null, problem: set.products.length ? null : "Needs at least one product layer.", kit: null, params: {} as Record<string, number>, custom: undefined, defaults: {}, film };
     });
     return [...kits, ...saved];
-  }, [open, scene, set, params, brand, styles]);
+  }, [open, scene, set, params, brand, styles, motion]);
 
   const current = previews.find((p) => p.id === chosen) ?? previews[0];
 
@@ -60,9 +69,9 @@ export function AnimateDialog({ scene, open, onOpenChange }: { scene: Scene; ope
     setBusy(true);
     setError(null);
     try {
-      const film = await createFilmFromScene(scene, current.id, { brand, params: current.params });
+      const film = await createFilmFromScene(scene, current.id, { brand, params: current.custom, defaults: { ...current.defaults, export: exportDefaults } });
       onOpenChange(false);
-      router.push(`/motion/${film.id}`);
+      router.push(`/studio/motion/${film.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "The film couldn't be created.");
       setBusy(false);
@@ -97,7 +106,7 @@ export function AnimateDialog({ scene, open, onOpenChange }: { scene: Scene; ope
                     role="radio"
                     aria-checked={chosen === p.id}
                     data-style={p.id}
-                    onClick={() => setChosen(p.id)}
+                    onClick={() => setPicked(p.id)}
                     onMouseEnter={() => setHovered(p.id)}
                     onMouseLeave={() => setHovered(null)}
                     onFocus={() => setHovered(p.id)}
@@ -163,6 +172,11 @@ export function AnimateDialog({ scene, open, onOpenChange }: { scene: Scene; ope
                   <p className="mt-1 text-[13px] text-muted">A style you saved from a film: its shots, timings, framing, keyframes and text animation, applied to this scene&apos;s layers.</p>
                 </div>
               ) : null}
+              {motion && preset && (
+                <p className="rounded-[12px] bg-blue-50 px-3 py-2 text-[12px] leading-relaxed text-blue-700" data-brand-motion>
+                  Starting from “{preset.name}”: {MOTION_STYLE_LABEL[motion.style]}, {motion.duration}s{motion.transition !== "auto" ? `, ${BRAND_TRANSITION_LABEL[motion.transition].toLowerCase()} between shots` : ""}.
+                </p>
+              )}
               <p className="flex gap-2 rounded-[12px] bg-paper px-3 py-2.5 text-[12px] leading-relaxed text-ink-3">
                 <Info className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
                 Motion here is 2D: camera moves, layer animation, light and parallax between your separate layers. A single photo can&apos;t be turned to show its other sides.

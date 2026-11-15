@@ -6,7 +6,7 @@ import * as db from "@/lib/studio/library-db";
 import { buildFromStyle, applyKitResult, layerSetFromScene, migrateStyle, type MotionStyle } from "./kits";
 import { mediaKey } from "./media";
 import { emptyFilm, migrateFilm, uid, type Aspect, type Film } from "./model";
-import { filmFromScene, ASPECT_FOR_FORMAT } from "./scene-link";
+import { filmFromScene, ASPECT_FOR_FORMAT, type FilmDefaults } from "./scene-link";
 
 /**
  * Films and saved motion styles live in this browser (IndexedDB), next to
@@ -56,20 +56,23 @@ export async function saveFilm(film: Film): Promise<Film> {
   return next;
 }
 
-export async function createFilm(name = "Untitled film", aspect: Aspect = "16:9") {
+export async function createFilm(name = "Untitled film", aspect: Aspect = "16:9", exportDefaults?: FilmDefaults["export"]) {
   await loadFilms();
-  return saveFilm(emptyFilm(name, aspect));
+  const film = emptyFilm(name, aspect);
+  return saveFilm(exportDefaults ? { ...film, fps: exportDefaults.fps ?? film.fps, export: { ...film.export, container: exportDefaults.container ?? film.export.container, resolution: exportDefaults.resolution ?? film.export.resolution } } : film);
 }
 
 /** "Animate scene": a new film from a scene's layers with a motion style (built-in kit or saved style). */
-export async function createFilmFromScene(scene: Scene, styleId: string, opts: { brand?: string[]; params?: Record<string, number> } = {}) {
+export async function createFilmFromScene(scene: Scene, styleId: string, opts: { brand?: string[]; params?: Record<string, number>; defaults?: FilmDefaults } = {}) {
   await loadFilms();
   const saved = useFilms.getState().styles.find((s) => s.id === styleId);
   let film: Film;
   if (saved) {
     film = emptyFilm(scene.name, ASPECT_FOR_FORMAT[scene.format]);
     film = { ...applyKitResult(film, buildFromStyle(saved, layerSetFromScene(scene)), saved.id), source: { sceneId: scene.id, sceneName: scene.name, revision: scene.revision, format: scene.format } };
-  } else film = filmFromScene(scene, { kitId: styleId, brand: opts.brand ?? [], params: opts.params });
+    const ex = opts.defaults?.export;
+    if (ex) film = { ...film, fps: ex.fps ?? film.fps, export: { ...film.export, container: ex.container ?? film.export.container, resolution: ex.resolution ?? film.export.resolution } };
+  } else film = filmFromScene(scene, { kitId: styleId, brand: opts.brand ?? [], params: opts.params, defaults: opts.defaults });
   return saveFilm(film);
 }
 

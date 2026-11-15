@@ -1,4 +1,5 @@
 import { BATCH_WHITE, DEFAULT_BATCH_SETTINGS, MAX_PADDING, normaliseSettings, type BatchSettings } from "@/lib/batch/settings";
+import { FONT_WEIGHTS, type FontId } from "@/lib/scene/model";
 
 /**
  * Brand presets: a named look for every image (canvas, padding, background,
@@ -32,16 +33,94 @@ export interface BrandLayout {
   format: "png" | "jpeg";
 }
 
+/** The motion styles a preset can default to (Motion Studio's built-in kits). */
+export const MOTION_STYLE_IDS = ["slow-reveal", "spotlight", "layered-parallax", "editorial-cut", "soft-luxury", "social-launch"] as const;
+export const MOTION_STYLE_LABEL: Record<(typeof MOTION_STYLE_IDS)[number], string> = {
+  "slow-reveal": "Slow reveal",
+  spotlight: "Spotlight",
+  "layered-parallax": "Layered parallax",
+  "editorial-cut": "Editorial cut",
+  "soft-luxury": "Soft luxury",
+  "social-launch": "Social launch",
+};
+/** "auto" keeps whatever the motion style itself uses between shots. */
+export const BRAND_TRANSITIONS = ["auto", "cut", "dissolve", "dip", "slide", "wipe"] as const;
+export const BRAND_TRANSITION_LABEL: Record<(typeof BRAND_TRANSITIONS)[number], string> = { auto: "As the style defines", cut: "Cut", dissolve: "Soft dissolve", dip: "Dip to black", slide: "Slide", wipe: "Wipe" };
+export const BRAND_FORMATS = ["square", "portrait", "wide", "story"] as const;
+export type BrandFormat = (typeof BRAND_FORMATS)[number];
+
+export interface BrandFont {
+  font: FontId;
+  weight: number;
+}
+
+/**
+ * The rest of a brand's identity: logos, typography, and the defaults for
+ * films and exports. Logos are files in this browser's asset library; the
+ * preset remembers which ones (their ids), not the files themselves.
+ */
+export interface BrandIdentity {
+  logos: { primary: string | null; light: string | null };
+  typography: { heading: BrandFont; body: BrandFont };
+  motion: { style: (typeof MOTION_STYLE_IDS)[number]; duration: number; transition: (typeof BRAND_TRANSITIONS)[number] };
+  export: { container: "mp4" | "webm"; resolution: 720 | 1080 | 2160; fps: 24 | 25 | 30 | 60; formats: BrandFormat[] };
+}
+
+export const DEFAULT_IDENTITY: BrandIdentity = {
+  logos: { primary: null, light: null },
+  typography: { heading: { font: "serif", weight: 500 }, body: { font: "sans", weight: 400 } },
+  motion: { style: "slow-reveal", duration: 6, transition: "auto" },
+  export: { container: "mp4", resolution: 1080, fps: 30, formats: ["square", "portrait", "wide"] },
+};
+
+const FONTS = Object.keys(FONT_WEIGHTS) as FontId[];
+
+function cleanFont(raw: unknown, fallback: BrandFont): BrandFont {
+  const r = (raw ?? {}) as Partial<BrandFont>;
+  const font = FONTS.includes(r.font as FontId) ? (r.font as FontId) : fallback.font;
+  const weights = FONT_WEIGHTS[font];
+  const wanted = Number(r.weight);
+  const weight = weights.includes(wanted) ? wanted : weights.includes(fallback.weight) ? fallback.weight : weights[0];
+  return { font, weight };
+}
+
+const assetId = (v: unknown) => (typeof v === "string" && /^[\w:-]{1,80}$/.test(v) ? v : null);
+
+/** A complete, safe identity from stored or submitted data: unknown values fall back to the defaults. */
+export function normaliseIdentity(raw: unknown): BrandIdentity {
+  const r = (raw ?? {}) as { logos?: Record<string, unknown>; typography?: Record<string, unknown>; motion?: Record<string, unknown>; export?: Record<string, unknown> };
+  const d = DEFAULT_IDENTITY;
+  const duration = Number(r.motion?.duration);
+  const formats = (Array.isArray(r.export?.formats) ? (r.export!.formats as unknown[]) : d.export.formats).filter((f): f is BrandFormat => BRAND_FORMATS.includes(f as BrandFormat));
+  return {
+    logos: { primary: assetId(r.logos?.primary), light: assetId(r.logos?.light) },
+    typography: { heading: cleanFont(r.typography?.heading, d.typography.heading), body: cleanFont(r.typography?.body, d.typography.body) },
+    motion: {
+      style: MOTION_STYLE_IDS.includes(r.motion?.style as (typeof MOTION_STYLE_IDS)[number]) ? (r.motion!.style as (typeof MOTION_STYLE_IDS)[number]) : d.motion.style,
+      duration: Number.isFinite(duration) ? Math.min(30, Math.max(3, Math.round(duration * 2) / 2)) : d.motion.duration,
+      transition: BRAND_TRANSITIONS.includes(r.motion?.transition as (typeof BRAND_TRANSITIONS)[number]) ? (r.motion!.transition as (typeof BRAND_TRANSITIONS)[number]) : d.motion.transition,
+    },
+    export: {
+      container: r.export?.container === "webm" ? "webm" : "mp4",
+      resolution: r.export?.resolution === 720 || r.export?.resolution === 2160 ? r.export.resolution : 1080,
+      fps: [24, 25, 30, 60].includes(Number(r.export?.fps)) ? (Number(r.export!.fps) as 24 | 25 | 30 | 60) : 30,
+      formats: formats.length ? [...new Set(formats)] : [...d.export.formats],
+    },
+  };
+}
+
 export interface BrandPresetInput {
   name: string;
   colors: BrandColor[];
   layout: BrandLayout;
   isDefault?: boolean;
+  identity?: BrandIdentity;
 }
 
 export interface BrandPreset extends BrandPresetInput {
   id: string;
   isDefault: boolean;
+  identity: BrandIdentity;
   createdAt: string;
   updatedAt: string;
 }
@@ -107,7 +186,14 @@ export function validatePreset(input: unknown): { ok: true; value: BrandPresetIn
   if (errors.length) return { ok: false, errors };
   return {
     ok: true,
-    value: { name, colors, layout: { canvas: canvas!, padding, shadow: l.shadow as boolean, background: background!, align: align!, format: format! }, isDefault: v.isDefault === true },
+    value: {
+      name,
+      colors,
+      layout: { canvas: canvas!, padding, shadow: l.shadow as boolean, background: background!, align: align!, format: format! },
+      isDefault: v.isDefault === true,
+      // Left out by callers that only change the look or the default flag: the saved identity is then kept.
+      identity: v.identity === undefined ? undefined : normaliseIdentity(v.identity),
+    },
   };
 }
 

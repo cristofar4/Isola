@@ -11,18 +11,34 @@
 
 import { FONT_LABEL, type Scene, type SceneFormatId, type SceneLayer } from "@/lib/scene/model";
 import { applyKitResult, defaultParams, kitById, layerSetFromScene, type KitInput } from "./kits";
-import { emptyFilm, newClip, type Aspect, type Clip, type ClipProp, type Film } from "./model";
+import { emptyFilm, newClip, type Aspect, type Clip, type ClipProp, type Film, type TransitionKind } from "./model";
+import { scaleFilm, setAllTransitions } from "./ops";
+import { filmDuration } from "./time";
 
 export const ASPECT_FOR_FORMAT: Record<SceneFormatId, Aspect> = { square: "1:1", portrait: "4:5", wide: "16:9", story: "9:16" };
 
-/** A new film from a scene, styled with `kitId` (default: Slow reveal). */
-export function filmFromScene(scene: Scene, opts: { kitId?: string; params?: Record<string, number>; brand?: string[]; aspect?: Aspect } = {}): Film {
+export interface FilmDefaults {
+  /** Total length in seconds: styles with an adjustable length use it; others are scaled to it. */
+  duration?: number;
+  /** One transition between every pair of shots ("auto" keeps the style's own). */
+  transition?: TransitionKind | "auto";
+  export?: Partial<Pick<Film["export"], "container" | "resolution">> & { fps?: Film["fps"] };
+}
+
+/** A new film from a scene, styled with `kitId` (default: Slow reveal), with optional brand defaults. */
+export function filmFromScene(scene: Scene, opts: { kitId?: string; params?: Record<string, number>; brand?: string[]; aspect?: Aspect; defaults?: FilmDefaults } = {}): Film {
   const aspect = opts.aspect ?? ASPECT_FOR_FORMAT[scene.format];
   const film = emptyFilm(scene.name, aspect);
   const kit = kitById(opts.kitId ?? "slow-reveal") ?? kitById("slow-reveal")!;
   const input: KitInput = { set: layerSetFromScene(scene), aspect, brand: opts.brand ?? [] };
-  const built = kit.build(input, { ...defaultParams(kit), ...(opts.params ?? {}) });
-  return { ...applyKitResult(film, built, kit.id), source: { sceneId: scene.id, sceneName: scene.name, revision: scene.revision, format: scene.format } };
+  const d = opts.defaults ?? {};
+  const lengthParam = kit.params.find((p) => p.id === "duration");
+  const params = { ...defaultParams(kit), ...(lengthParam && d.duration ? { duration: Math.min(lengthParam.max, Math.max(lengthParam.min, d.duration)) } : {}), ...(opts.params ?? {}) };
+  let out: Film = { ...applyKitResult(film, kit.build(input, params), kit.id), source: { sceneId: scene.id, sceneName: scene.name, revision: scene.revision, format: scene.format } };
+  if (d.duration && !lengthParam && opts.params?.pace === undefined) out = scaleFilm(out, d.duration / Math.max(0.1, filmDuration(out))).film;
+  if (d.transition && d.transition !== "auto") out = setAllTransitions(out, d.transition).film;
+  if (d.export) out = { ...out, fps: d.export.fps ?? out.fps, export: { ...out.export, container: d.export.container ?? out.export.container, resolution: d.export.resolution ?? out.export.resolution } };
+  return out;
 }
 
 /* -------------------------------------------------------------- changes --- */

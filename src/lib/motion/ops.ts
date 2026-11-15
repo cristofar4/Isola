@@ -434,6 +434,45 @@ export function renameShot(film: Film, shotId: string, name: string): EditResult
   return { film: { ...film, shots: film.shots.map((s) => (s.id === shotId ? { ...s, name: name.trim().slice(0, 60) || s.name } : s)) } };
 }
 
+/**
+ * Make the whole film longer or shorter by `factor`: shots, the clips and
+ * keyframes in them, transitions, markers and fades all scale together, so
+ * the edit keeps its shape. Sound isn't stretched: audio clips keep their
+ * length (their start moves with the picture) and video clips never run
+ * past the end of their file.
+ */
+export function scaleFilm(film: Film, factor: number): EditResult {
+  if (!(factor > 0) || Math.abs(factor - 1) < 1e-6) return { film };
+  const total = filmDuration(film) * factor;
+  if (total > MAX_FILM) return { film, problem: "A film can be up to 10 minutes long." };
+  if (film.shots.some((s) => s.duration * factor < MIN_SHOT)) return { film, problem: "That's too short for these shots. Delete a shot or choose a longer length." };
+  const k = (v: number) => round(v * factor);
+  const keys = <P extends string>(map: Partial<Record<P, Keyframe[]>>) => {
+    const out: Partial<Record<P, Keyframe[]>> = {};
+    for (const [p, list] of Object.entries(map) as Array<[P, Keyframe[]]>) out[p] = list.map((kf) => ({ ...kf, t: k(kf.t) }));
+    return out;
+  };
+  const shots = film.shots.map((s) => ({ ...s, duration: k(s.duration), transition: { ...s.transition, duration: s.transition.kind === "cut" ? 0 : round(clamp(s.transition.duration * factor, 0.05, 5)) }, camera: keys(s.camera) }));
+  const clips = film.clips.map((c) => {
+    const isSound = c.source.kind === "audio";
+    if (isSound) return { ...c, start: k(c.start) };
+    let duration = Math.max(MIN_CLIP, k(c.duration));
+    if (c.source.kind === "video") {
+      const media = film.media.find((m) => c.source.kind === "video" && m.id === c.source.mediaId);
+      if (media && media.duration > 0) duration = Math.max(MIN_CLIP, Math.min(duration, media.duration - c.source.in));
+    }
+    return { ...c, start: k(c.start), duration, keyframes: keys(c.keyframes) };
+  });
+  return {
+    film: { ...film, shots, clips, markers: film.markers.map((m) => ({ ...m, t: k(m.t) })), fadeIn: round(clamp(film.fadeIn * factor, 0, 10)), fadeOut: round(clamp(film.fadeOut * factor, 0, 10)) },
+  };
+}
+
+/** Use one transition between every pair of shots. */
+export function setAllTransitions(film: Film, kind: TransitionKind, duration = 0.8): EditResult {
+  return { film: { ...film, shots: film.shots.map((s, i) => (i === 0 ? s : { ...s, transition: { kind, duration: kind === "cut" ? 0 : round(clamp(duration, 0.05, 5)) } })) } };
+}
+
 /* ----------------------------------------------------------------- tracks --- */
 
 export function addTrack(film: Film, kind: Track["kind"], name?: string): EditResult {

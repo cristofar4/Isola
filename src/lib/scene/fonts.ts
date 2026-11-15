@@ -46,3 +46,11 @@ export async function ensureFonts(used: Array<{ font: FontId; weight: number }>)
 
 /** Class names that declare the creative fonts' CSS variables (put on a wrapper so the @font-face rules are in use). */
 export const creativeFontClasses = `${creativeSerif.variable} ${creativeCondensed.variable}`;
+
+/** CSS font-family for each font id, for ordinary page text inside an element with `creativeFontClasses`. */
+export const FONT_CSS: Record<FontId, string> = {
+  sans: "var(--font-inter), ui-sans-serif, system-ui, sans-serif",
+  display: "var(--font-inter-tight), var(--font-inter), ui-sans-serif, sans-serif",
+  serif: "var(--font-creative-serif), Georgia, serif",
+  condensed: "var(--font-creative-condensed), Impact, sans-serif",
+};

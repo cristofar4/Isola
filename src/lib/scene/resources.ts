@@ -56,6 +56,34 @@ export function loadAssetImage(id: string): Promise<Drawable | null> {
   return job;
 }
 
+/** Make an image that isn't in the library drawable under an id (the bundled sample product, for previews). */
+export function registerImage(id: string, image: Drawable) {
+  ready.set(id, image);
+  listeners.forEach((l) => l());
+}
+
+export const SAMPLE_PRODUCT_ID = "sample:serum";
+let samplePromise: Promise<{ id: string; aspect: number } | null> | null = null;
+
+/**
+ * ISOLA's bundled sample cutout (its own output from an Unsplash photo; see
+ * public/samples/CREDITS.md), for previews only. It isn't added to the library.
+ */
+export function loadSampleProduct(): Promise<{ id: string; aspect: number } | null> {
+  samplePromise ??= fetch("/showcase/batch/serum-cutout.webp")
+    .then((r) => (r.ok ? r.blob() : Promise.reject(new Error("missing"))))
+    .then((b) => createImageBitmap(b))
+    .then((bitmap) => {
+      registerImage(SAMPLE_PRODUCT_ID, bitmap as Drawable);
+      return { id: SAMPLE_PRODUCT_ID, aspect: bitmap.width / bitmap.height };
+    })
+    .catch(() => {
+      samplePromise = null;
+      return null;
+    });
+  return samplePromise;
+}
+
 export async function loadAssetImages(ids: Iterable<string>) {
   return Promise.all([...new Set(ids)].map(loadAssetImage));
 }

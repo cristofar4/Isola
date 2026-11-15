@@ -1,6 +1,6 @@
 import "server-only";
 
-import { MAX_PRESETS, type BrandPreset, type BrandPresetInput } from "@/lib/brand-presets";
+import { MAX_PRESETS, normaliseIdentity, type BrandPreset, type BrandPresetInput } from "@/lib/brand-presets";
 import { getAuth } from "./auth";
 
 interface PresetRow {
@@ -29,18 +29,29 @@ async function db() {
 
 function toPreset(row: PresetRow): BrandPreset | null {
   try {
-    const data = JSON.parse(row.data) as Pick<BrandPresetInput, "colors" | "layout">;
+    const data = JSON.parse(row.data) as Pick<BrandPresetInput, "colors" | "layout" | "identity">;
     return {
       id: row.id,
       name: row.name,
       colors: data.colors,
       layout: data.layout,
+      // Presets saved before identities existed get the defaults.
+      identity: normaliseIdentity(data.identity),
       isDefault: Boolean(row.isDefault),
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
     };
   } catch {
     return null; // A row that can't be read is skipped rather than breaking the list.
+  }
+}
+
+/** The identity already stored on a row (the defaults if it has none). */
+function savedIdentity(row: PresetRow) {
+  try {
+    return normaliseIdentity((JSON.parse(row.data) as { identity?: unknown }).identity);
+  } catch {
+    return normaliseIdentity(undefined);
   }
 }
 
@@ -72,7 +83,7 @@ export async function createPreset(userId: string, input: BrandPresetInput): Pro
   const isDefault = existing.length === 0 || input.isDefault === true;
   const row = await adapter.create<Omit<PresetRow, "id">, PresetRow>({
     model: "brandPreset",
-    data: { userId, name: input.name, data: JSON.stringify({ colors: input.colors, layout: input.layout }), isDefault, createdAt: now, updatedAt: now },
+    data: { userId, name: input.name, data: JSON.stringify({ colors: input.colors, layout: input.layout, identity: normaliseIdentity(input.identity) }), isDefault, createdAt: now, updatedAt: now },
   });
   if (isDefault) await clearDefault(userId, row.id);
   return toPreset(row)!;
@@ -90,7 +101,7 @@ export async function updatePreset(userId: string, id: string, input: BrandPrese
   const updated = await (await db()).update<PresetRow>({
     model: "brandPreset",
     where: [{ field: "id", value: id }],
-    update: { name: input.name, data: JSON.stringify({ colors: input.colors, layout: input.layout }), isDefault, updatedAt: new Date() },
+    update: { name: input.name, data: JSON.stringify({ colors: input.colors, layout: input.layout, identity: input.identity ? normaliseIdentity(input.identity) : savedIdentity(row) }), isDefault, updatedAt: new Date() },
   });
   if (input.isDefault === true) await clearDefault(userId, id);
   return updated ? toPreset(updated) : null;

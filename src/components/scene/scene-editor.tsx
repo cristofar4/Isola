@@ -375,7 +375,11 @@ function Loaded({ initial }: { initial: Scene }) {
   const selected = scene.layers.find((l) => l.id === selectedId) ?? null;
   const backdrop = scene.layers.find((l) => l.kind === "backdrop");
   const surfaceY = backdrop?.kind === "backdrop" ? (backdropInfo(backdrop.backdrop)?.surfaceY ?? 0.78) : 0.78;
-  const brand = defaultPreset(presets)?.colors ?? [];
+  const brandPreset = defaultPreset(presets);
+  const brand = brandPreset?.colors ?? [];
+  const identity = brandPreset?.identity ?? null;
+  const brandLogo = useLibrary((s) => s.assets.find((a) => a.id === identity?.logos.primary && !a.trashedAt) ?? null);
+  const brandFormats = (identity?.export.formats ?? ["square", "portrait", "wide"]).filter((id) => !scene.formats.includes(id));
   const missing = missingAssets(scene, { image: assetImage });
   const [assetsLoaded, setAssetsLoaded] = useState(false);
 
@@ -537,7 +541,7 @@ function Loaded({ initial }: { initial: Scene }) {
           <button type="button" className={toolBtn(compare)} aria-pressed={compare} onClick={() => setCompare((c) => !c)} title="Show the products without the set">
             <SplitSquareHorizontal className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Compare</span>
           </button>
-          <button type="button" className={toolBtn(false)} onClick={() => apply((s) => ({ ...s, layers: [...s.layers, textLayer({ color: brand[1]?.hex ?? "#20292D" })] }))}>
+          <button type="button" className={toolBtn(false)} title={identity ? `Adds a title in your brand's heading typeface (${FONT_LABEL[identity.typography.heading.font]})` : undefined} onClick={() => apply((s) => ({ ...s, layers: [...s.layers, textLayer({ color: brand[1]?.hex ?? "#20292D", ...(identity ? { font: identity.typography.heading.font, weight: identity.typography.heading.weight } : {}) })] }))}>
             <Type className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Text</span>
           </button>
         </div>
