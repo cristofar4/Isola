@@ -3,6 +3,7 @@
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
+import { TrialNote } from "@/components/upload/trial-note";
 import { useUpload } from "@/components/upload/use-upload";
 
 export function PricingCta() {
@@ -20,8 +21,9 @@ export function PricingCta() {
         disabled={upload.busy}
         icon={upload.busy ? <Spinner className="size-5" /> : <Upload className="size-[18px]" aria-hidden="true" />}
       >
-        Upload an image
+        {upload.mustSignIn && upload.guestTries ? "Continue with a free account" : "Upload an image"}
       </Button>
+      <TrialNote tries={upload.guestTries} signedIn={upload.signedIn} className="mt-3" />
       {upload.issues.length > 0 && (
         <p role="alert" className="mt-3 text-[13px] text-danger">
           {upload.issues[0].name}: {upload.issues[0].message}

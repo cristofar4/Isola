@@ -80,8 +80,10 @@ export default function ServerEndpointsPage() {
             cookie (prefixed <code>isola</code>) that lasts up to 30 days.
           </li>
           <li>
-            Background removal needs an account. The model files and the server engine both check the session and answer{" "}
-            <code>401</code> without one.
+            Background removal needs an account, except for a visitor&apos;s first few free tries (three unless{" "}
+            <code>ISOLA_GUEST_TRIES</code> says otherwise; 0 turns them off). Tries are counted by{" "}
+            <code>/api/trial</code> in a signed, HttpOnly cookie, and the model files are served to a visitor with a session or a
+            trial. The server engine is for accounts only. Without either, both answer <code>401</code>.
           </li>
           <li>
             Pro status (for full-resolution exports and Batch Studio) is stored on the account and only changes on the server

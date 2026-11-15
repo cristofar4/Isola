@@ -275,7 +275,8 @@ const dissolved = (await quick.locator("#quick-transition").inputValue()) === "d
 // Undo works with the dropdown still focused.
 await page.keyboard.press("Control+z");
 await page.waitForTimeout(200);
-check("One transition for every cut, and undo restores the cuts (even from the dropdown)", dissolved && (await quick.locator("#quick-transition").inputValue()) === "cut");
+const afterUndo = await quick.locator("#quick-transition").inputValue();
+check("One transition for every cut, and undo restores the cuts (even from the dropdown)", dissolved && afterUndo === "cut", `dissolve applied: ${dissolved} · after undo: ${afterUndo} · focus: ${await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName)}`);
 
 // Timeline tools: keyframe and trim at the playhead.
 await page.locator('[data-shot="Detail"] button').first().click();

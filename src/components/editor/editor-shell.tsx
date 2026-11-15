@@ -18,6 +18,7 @@ import { ImagesPanel } from "./images-panel";
 import { PropertiesPanel } from "./properties-panel";
 import { ToolRail } from "./tool-rail";
 import { TopBar } from "./top-bar";
+import { TrialEndedDialog } from "./trial-prompt";
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
@@ -168,6 +169,7 @@ export function EditorShell() {
         </Sheet>
       )}
       {image && image.status === "ready" && <ExportDialog image={image} />}
+      <TrialEndedDialog />
     </div>
   );
 }

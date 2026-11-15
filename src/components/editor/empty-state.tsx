@@ -1,12 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect } from "react";
 import { Lock, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { useUpload } from "@/components/upload/use-upload";
 import { FORMAT_LABEL, limitsSummary } from "@/lib/config";
 import { SAMPLES } from "@/lib/samples";
+import { authClient } from "@/lib/auth-client";
+import { loadTrial, useTrial } from "@/lib/trial";
 import { INTENT_HINT } from "./editor-intent";
 import { useEditorUI } from "./editor-ui-store";
 
@@ -65,11 +68,31 @@ export function EmptyState() {
               </button>
             ))}
           </div>
-          <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-muted">
-            <Lock className="size-3.5" aria-hidden="true" /> Free account required. Processed in your browser; images aren&apos;t uploaded.
-          </p>
+          <EmptyStateNote />
         </div>
       </div>
     </div>
+  );
+}
+
+/** Guests see their free tries; everyone sees that images stay on the device. */
+function EmptyStateNote() {
+  const trial = useTrial();
+  const { data, isPending } = authClient.useSession();
+  useEffect(() => {
+    if (!isPending && !data) void loadTrial();
+  }, [isPending, data]);
+  const guest = !isPending && !data && trial.status === "ready" && trial.enabled;
+  return (
+    <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-muted" data-trial-note={guest ? trial.remaining : undefined}>
+      <Lock className="size-3.5" aria-hidden="true" />
+      {guest
+        ? trial.remaining > 0
+          ? `${trial.remaining} of ${trial.limit} free tries left, no account needed. Examples are free.`
+          : "Free tries used: create a free account to keep going."
+        : !isPending && !data
+          ? "Free account required. Processed in your browser; images aren't uploaded."
+          : "Processed in your browser; images aren't uploaded."}
+    </p>
   );
 }

@@ -67,7 +67,7 @@ async function RenewalNote() {
 const faq = [
   {
     q: "Can I try ISOLA before upgrading?",
-    a: `Yes. Create a free account to remove backgrounds and download previews up to ${cap}px with an ISOLA watermark. Upgrade when you need full resolution, no watermark or Batch Studio.`,
+    a: `Yes. Try a few images without an account, then create a free account to keep removing backgrounds and download previews up to ${cap}px with an ISOLA watermark. Upgrade when you need full resolution, no watermark or Batch Studio.`,
   },
   {
     q: "What counts as a processed image?",

@@ -191,11 +191,12 @@ const topics: Topic[] = [
       {
         id: "why-account",
         q: "Why do I need an account?",
-        text: "Removing backgrounds needs a free account. Email and password, Google or GitHub.",
+        text: "You can try ISOLA a few times without one. After that, removing backgrounds needs a free account. Email and password, Google or GitHub.",
         a: (
           <p>
-            Removing backgrounds needs a free account. Sign up with email and a password, or with Google or GitHub where offered.
-            Images you added before signing in wait and start automatically afterwards.
+            You can remove a few backgrounds without an account (the example photos don&apos;t count). After those free tries,
+            removing backgrounds needs a free account, which has no image limit. Sign up with email and a password, or with
+            Google or GitHub where offered. Images you added before signing in wait and start automatically afterwards.
           </p>
         ),
       },

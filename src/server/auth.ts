@@ -95,6 +95,11 @@ let localSecret: string | null | undefined;
  * A shared Postgres database usually means several servers, which must all
  * use the same secret, so there it has to be set explicitly.
  */
+/** The server's signing secret (also signs the guest trial cookie). Null when accounts can't run. */
+export function serverSecret(): string | null {
+  return authSecret();
+}
+
 function authSecret(): string | null {
   const fromEnv = process.env.BETTER_AUTH_SECRET || process.env.AUTH_SECRET;
   if (fromEnv) return fromEnv;

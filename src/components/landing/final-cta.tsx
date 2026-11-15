@@ -4,6 +4,7 @@ import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { useFileDrop } from "@/components/upload/use-file-drop";
+import { TrialNote } from "@/components/upload/trial-note";
 import { useUpload } from "@/components/upload/use-upload";
 import { cn } from "@/lib/cn";
 
@@ -32,9 +33,10 @@ export function FinalCta() {
         disabled={upload.busy}
         icon={upload.busy ? <Spinner className="size-5" /> : <Upload className="size-[18px]" aria-hidden="true" />}
       >
-        {upload.state === "opening" ? "Opening editor…" : "Upload an image"}
+        {upload.state === "opening" ? "Opening editor…" : upload.mustSignIn && upload.guestTries ? "Continue with a free account" : "Upload an image"}
       </Button>
       <p className="mt-3 text-sm text-muted">Start with a photo. Keep creative control.</p>
+      <TrialNote tries={upload.guestTries} signedIn={upload.signedIn} className="mt-3" />
       {upload.issues.length > 0 && (
         <div role="alert" className="mx-auto mt-4 max-w-md rounded-lg border border-danger/25 bg-danger-50 px-3 py-2 text-[13px] text-danger">
           {upload.issues.map((issue) => (

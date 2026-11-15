@@ -5,9 +5,10 @@ import { authClient } from "./auth-client";
 import { planFromUser } from "./plan";
 
 /**
- * Background removal needs an account. The server enforces this (the model
- * is only served to signed-in users); this module lets the UI check first so
- * it can explain instead of failing.
+ * Background removal needs an account (or one of a guest's free tries, see
+ * src/lib/trial.ts). The server enforces this (the model is only served to
+ * signed-in users and guests with a trial); this module lets the UI check
+ * first so it can explain instead of failing.
  */
 
 let cached: { at: number; signedIn: boolean; pro: boolean } | null = null;

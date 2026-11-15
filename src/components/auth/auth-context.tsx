@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Upload } from "lucide-react";
+import { Sparkles, Upload } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { safeNext } from "@/lib/auth-client";
 
@@ -30,6 +30,7 @@ export function AuthSwitchLink({ to, children }: { to: "/sign-in" | "/sign-up"; 
 /** Explains why the visitor is here when they came from an upload button. */
 export function AuthReason({ mode }: { mode: "sign-in" | "sign-up" }) {
   const { reason, qs } = useCarry();
+  if (reason === "trial") return <TrialReason mode={mode} qs={qs} />;
   if (reason !== "upload") return null;
   return (
     <div role="status" className="mb-5 flex gap-3 rounded-[12px] border border-blue-100 bg-blue-50 px-3.5 py-3 text-[14px] leading-relaxed text-ink-3">
@@ -37,6 +38,38 @@ export function AuthReason({ mode }: { mode: "sign-in" | "sign-up" }) {
       <p>
         <span className="font-semibold text-ink">{mode === "sign-in" ? "Sign in to upload your images." : "Create a free account to upload your images."}</span>{" "}
         You&apos;ll go straight to the editor afterwards.{" "}
+        {mode === "sign-in" ? (
+          <>
+            New here?{" "}
+            <Link href={`/sign-up${qs}`} className="font-semibold text-blue-700 underline-offset-2 hover:underline">
+              Create a free account
+            </Link>
+            .
+          </>
+        ) : (
+          <>
+            Have an account?{" "}
+            <Link href={`/sign-in${qs}`} className="font-semibold text-blue-700 underline-offset-2 hover:underline">
+              Sign in
+            </Link>
+            .
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** After a guest's free tries: what an account gives them, honestly. */
+function TrialReason({ mode, qs }: { mode: "sign-in" | "sign-up"; qs: string }) {
+  return (
+    <div role="status" className="mb-5 flex gap-3 rounded-[12px] border border-blue-100 bg-blue-50 px-3.5 py-3 text-[14px] leading-relaxed text-ink-3" data-auth-reason="trial">
+      <Sparkles className="mt-0.5 size-4 shrink-0 text-blue" aria-hidden="true" />
+      <p>
+        <span className="font-semibold text-ink">{mode === "sign-up" ? "Nice work. Want to make more?" : "Sign in to keep going."}</span>{" "}
+        {mode === "sign-up"
+          ? "You've used your free tries. A free account has no image limit, and everything still runs in your browser. You'll go back to the editor afterwards."
+          : "You'll go back to the editor afterwards."}{" "}
         {mode === "sign-in" ? (
           <>
             New here?{" "}

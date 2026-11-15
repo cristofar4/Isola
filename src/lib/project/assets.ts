@@ -18,6 +18,8 @@ export interface ImageAssets {
   layers: ImageLayers | null;
   history: History;
   abort: AbortController | null;
+  /** Guest tries: "sample" (an example photo, free), "claimed" (this image used a try), or null. */
+  trial: "sample" | "claimed" | null;
 }
 
 export interface BackgroundAsset {
@@ -30,7 +32,7 @@ export const imageAssets = new Map<string, ImageAssets>();
 export const backgroundAssets = new Map<string, BackgroundAsset>();
 
 export function createImageAssets(file: File): ImageAssets {
-  return { file, decoded: null, aiMask: null, mask: null, layers: null, history: new History(), abort: null };
+  return { file, decoded: null, aiMask: null, mask: null, layers: null, history: new History(), abort: null, trial: null };
 }
 
 export function releaseImageAssets(id: string) {

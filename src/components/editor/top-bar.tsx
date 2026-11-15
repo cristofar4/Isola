@@ -10,6 +10,7 @@ import { redo, undo } from "@/lib/project/actions";
 import type { ProjectImage } from "@/lib/project/store";
 import { useEditorUI } from "./editor-ui-store";
 import { EngineChip } from "./engine-chip";
+import { GuestTriesChip } from "./trial-prompt";
 
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -123,6 +124,7 @@ export function TopBar({
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
+        <GuestTriesChip />
         <div className="hidden xl:block">
           <EngineChip />
         </div>

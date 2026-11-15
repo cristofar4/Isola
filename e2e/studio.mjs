@@ -167,7 +167,7 @@ presets = (await (await freeCtx.request.get(`${BASE}/api/presets`)).json()).pres
 const white = presets.find((p) => p.name === "Catalogue white");
 check(
   "The preset stores its identity (type, motion and export defaults) with the account",
-  white.identity?.motion.style === "soft-luxury" && white.identity.motion.transition === "dissolve" && white.identity.typography.heading.font && white.identity.export.container === "mp4" && white.format === "jpeg",
+  white.identity?.motion.style === "soft-luxury" && white.identity.motion.transition === "dissolve" && white.identity.typography.heading.font && white.identity.export.container === "mp4" && white.layout.format === "jpeg",
   JSON.stringify(white.identity?.motion),
 );
 

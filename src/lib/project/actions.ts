@@ -11,11 +11,13 @@ import { getEngine } from "@/lib/processing/registry";
 import { EngineError, isCancellation, looksEmpty } from "@/lib/processing/types";
 import { uploadLimits } from "@/lib/config";
 import { isSignedIn } from "@/lib/session-gate";
+import { claimTry, loadTrial, noteTryUsed, releaseTry, useTrial } from "@/lib/trial";
 import {
   backgroundAssets,
   createImageAssets,
   imageAssets,
   releaseImageAssets,
+  type ImageAssets,
 } from "./assets";
 import { getImage, newImage, useProject, type ProjectImage } from "./store";
 
@@ -54,9 +56,9 @@ export interface ImportReport {
  */
 export async function importFiles(
   files: File[],
-  options: { process?: boolean; activate?: boolean } = {},
+  options: { process?: boolean; activate?: boolean; sample?: boolean } = {},
 ): Promise<ImportReport> {
-  const { process = true, activate = true } = options;
+  const { process = true, activate = true, sample = false } = options;
   const report: ImportReport = { accepted: [], rejected: [] };
   for (const file of files) {
     const validation = await validateImageFile(file);
@@ -65,7 +67,7 @@ export async function importFiles(
       continue;
     }
     const id = uid();
-    imageAssets.set(id, createImageAssets(file));
+    imageAssets.set(id, { ...createImageAssets(file), trial: sample ? "sample" : null });
     store().addImage(
       newImage({ id, name: file.name || "image", size: file.size, mime: validation.info.mime }),
     );
@@ -115,6 +117,35 @@ export function resumeAfterSignIn() {
   for (const image of store().images) if (image.status === "needs-auth") void processImage(image.id);
 }
 
+/**
+ * A guest (signed out) may remove a background with one of their free tries.
+ * Example photos are free; re-running an image that already used a try is too.
+ * The server engine is for accounts only.
+ */
+async function guestMayProcess(assets: ImageAssets): Promise<boolean> {
+  if (store().engineId.startsWith("server")) return false;
+  if (assets.trial === "claimed") return true;
+  if (assets.trial === "sample") {
+    await loadTrial();
+    return useTrial.getState().enabled;
+  }
+  if (!(await claimTry())) {
+    const t = useTrial.getState();
+    // Asking for more after the last try: offer an account.
+    if (t.enabled && t.remaining === 0) useTrial.setState({ endedAt: Date.now() });
+    return false;
+  }
+  assets.trial = "claimed";
+  return true;
+}
+
+/** A guest's try that didn't produce a cutout goes back. */
+function giveBackTry(assets: ImageAssets) {
+  if (assets.trial !== "claimed" || assets.mask) return;
+  assets.trial = null;
+  void releaseTry();
+}
+
 /** Run (or re-run) background removal. The original stays untouched for retries. */
 export async function processImage(id: string): Promise<void> {
   const assets = imageAssets.get(id);
@@ -125,8 +156,8 @@ export async function processImage(id: string): Promise<void> {
     if (!ok) return;
   }
   const decoded = assets.decoded!;
-  // Removing backgrounds needs an account; wait here until the visitor signs in.
-  if (!(await isSignedIn())) {
+  // Removing backgrounds needs an account, or one of a guest's free tries; otherwise wait here until they sign in.
+  if (!(await isSignedIn()) && !(await guestMayProcess(assets))) {
     store().patchImage(id, { status: assets.mask ? "ready" : "needs-auth", phase: null });
     return;
   }
@@ -162,6 +193,7 @@ export async function processImage(id: string): Promise<void> {
     const thumb = await makeThumbnail(assets.layers.cutout as OffscreenCanvas, 240, "image/png");
     const old = getImage(id)?.resultThumbUrl;
     if (old) URL.revokeObjectURL(old);
+    if (assets.trial === "claimed" && !previous) noteTryUsed();
     bump(id, {
       status: "ready",
       phase: null,
@@ -173,6 +205,7 @@ export async function processImage(id: string): Promise<void> {
     });
   } catch (error) {
     if (assets.abort === controller) assets.abort = null;
+    giveBackTry(assets);
     if (!imageAssets.has(id)) return;
     if (isCancellation(error)) {
       store().patchImage(id, { status: assets.mask ? "ready" : "cancelled", phase: null });

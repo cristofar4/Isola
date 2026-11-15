@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AlertTriangle, Info, Lock, RotateCcw, X } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { signInHref } from "@/lib/session-gate";
+import { TRIAL_SIGN_IN, TRIAL_SIGN_UP, useTrial } from "@/lib/trial";
 import { ActivityBar, ProgressBar, Spinner } from "@/components/ui/progress";
 import { cancelProcessing, processImage } from "@/lib/project/actions";
 import { useProject, type ProjectImage } from "@/lib/project/store";
@@ -26,29 +27,7 @@ export function CanvasStatus({ image }: { image: ProjectImage }) {
     );
   }
 
-  if (image.status === "needs-auth") {
-    return (
-      <StatusCard>
-        <div role="status">
-          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
-            <Lock className="size-4 text-blue" aria-hidden="true" /> Sign in to remove the background
-          </p>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
-            Background removal needs a free account. Your image stays here while you sign in, and it&apos;s still processed
-            on this device.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <ButtonLink href={signInHref("/editor")} size="sm">
-              Sign in
-            </ButtonLink>
-            <ButtonLink href={signInHref("/editor", "sign-up")} size="sm" variant="secondary">
-              Create account
-            </ButtonLink>
-          </div>
-        </div>
-      </StatusCard>
-    );
-  }
+  if (image.status === "needs-auth") return <NeedsAccount serverEngine={location === "server"} />;
 
   if (image.status === "queued" || image.status === "processing") {
     const text = phaseText(image.phase, engine, location);
@@ -147,5 +126,48 @@ function StatusCard({ children, tone = "neutral" }: { children: React.ReactNode;
         {children}
       </div>
     </div>
+  );
+}
+
+/** Shown on an image that's waiting for an account: why, and the way on. */
+function NeedsAccount({ serverEngine }: { serverEngine: boolean }) {
+  const trial = useTrial();
+  const triesUsed = trial.enabled && !trial.signedIn && trial.remaining === 0 && !serverEngine;
+  const title = serverEngine ? "The server engine needs an account" : triesUsed ? `You've used your ${trial.limit} free tries` : "Sign in to remove the background";
+  const text = serverEngine
+    ? "Free tries run on this device. Choose an on-device model to use them, or sign in to use the server."
+    : triesUsed
+      ? "Want to make more? Create a free account to keep removing backgrounds: there's no image limit, and it still runs on this device. This image waits here for you."
+      : "Background removal needs a free account. Your image stays here while you sign in, and it's still processed on this device.";
+  return (
+    <StatusCard>
+      <div role="status" data-needs-account={triesUsed ? "trial-used" : serverEngine ? "server" : "account"}>
+        <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Lock className="size-4 text-blue" aria-hidden="true" /> {title}
+        </p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{text}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {triesUsed ? (
+            <>
+              <ButtonLink href={TRIAL_SIGN_UP} size="sm">
+                Create free account
+              </ButtonLink>
+              <ButtonLink href={TRIAL_SIGN_IN} size="sm" variant="secondary">
+                Sign in
+              </ButtonLink>
+            </>
+          ) : (
+            <>
+              <ButtonLink href={signInHref("/editor")} size="sm">
+                Sign in
+              </ButtonLink>
+              <ButtonLink href={signInHref("/editor", "sign-up")} size="sm" variant="secondary">
+                Create account
+              </ButtonLink>
+            </>
+          )}
+        </div>
+      </div>
+    </StatusCard>
   );
 }

@@ -41,7 +41,7 @@ const fixes: Array<{ problem: string; cause: string; fix: string }> = [
   },
   {
     problem: "Images wait with \"Sign in required\" or \"Pro required\"",
-    cause: "Background removal needs an account, and Batch Studio needs Pro.",
+    cause: "Background removal needs an account once a visitor's free tries are used, and Batch Studio needs Pro.",
     fix: "Sign in or upgrade; the waiting images start automatically, and the batch is kept in the browser meanwhile.",
   },
   {

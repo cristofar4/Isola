@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { Lock, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { useFileDrop } from "@/components/upload/use-file-drop";
+import { TrialNote } from "@/components/upload/trial-note";
 import { useUpload } from "@/components/upload/use-upload";
 import { FORMAT_LABEL, formatBytes, uploadLimits } from "@/lib/config";
 import { cn } from "@/lib/cn";
@@ -36,7 +37,7 @@ export function UploadPanel({ className }: { className?: string }) {
       </span>
       <h2 id="upload-heading" className="mt-4 font-display text-[26px] font-bold leading-[1.1] tracking-[-0.025em] text-ink">
         {drop.dragging ? (
-          upload.mustSignIn ? "Drop to sign in and start" : "Drop to open the editor"
+          upload.mustSignIn ? "Drop to create a free account" : "Drop to open the editor"
         ) : (
           <>
             Drop an image.
@@ -53,7 +54,7 @@ export function UploadPanel({ className }: { className?: string }) {
         disabled={upload.busy}
         icon={upload.busy ? <Spinner className="size-5" /> : <Upload className="size-[18px]" aria-hidden="true" />}
       >
-        {upload.state === "opening" ? "Opening editor…" : upload.state === "checking" ? "Checking image…" : "Upload image"}
+        {upload.state === "opening" ? "Opening editor…" : upload.state === "checking" ? "Checking image…" : upload.mustSignIn && upload.guestTries ? "Continue with a free account" : "Upload image"}
       </Button>
       <p className="mt-3 text-sm text-ink">or drag and drop</p>
       <p className="mt-1 text-[13px] text-muted">
@@ -87,10 +88,7 @@ export function UploadPanel({ className }: { className?: string }) {
             </li>
           ))}
         </ul>
-        <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-muted">
-          <Lock className="size-3.5" aria-hidden="true" />
-          Free account required. Processed in your browser; your image isn&apos;t uploaded.
-        </p>
+        <TrialNote tries={upload.guestTries} signedIn={upload.signedIn} className="mt-4" />
       </div>
     </section>
   );

@@ -5,8 +5,9 @@
  *     PAYSTACK_API_BASE=http://127.0.0.1:4010 npm start
  *   BASE_URL=http://localhost:3000 npm run test:e2e
  *
- * Background removal requires an account, so this signs in with accounts it
- * creates (confirming the email through a local SMTP mailbox). The server
+ * A guest gets three free tries (checked in section 2); beyond that, removal
+ * needs an account, so this signs in with accounts it creates (confirming the
+ * email through a local SMTP mailbox). The server
  * downloads the model on first use if it isn't in ./models yet.
  * Writes downloads and screenshots to e2e/output/.
  */
@@ -138,33 +139,103 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 900 
 const page = await context.newPage();
 page.on("pageerror", (e) => check("No page errors", false, e.message));
 
-/* 2. Signed out, landing uploads go to sign-in; the editor waits for an account */
-await page.goto(BASE, { waitUntil: "networkidle" });
-let picker = false;
-page.once("filechooser", () => (picker = true));
-await page.getByRole("button", { name: "Upload image" }).click();
-await page.waitForURL((u) => u.pathname === "/sign-in");
-let url = new URL(page.url());
-check("Signed out, Upload on the landing page goes to sign-in (no file picker)", !picker && url.searchParams.get("next") === "/editor" && url.searchParams.get("reason") === "upload", url.pathname + url.search);
-check("The sign-in page says why", await page.getByText("Sign in to upload your images.").filter({ visible: true }).isVisible());
-check(
-  "Switching to Create an account keeps the way back",
-  (await page.getByRole("link", { name: "Create an account" }).filter({ visible: true }).getAttribute("href")) === "/sign-up?next=%2Feditor&reason=upload",
-);
-await page.goto(BASE, { waitUntil: "networkidle" });
-await page.getByRole("button", { name: "Try the sneaker example" }).click();
-await page.waitForURL((u) => u.pathname === "/sign-in");
-check("Signed out, the example photos also go to sign-in", new URL(page.url()).searchParams.get("next") === "/editor");
+/* 2. Signed out: three free tries without an account, then an invitation to sign up */
+{
+  const guest = await browser.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
+  const g = await guest.newPage();
+  g.on("pageerror", (e) => check("No page errors", false, e.message));
+  const tries = () => g.locator("[data-guest-tries]").getAttribute("data-guest-tries");
+  await g.goto(BASE, { waitUntil: "networkidle" });
+  await g.locator('[data-trial-note="3"]').first().waitFor({ timeout: 15_000 });
+  check("Signed out, the landing page offers 3 free tries with no account", await g.getByText("3 free tries, no account needed").first().isVisible());
 
-// In the editor itself, a signed-out upload waits with a sign-in prompt instead of processing.
+  await g.getByRole("button", { name: "Try the sneaker example" }).click();
+  await g.waitForURL((u) => u.pathname === "/editor");
+  await waitReady(g);
+  check("An example photo is processed without an account, and doesn't use a try", (await tries()) === "3");
+
+  for (let n = 1; n <= 3; n++) {
+    await g.goto(BASE, { waitUntil: "networkidle" });
+    await g.locator(`[data-trial-note="${4 - n}"]`).first().waitFor({ timeout: 15_000 });
+    let picked = false;
+    const chooser = g.waitForEvent("filechooser", { timeout: 10_000 }).then((c) => ((picked = true), c));
+    await g.getByRole("button", { name: "Upload image" }).click();
+    await (await chooser).setFiles(SAMPLE);
+    await g.waitForURL((u) => u.pathname === "/editor");
+    await waitReady(g);
+    if (n === 1) check("Upload on the landing page opens the file picker and the editor, with no account", picked);
+    if (n < 3) {
+      await g.locator(`[data-guest-tries="${3 - n}"]`).waitFor({ timeout: 10_000 });
+      if (n === 1) check("Each of your own photos uses one try (the editor shows what's left)", (await g.locator("[data-guest-tries]").innerText()).includes("2 of 3 free tries left"));
+    }
+  }
+  const prompt = g.getByRole("dialog", { name: "Want to make more?" });
+  await prompt.waitFor({ timeout: 10_000 });
+  check("After the third try: “Want to make more?”, showing what you made", (await prompt.getByRole("list", { name: "What you made" }).locator("img").count()) >= 1 && (await prompt.getByRole("link", { name: "Create free account" }).getAttribute("href")) === "/sign-up?next=%2Feditor&reason=trial");
+  await g.screenshot({ path: join(OUT, "trial-ended.png") });
+  await prompt.getByRole("button", { name: "Not now" }).click();
+  const guestFile = await exportImage(g, { format: "Transparent PNG", name: "guest-cutout.png" });
+  check("…and what you made can still be downloaded (free plan rules)", readFileSync(guestFile).length > 1000);
+  const state = await (await guest.request.get(`${BASE}/api/trial`)).json();
+  check("The server counted 3 tries (examples free)", state.used === 3 && state.remaining === 0, JSON.stringify(state));
+
+  // A fourth photo waits, and the invitation comes back.
+  await g.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
+  const more = g.waitForEvent("filechooser");
+  await g.getByRole("button", { name: "Upload images" }).click();
+  await (await more).setFiles(SAMPLE);
+  await g.locator('[data-needs-account="trial-used"]').waitFor({ timeout: 30_000 });
+  check("A fourth photo waits with a free-account prompt instead of processing", await g.getByText("You've used your 3 free tries").filter({ visible: true }).first().isVisible());
+  check("…and asking for more brings back “Want to make more?”", await g.getByRole("dialog", { name: "Want to make more?" }).isVisible());
+  await g.keyboard.press("Escape");
+
+  await g.goto(BASE, { waitUntil: "networkidle" });
+  await g.locator('[data-trial-note="0"]').first().waitFor({ timeout: 15_000 });
+  await g.getByRole("button", { name: "Continue with a free account" }).first().click();
+  await g.waitForURL((u) => u.pathname === "/sign-up");
+  const url = new URL(g.url());
+  check("Once the tries are used, the landing page leads to Create account", url.searchParams.get("next") === "/editor" && url.searchParams.get("reason") === "trial", url.pathname + url.search);
+  check("The sign-up page says why, and what a free account gives", await g.locator('[data-auth-reason="trial"]').filter({ visible: true }).getByText(/no image limit/).isVisible());
+
+  // The server is the gate: only a session or a genuine trial gets the model.
+  const modelStatus = (pageOrCtx) =>
+    pageOrCtx.evaluate(async () => {
+      const ctrl = new AbortController();
+      const r = await fetch("/api/models/isnet-general-use.onnx", { signal: ctrl.signal, cache: "no-store" });
+      ctrl.abort();
+      return r.status;
+    });
+  const stranger = await browser.newContext();
+  const s = await stranger.newPage();
+  await s.goto(`${BASE}/privacy`, { waitUntil: "domcontentloaded" });
+  const none = await modelStatus(s);
+  await stranger.addCookies([{ name: "isola_trial", value: "eyJ2IjoxLCJpZCI6IngiLCJ1c2VkIjowfQ.forged", url: BASE }]);
+  const forged = await modelStatus(s);
+  await stranger.clearCookies();
+  await s.evaluate(() => fetch("/api/trial", { cache: "no-store" }));
+  const real = await modelStatus(s);
+  check("The model needs a session or a genuine trial (a forged cookie gets 401)", none === 401 && forged === 401 && real === 200, `none ${none} · forged ${forged} · trial ${real}`);
+  const claims = await s.evaluate(async () => {
+    const out = [];
+    for (let i = 0; i < 4; i++) out.push((await fetch("/api/trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim" }) })).status);
+    return out;
+  });
+  check("The server refuses a fourth try", JSON.stringify(claims) === "[200,200,200,403]", JSON.stringify(claims));
+  await stranger.close();
+
+  // The main context continues as a guest whose tries are used up.
+  await context.addCookies((await guest.cookies()).filter((c) => c.name === "isola_trial"));
+  await guest.close();
+}
+
+// In the editor, a guest without tries left waits with a sign-in prompt instead of processing.
 await page.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
 const chooser = page.waitForEvent("filechooser");
 await page.getByRole("button", { name: "Upload images" }).click();
 await (await chooser).setFiles(SAMPLE);
-const gate = page.getByText("Sign in to remove the background").filter({ visible: true });
-await gate.waitFor({ timeout: 30_000 });
-check("Signed-out visitors are asked to sign in before removal", true);
-await page.getByRole("link", { name: "Sign in", exact: true }).filter({ visible: true }).first().click();
+await page.locator('[data-needs-account="trial-used"]').waitFor({ timeout: 30_000 });
+check("Signed-out visitors without tries are asked to sign in before removal", true);
+await page.getByRole("dialog", { name: "Want to make more?" }).getByRole("link", { name: "Sign in", exact: true }).click();
 await page.waitForURL((u) => u.pathname === "/sign-in");
 await page.getByLabel("Email").filter({ visible: true }).fill(account.email);
 await page.getByLabel("Password", { exact: true }).filter({ visible: true }).fill(account.password);

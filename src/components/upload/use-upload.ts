@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import { ACCEPT_ATTRIBUTE } from "@/lib/config";
 import { importFiles } from "@/lib/project/actions";
 import type { Sample } from "@/lib/samples";
+import { loadTrial, useTrial } from "@/lib/trial";
 
 export interface UploadIssue {
   name: string;
@@ -16,18 +17,30 @@ export interface UploadIssue {
  * The single upload path used by every entry point: validates files, adds
  * them to the project (original preserved) and opens the editor.
  *
- * With `requireAccount` (the marketing pages), a visitor who is signed out is
- * sent to sign in first instead of picking a file; afterwards they land in
- * the editor. Inside the editor, uploads still work signed out and wait there.
+ * With `requireAccount` (the marketing pages), a signed-out visitor goes
+ * straight to the editor while they have free tries (example photos are
+ * always free); once the tries are used, they're asked to create a free
+ * account instead of picking a file, and come back to the editor afterwards.
+ * Inside the editor, uploads always work and wait there for an account.
  */
 export function useUpload({ navigateTo = "/editor", requireAccount = false }: { navigateTo?: string | null; requireAccount?: boolean } = {}) {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
-  // Only redirect when we know the visitor is signed out; while the session loads, behave as before.
-  const mustSignIn = requireAccount && !isPending && !session;
+  const trial = useTrial();
+  const signedOut = requireAccount && !isPending && !session;
+  useEffect(() => {
+    if (signedOut) void loadTrial();
+  }, [signedOut]);
+  // While the session or trial loads, behave as before: the editor checks again before removing anything.
+  const trialKnown = trial.status === "ready" || trial.status === "unavailable";
+  const noTrial = trialKnown && !trial.enabled;
+  const triesLeft = trial.enabled ? trial.remaining : 0;
+  const mustSignIn = signedOut && trialKnown && (noTrial || triesLeft === 0);
   const signInFirst = useCallback(() => {
-    router.push(`/sign-in?next=${encodeURIComponent(navigateTo ?? "/editor")}&reason=upload`);
-  }, [navigateTo, router]);
+    const next = encodeURIComponent(navigateTo ?? "/editor");
+    // Out of free tries: the next step is a free account. Without guest tries at all: sign in, as before.
+    router.push(noTrial ? `/sign-in?next=${next}&reason=upload` : `/sign-up?next=${next}&reason=trial`);
+  }, [navigateTo, router, noTrial]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<"idle" | "checking" | "opening">("idle");
   const [issues, setIssues] = useState<UploadIssue[]>([]);
@@ -36,15 +49,15 @@ export function useUpload({ navigateTo = "/editor", requireAccount = false }: { 
   useEffect(() => () => setState("idle"), []);
 
   const handleFiles = useCallback(
-    async (files: File[]) => {
+    async (files: File[], options: { sample?: boolean } = {}) => {
       if (files.length === 0) return;
-      if (mustSignIn) {
+      if (mustSignIn && !options.sample) {
         signInFirst();
         return;
       }
       setIssues([]);
       setState("checking");
-      const report = await importFiles(files);
+      const report = await importFiles(files, { sample: options.sample });
       setIssues(report.rejected.map((r) => ({ name: r.name, message: r.error.message })));
       if (report.accepted.length > 0 && navigateTo) {
         setState("opening");
@@ -59,7 +72,8 @@ export function useUpload({ navigateTo = "/editor", requireAccount = false }: { 
 
   const trySample = useCallback(
     async (sample: Sample) => {
-      if (mustSignIn) {
+      // Example photos don't use a free try; without guest tries at all, they need an account like everything else.
+      if (signedOut && noTrial) {
         signInFirst();
         return;
       }
@@ -69,13 +83,13 @@ export function useUpload({ navigateTo = "/editor", requireAccount = false }: { 
         const response = await fetch(sample.src);
         if (!response.ok) throw new Error(String(response.status));
         const blob = await response.blob();
-        await handleFiles([new File([blob], sample.fileName, { type: blob.type || "image/jpeg" })]);
+        await handleFiles([new File([blob], sample.fileName, { type: blob.type || "image/jpeg" })], { sample: true });
       } catch {
         setIssues([{ name: sample.label, message: "The sample image couldn't be loaded." }]);
         setState("idle");
       }
     },
-    [handleFiles, mustSignIn, signInFirst],
+    [handleFiles, signedOut, noTrial, signInFirst],
   );
 
   const openPicker = useCallback(() => {
@@ -103,5 +117,7 @@ export function useUpload({ navigateTo = "/editor", requireAccount = false }: { 
     "aria-hidden": true as const,
   };
 
-  return { inputProps, openPicker, handleFiles, trySample, state, busy: state !== "idle", issues, clearIssues: () => setIssues([]), mustSignIn };
+  /** For guests: free tries left (null when signed in, still loading, or guest tries are off). */
+  const guestTries = signedOut && trial.status === "ready" && trial.enabled ? { left: triesLeft, limit: trial.limit } : null;
+  return { inputProps, openPicker, handleFiles, trySample, state, busy: state !== "idle", issues, clearIssues: () => setIssues([]), mustSignIn, guestTries, signedIn: !isPending && !!session };
 }

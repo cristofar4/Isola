@@ -23,6 +23,28 @@ for (const route of ["/", "/batch", "/developers", "/developers/api", "/develope
   await page.waitForTimeout(600);
   await audit(route);
 }
+// A guest whose free tries are used: the landing note, the waiting image and "Want to make more?".
+await page.evaluate(async () => {
+  for (let i = 0; i < 3; i++) await fetch("/api/trial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim" }) });
+});
+await page.goto(BASE, { waitUntil: "networkidle" });
+await page.locator('[data-trial-note="0"]').first().waitFor();
+await audit("/ (free tries used)");
+await page.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
+{
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Upload images" }).click();
+  await (await chooser).setFiles("e2e/fixtures/product.jpg");
+}
+await page.getByRole("dialog", { name: "Want to make more?" }).waitFor({ timeout: 30_000 });
+await page.waitForTimeout(500);
+await audit("/editor (want to make more?)");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(300);
+await audit("/editor (waiting for an account)");
+await page.goto(`${BASE}/sign-up?next=%2Feditor&reason=trial`, { waitUntil: "networkidle" });
+await audit("/sign-up (after free tries)");
+await page.context().clearCookies();
 // Background removal and the account page need a signed-in, confirmed account.
 const mailbox = await startMailbox();
 const account = await createConfirmedAccount(browser, BASE, mailbox, { name: "Audit User" });

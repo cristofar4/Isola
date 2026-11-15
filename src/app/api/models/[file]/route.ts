@@ -2,6 +2,7 @@ import { createReadStream, statSync } from "node:fs";
 import { Readable } from "node:stream";
 import { AuthUnavailableError, getAuth } from "@/server/auth";
 import { autoDownloadEnabled, downloadModel, localModelPath, modelForFile } from "@/server/models";
+import { guestTries, readTrial } from "@/server/trial";
 
 function json(status: number, code: string, message: string) {
   return Response.json({ code, message }, { status, headers: { "Cache-Control": "no-store" } });
@@ -9,9 +10,8 @@ function json(status: number, code: string, message: string) {
 
 /**
  * GET /api/models/:file
- * Streams a segmentation model to a signed-in user. Background removal needs
- * an account, and this is where that's enforced: without a session there is
- * no model to run.
+ * Streams a segmentation model to a signed-in user, or to a guest with a
+ * trial (see src/server/trial.ts). Without either there is no model to run.
  */
 export async function GET(request: Request, ctx: { params: Promise<{ file: string }> }) {
   const { file } = await ctx.params;
@@ -21,7 +21,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ file: strin
   try {
     const auth = await getAuth();
     const session = await auth.api.getSession({ headers: request.headers });
-    if (!session) return json(401, "auth-required", "Sign in to remove backgrounds.");
+    // Guests with a trial (a few free tries before creating an account) get the model too.
+    if (!session && !(guestTries() > 0 && readTrial(request))) return json(401, "auth-required", "Sign in to remove backgrounds.");
   } catch (error) {
     if (error instanceof AuthUnavailableError) return json(503, "auth-unavailable", `Accounts aren't configured: ${error.message}`);
     throw error;
