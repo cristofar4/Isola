@@ -40,7 +40,7 @@ const fixes: Array<{ problem: string; cause: string; fix: string }> = [
     fix: "Run on a long-running Node host, run npm run models:fetch during deployment, or serve the files from a CORS-enabled CDN via NEXT_PUBLIC_ISOLA_MODEL_BASE_URL.",
   },
   {
-    problem: "Images wait with \"Sign in required\" or \"Pro required\"",
+    problem: "Images wait with \"Account needed\", \"Sign in required\" or \"Pro required\"",
     cause: "Background removal needs an account once a visitor's free tries are used, and Batch Studio needs Pro.",
     fix: "Sign in or upgrade; the waiting images start automatically, and the batch is kept in the browser meanwhile.",
   },

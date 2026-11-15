@@ -85,7 +85,7 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `NEXT_PUBLIC_ISOLA_BATCH_CONCURRENCY` | `1` | Batch items processed at once (1–4) |
 | `NEXT_PUBLIC_ISOLA_MAX_EXPORT_MEGAPIXELS` | `64` | Largest export |
 | `NEXT_PUBLIC_ISOLA_MAX_EXPORT_DIMENSION` | `12000` | Longest export side |
-| `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` | `/api/models/` | Where the browser fetches models. The default route serves them only to signed-in users |
+| `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` | `/api/models/` | Where the browser fetches models. The default route serves them only to signed-in users and guests with free tries |
 | `ISOLA_MODEL_DIR` | `./models` | Where the server keeps model files (outside `public/` on purpose) |
 | `ISOLA_MODEL_AUTO_DOWNLOAD` | `true` | Download a missing model from the mirror on first use |
 | `ISOLA_MODEL_MIRROR` | rembg GitHub release | Where models are downloaded from |
@@ -98,6 +98,7 @@ All optional. `NEXT_PUBLIC_*` values are inlined at **build** time. See `.env.ex
 | `ISOLA_REMOTE_MAX_UPLOAD_MB` | `12` | Server engine upload limit |
 | `ISOLA_REMOTE_RATE_LIMIT_PER_HOUR` | `30` | Per-client limit (in memory, per instance) |
 | `ISOLA_API_RATE_LIMIT_PER_HOUR` | `60` | Public API requests per key per hour (in memory, per instance) |
+| `ISOLA_GUEST_TRIES` | `3` | Background removals a visitor can make without an account (0–20; 0 means sign in first) |
 | `ISOLA_API_MAX_QUEUE` | `8` | Public API images that may wait for the server engine before `503 server_busy` |
 | `ISOLA_API_THREADS` | all cores | Inference threads for the public API |
 | `ISOLA_REMOTE_ALLOW_CROSS_ORIGIN` | `false` | Allow cross-origin browser calls to the route |
@@ -231,14 +232,37 @@ Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
 - An OAuth sign-in is only attached to an existing account whose email has been
   confirmed; otherwise it's refused with a clear message. This stops someone
   pre-registering another person's email.
-- **Background removal requires an account.** This is enforced on the server:
-  the model is only served to signed-in users (`/api/models/:file` returns 401
-  otherwise), and the optional server engine requires a session too. Signed-out
-  visitors can still upload; their images wait with a sign-in prompt and start
-  processing as soon as they sign in (after an email/password sign-in in the
-  same tab; a Google/GitHub redirect reloads the page). Once a browser has the
-  model cached, the requirement there is enforced by the app. If you point
-  `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` at a public CDN, it's enforced by the app only.
+- **Three free tries, then a free account.** A visitor can remove three
+  backgrounds without an account (`ISOLA_GUEST_TRIES`, default 3; 0 turns
+  this off and brings back sign-in first). The landing page, the final call
+  to action and the pricing page show the tries left under the upload button
+  ("3 free tries, no account needed", "2 of 3 free tries left"); the editor
+  shows them in the top bar. The example photos don't use a try, and a
+  removal that fails or is cancelled gives its try back. When the last try
+  finishes, and again when a guest asks for more, the editor opens "Want to
+  make more?": what they made, what a free account gives (no image limit,
+  still on their device; free exports carry the watermark), and Create free
+  account / Sign in / Not now. What they made stays in the editor and can be
+  refined and downloaded under the Free plan's rules. After that, the
+  landing page's button reads "Continue with a free account" and leads to
+  `/sign-up?next=/editor&reason=trial`, which explains why the visitor is
+  there; images added meanwhile wait and start once they sign in.
+  - **How it's counted:** `/api/trial` keeps the count in a signed (HMAC,
+    with the auth secret), HttpOnly cookie, and requests are made one at a
+    time so parallel removals can't double-spend it. The model route serves
+    a session or a genuine trial; a forged cookie gets 401. Clearing cookies
+    starts a new trial: it's a trial, not a wall, because processing runs in
+    the browser and a browser that has the model cached doesn't ask the
+    server again.
+- **Background removal otherwise requires an account.** This is enforced on the server:
+  the model is only served to signed-in users and guests with a trial
+  (`/api/models/:file` returns 401 otherwise), and the optional server engine
+  requires a session. Signed-out visitors can still upload; their images wait
+  with a prompt and start processing as soon as they sign in (after an
+  email/password sign-in in the same tab; a Google/GitHub redirect reloads the
+  page). Once a browser has the model cached, the requirement there is
+  enforced by the app. If you point `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` at a
+  public CDN, it's enforced by the app only.
 - **Account page** (`/account`): a header with your name, avatar initials,
   plan badge and confirmed email, plus links to the editor and Batch Studio;
   an overview (plan and renewal, API keys and requests, devices signed in)
