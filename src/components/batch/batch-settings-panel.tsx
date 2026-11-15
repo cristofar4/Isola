@@ -1,8 +1,9 @@
 "use client";
 
-import { Check, Plus, RotateCcw, Upload } from "lucide-react";
+import { AlignCenterHorizontal, AlignEndHorizontal, AlignStartHorizontal, Check, CircleAlert, CircleCheck, Info, Plus, Upload } from "lucide-react";
+import Link from "next/link";
 import { Tabs } from "radix-ui";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
@@ -11,11 +12,15 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ACCEPT_ATTRIBUTE } from "@/lib/config";
 import { cn } from "@/lib/cn";
-import { addBatchBackground, applySettings, draftIsApplied, hasUnappliedEdits, targetIds, targetsMixed, useBatch } from "@/lib/batch/batch-store";
+import { askName } from "@/components/studio/name-dialog";
+import { defaultPreset, usePresets } from "@/components/studio/use-presets";
+import { addBatchBackground, applyDraft, draftIsApplied, hasUnappliedEdits, isReady, matchReference, processItems, targetIds, targetsMixed, useBatch } from "@/lib/batch/batch-store";
+import { preflight, type PreflightAction } from "@/lib/batch/preflight";
 import {
   BATCH_SOFT_GREY,
   BATCH_WHITE,
   CANVAS_LABEL,
+  CATALOGUE_PRESET,
   DEFAULT_BATCH_SETTINGS,
   DEFAULT_NAME_PATTERN,
   MAX_CUSTOM_SIDE,
@@ -24,17 +29,19 @@ import {
   canvasSize,
   customSizeError,
   exportName,
+  sameSettings,
   usesLayout,
   type BatchSettings,
   type CanvasPreset,
 } from "@/lib/batch/settings";
+import { batchSettingsToPreset, presetToBatchSettings, type BrandColor } from "@/lib/brand-presets";
 import { useProject } from "@/lib/project/store";
 
-export type SettingsTab = "background" | "layout" | "export";
+export type SettingsTab = "style" | "layout" | "export";
 
 /** Which tab is open, shared by the desktop panel, the mobile drawer and the export bar. */
 export const useSettingsTab = create<{ tab: SettingsTab; setTab: (tab: SettingsTab) => void }>((set) => ({
-  tab: "background",
+  tab: "style",
   setTab: (tab) => set({ tab }),
 }));
 
@@ -87,20 +94,27 @@ const ALIGN: Array<{ x: 0 | 0.5 | 1; y: 0 | 0.5 | 1; label: string }> = [
 const inputClass =
   "h-9 w-full rounded-lg border border-line bg-surface px-2.5 text-sm tabular-nums text-ink focus:border-blue focus:outline-none disabled:bg-paper-2 aria-[invalid=true]:border-danger";
 
-function BackgroundTab({ draft, update, onError }: { draft: BatchSettings; update: (p: Partial<BatchSettings>) => void; onError: (m: string) => void }) {
+function BackgroundTab({ draft, update, onError, brand }: { draft: BatchSettings; update: (p: Partial<BatchSettings>) => void; onError: (m: string) => void; brand: BrandColor[] }) {
   const backgrounds = useProject((s) => s.backgrounds);
   const [customColor, setCustomColor] = useState("#C9D8F2");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const bg = draft.background;
   const isColor = (c: string) => bg.kind === "color" && bg.color.toUpperCase() === c.toUpperCase();
-  const isCustomColor = bg.kind === "color" && !isColor(BATCH_WHITE) && !isColor(BATCH_SOFT_GREY);
+  // Brand colours from your preset, without repeating the built-in swatches.
+  const brandColours = brand.filter((c) => ![BATCH_WHITE, BATCH_SOFT_GREY].includes(c.hex.toUpperCase())).slice(0, 3);
+  const isCustomColor = bg.kind === "color" && !isColor(BATCH_WHITE) && !isColor(BATCH_SOFT_GREY) && !brandColours.some((c) => isColor(c.hex));
   return (
     <Field title="Background" hint={bg.kind === "transparent" ? "Exports keep real transparency. The checkerboard is only shown on screen." : undefined}>
       <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Background">
         <Swatch label="Transparent" checked={bg.kind === "transparent"} onSelect={() => update({ background: { kind: "transparent" } })} className="checkerboard-sm" />
         <Swatch label="White" checked={isColor(BATCH_WHITE)} onSelect={() => update({ background: { kind: "color", color: BATCH_WHITE } })} className="bg-white" />
         <Swatch label="Soft grey" checked={isColor(BATCH_SOFT_GREY)} onSelect={() => update({ background: { kind: "color", color: BATCH_SOFT_GREY } })} className="bg-[#EEEFEC]" />
+        {brandColours.map((c) => (
+          <Swatch key={c.hex} label={c.name} checked={isColor(c.hex)} onSelect={() => update({ background: { kind: "color", color: c.hex.toUpperCase() }, matte: c.hex.toUpperCase() })}>
+            <span className="absolute inset-0" style={{ background: c.hex }} />
+          </Swatch>
+        ))}
         <Swatch label="Custom" checked={isCustomColor} onSelect={() => update({ background: { kind: "color", color: customColor } })} className={isCustomColor ? undefined : "bg-surface"}>
           {isCustomColor ? <span className="absolute inset-0" style={{ background: bg.kind === "color" ? bg.color : undefined }} /> : <Plus className="size-5 text-muted" aria-hidden="true" />}
         </Swatch>
@@ -404,12 +418,198 @@ function ExportTab({ draft, update, sample }: { draft: BatchSettings; update: (p
   );
 }
 
-export function BatchSettingsPanel({ onApplied, inSheet }: { onApplied?: () => void; inSheet?: boolean }) {
+/** Saved looks: your current settings, ISOLA's catalogue look, and the brand presets on your account. */
+function SavedPreset({ draft, onPick, onMessage }: { draft: BatchSettings; onPick: (settings: BatchSettings) => void; onMessage: (m: { tone: "ok" | "error"; text: string }) => void }) {
+  const id = useId();
+  const presets = usePresets((s) => s.presets);
+  const save = usePresets((s) => s.save);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (!usePresets.getState().presets) void usePresets.getState().load();
+  }, []);
+  const options = useMemo(
+    () => [{ id: "catalogue", name: "Clean catalogue", settings: { ...CATALOGUE_PRESET, keepNames: draft.keepNames, namePattern: draft.namePattern } }, ...(presets ?? []).map((p) => ({ id: p.id, name: p.name, settings: presetToBatchSettings(p, draft) }))],
+    [presets, draft],
+  );
+  const current = options.find((o) => sameSettings(o.settings, draft))?.id ?? "custom";
+  async function saveCurrent() {
+    const name = await askName("Save as a brand preset", { label: "Preset name", initial: "", action: "Save preset" });
+    if (!name) return;
+    setSaving(true);
+    const result = await save(batchSettingsToPreset(draft, name, defaultPreset(presets)?.colors ?? []));
+    setSaving(false);
+    onMessage(result.ok ? { tone: "ok", text: `Saved “${result.preset.name}” to your brand presets.` } : { tone: "error", text: result.message });
+  }
+  return (
+    <Field title="Saved preset" hint={draft.background.kind === "image" ? "Uploaded background images aren't part of a preset: it's saved with a white background." : undefined}>
+      <div className="flex items-center gap-3">
+        <label htmlFor={id} className="sr-only">
+          Saved preset
+        </label>
+        <select
+          id={id}
+          value={current}
+          onChange={(e) => {
+            const picked = options.find((o) => o.id === e.target.value);
+            if (picked) onPick(picked.settings);
+          }}
+          className="h-10 min-w-0 flex-1 rounded-[10px] border border-line bg-surface px-3 text-sm text-ink focus:border-blue focus:outline-none"
+        >
+          {current === "custom" && <option value="custom">Custom (these settings)</option>}
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+        <button type="button" onClick={() => void saveCurrent()} disabled={saving} className="shrink-0 text-[13px] font-semibold text-blue-700 hover:underline disabled:opacity-60">
+          {saving ? "Saving…" : "Save preset"}
+        </button>
+      </div>
+    </Field>
+  );
+}
+
+function MatchSizeField({ draft }: { draft: BatchSettings }) {
+  const id = useId();
+  const items = useBatch((s) => s.items);
+  const match = useBatch((s) => s.matchSize);
+  const setMatch = useBatch((s) => s.setMatchSize);
+  const candidates = items.filter((i) => isReady(i) && i.bounds);
+  const reference = matchReference({ items, matchSize: { ...match, on: true } });
+  const usable = usesLayout(draft) && draft.fit === "contain";
+  return (
+    <Field
+      title="Match product size"
+      hint={
+        !usable
+          ? "Choose a canvas other than Original, with Contain fit, to match sizes."
+          : candidates.length === 0
+            ? "Available once an image is finished."
+            : match.on
+              ? "Each image gets its own padding so every product looks the size of the reference. Products are never enlarged past the padding above."
+              : undefined
+      }
+    >
+      <Switch label="Match product size" description="Use one image as the size reference." checked={match.on && usable} onChange={(on) => setMatch({ on, referenceId: match.referenceId ?? reference?.id ?? null })} />
+      {match.on && usable && candidates.length > 0 && (
+        <>
+          <label htmlFor={id} className="sr-only">
+            Size reference
+          </label>
+          <select id={id} value={reference?.id ?? ""} onChange={(e) => setMatch({ on: true, referenceId: e.target.value })} className="h-10 w-full rounded-[10px] border border-line bg-surface px-3 text-sm text-ink focus:border-blue focus:outline-none">
+            {candidates.map((c) => (
+              <option key={c.id} value={c.id}>
+                Reference: {c.name}
+              </option>
+            ))}
+          </select>
+        </>
+      )}
+    </Field>
+  );
+}
+
+const H_ALIGN = [
+  { x: 0, label: "Align left", icon: AlignStartHorizontal },
+  { x: 0.5, label: "Align centre", icon: AlignCenterHorizontal },
+  { x: 1, label: "Align right", icon: AlignEndHorizontal },
+] as const;
+
+/** The essentials on one tab: preset, background, size matching, canvas, padding, alignment and shadow. */
+function StyleTab({ draft, update, onError, onMessage, brand }: { draft: BatchSettings; update: (p: Partial<BatchSettings>) => void; onError: (m: string) => void; onMessage: (m: { tone: "ok" | "error"; text: string }) => void; brand: BrandColor[] }) {
+  const canvasId = useId();
+  const layout = usesLayout(draft);
+  return (
+    <>
+      <SavedPreset draft={draft} onPick={(settings) => update(settings)} onMessage={onMessage} />
+      <BackgroundTab draft={draft} update={update} onError={onError} brand={brand} />
+      <MatchSizeField draft={draft} />
+      <Field title="Canvas" hint={layout ? undefined : "Original keeps each photo's own framing. Choose a canvas to use padding and alignment."}>
+        <label htmlFor={canvasId} className="sr-only">
+          Canvas
+        </label>
+        <select id={canvasId} value={draft.canvas} onChange={(e) => update({ canvas: e.target.value as CanvasPreset })} className="h-10 w-full rounded-[10px] border border-line bg-surface px-3 text-sm text-ink focus:border-blue focus:outline-none">
+          {(Object.keys(CANVAS_LABEL) as CanvasPreset[]).map((c) => (
+            <option key={c} value={c}>
+              {CANVAS_LABEL[c]}
+            </option>
+          ))}
+        </select>
+        <Slider label="Padding" value={draft.padding} min={0} max={MAX_PADDING} onChange={(padding) => update({ padding })} format={(v) => `${v}%`} disabled={!layout} />
+        <div className="grid gap-2">
+          <span className="text-[13px] font-medium text-ink">
+            Alignment <span className="font-normal text-muted">({draft.align.x === 0 ? "left" : draft.align.x === 1 ? "right" : "centre"})</span>
+          </span>
+          <div role="radiogroup" aria-label="Horizontal alignment" className="grid grid-cols-3 gap-2">
+            {H_ALIGN.map((a) => {
+              const on = draft.align.x === a.x;
+              return (
+                <button key={a.label} type="button" role="radio" aria-checked={on} aria-label={a.label} disabled={!layout} onClick={() => update({ align: { ...draft.align, x: a.x } })} className={cn("inline-flex h-9 items-center justify-center rounded-[9px] border transition-colors disabled:cursor-not-allowed disabled:opacity-50", on ? "border-blue/40 bg-blue-50 text-blue-700" : "border-line bg-surface text-ink hover:border-line-strong")}>
+                  <a.icon className="size-4" aria-hidden="true" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </Field>
+      <Field title="Shadow">
+        <Switch label="Soft shadow" description="A soft shadow beneath the subject, in previews and exports." checked={draft.shadow} onChange={(shadow) => update({ shadow })} />
+      </Field>
+    </>
+  );
+}
+
+/** What the next download will contain, from the images' applied settings. */
+export function ExportPreflight({ onAction }: { onAction: (action: PreflightAction) => void }) {
+  const items = useBatch((s) => s.items);
+  const selected = useBatch((s) => s.selected);
+  const draft = useBatch((s) => s.draft);
+  const draftEdited = useBatch((s) => s.draftEdited);
+  const matchSize = useBatch((s) => s.matchSize);
+  const pro = useBatch((s) => s.pro);
+  const project = useBatch((s) => s.name);
+  const ids = new Set(targetIds({ items, selected }));
+  const lines = preflight(
+    items.filter((i) => ids.has(i.id)),
+    { unapplied: hasUnappliedEdits({ items, selected, draft, draftEdited, matchSize }), pro, project, total: items.length },
+  );
+  const ACTION: Record<PreflightAction, string> = { review: "Review", apply: "Apply", upgrade: "Upgrade", retry: "Retry", process: "Process" };
+  return (
+    <section aria-labelledby="preflight-title" className="grid gap-2.5 border-t border-line py-4" data-preflight>
+      <h3 id="preflight-title" className="text-[16px] font-bold text-ink">
+        Export preflight
+      </h3>
+      <ul className="grid gap-2">
+        {lines.map((l) => (
+          <li key={l.id} data-preflight-line={l.id} data-tone={l.tone} className="flex items-start gap-2.5 text-[13px] text-ink">
+            {l.tone === "ok" ? <CircleCheck className="mt-0.5 size-[18px] shrink-0 text-success" aria-hidden="true" /> : l.tone === "warn" ? <CircleAlert className="mt-0.5 size-[18px] shrink-0 text-warn" aria-hidden="true" /> : <Info className="mt-0.5 size-[18px] shrink-0 text-muted" aria-hidden="true" />}
+            <span className="min-w-0 flex-1 leading-snug">{l.text}</span>
+            {l.action &&
+              (l.action === "upgrade" ? (
+                <Link href="/pricing?from=batch" className="shrink-0 rounded-[8px] border border-warn/40 px-2.5 py-1 text-[12px] font-semibold text-warn hover:bg-warn-50">
+                  {ACTION[l.action]}
+                </Link>
+              ) : (
+                <button type="button" onClick={() => onAction(l.action!)} className="shrink-0 rounded-[8px] border border-warn/40 px-2.5 py-1 text-[12px] font-semibold text-warn hover:bg-warn-50">
+                  {ACTION[l.action]}
+                </button>
+              ))}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export function BatchSettingsPanel({ onApplied, inSheet, onReview }: { onApplied?: () => void; inSheet?: boolean; onReview?: () => void }) {
   const draft = useBatch((s) => s.draft);
   const draftEdited = useBatch((s) => s.draftEdited);
   const setDraft = useBatch((s) => s.setDraft);
   const items = useBatch((s) => s.items);
   const selected = useBatch((s) => s.selected);
+  const matchSize = useBatch((s) => s.matchSize);
+  const presets = usePresets((s) => s.presets);
   const tab = useSettingsTab((s) => s.tab);
   const setTab = useSettingsTab((s) => s.setTab);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -421,27 +621,48 @@ export function BatchSettingsPanel({ onApplied, inSheet }: { onApplied?: () => v
   const targets = targetIds({ items, selected });
   const count = targets.length;
   const scope = selected.length ? `${count} selected image${count === 1 ? "" : "s"}` : count === 1 ? "1 image" : `all ${count} images`;
-  const applied = draftIsApplied({ items, selected, draft });
-  const unapplied = hasUnappliedEdits({ items, selected, draft, draftEdited });
+  const applied = draftIsApplied({ items, selected, draft, matchSize });
+  const unapplied = hasUnappliedEdits({ items, selected, draft, draftEdited, matchSize });
   const mixed = targetsMixed({ items, selected });
   const invalid = draft.canvas === "custom" ? customSizeError(draft.customSize) : null;
   const sampleItem = items.find((i) => targets.includes(i.id)) ?? null;
   const sample = sampleItem ? { name: sampleItem.name, width: sampleItem.width, height: sampleItem.height } : null;
+  const brand = defaultPreset(presets)?.colors ?? [];
+  const reference = matchReference({ items, matchSize });
+
+  async function apply() {
+    setApplying(true);
+    try {
+      await applyDraft(targets);
+      setMessage({ tone: "ok", text: `Applied to ${count} image${count === 1 ? "" : "s"}. No reprocessing needed.${reference ? ` Sizes matched to ${reference.name}.` : ""}` });
+      onApplied?.();
+    } catch (e) {
+      setMessage({ tone: "error", text: e instanceof Error ? e.message : "Couldn't apply these settings." });
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  function onPreflight(action: PreflightAction) {
+    if (action === "review") onReview?.();
+    else if (action === "apply") void apply();
+    else if (action === "retry") processItems(items.filter((i) => targets.includes(i.id) && (i.status === "failed" || i.status === "cancelled")).map((i) => i.id));
+  }
 
   return (
     <div className="flex flex-col">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {!inSheet && <h2 className="font-display text-[22px] font-bold tracking-tight text-ink">Batch settings</h2>}
+        {!inSheet && <h2 className="font-display text-[22px] font-bold tracking-tight text-ink">Collection settings</h2>}
         {count > 0 && (
-          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700" aria-live="polite">
-            Applies to {scope}
+          <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700" aria-live="polite" data-settings-scope>
+            {selected.length ? `${count} selected image${count === 1 ? "" : "s"}` : count === 1 ? "1 image" : `All ${count} images`}
           </span>
         )}
       </div>
 
       <Tabs.Root value={tab} onValueChange={(v) => setTab(v as SettingsTab)} className="mt-3">
         <Tabs.List aria-label="Settings sections" className="grid grid-cols-3 border-b border-line">
-          {(["background", "layout", "export"] as SettingsTab[]).map((t) => (
+          {(["style", "layout", "export"] as SettingsTab[]).map((t) => (
             <Tabs.Trigger
               key={t}
               value={t}
@@ -451,8 +672,8 @@ export function BatchSettingsPanel({ onApplied, inSheet }: { onApplied?: () => v
             </Tabs.Trigger>
           ))}
         </Tabs.List>
-        <Tabs.Content value="background" className="pt-4 focus:outline-none">
-          <BackgroundTab draft={draft} update={update} onError={(text) => setMessage({ tone: "error", text })} />
+        <Tabs.Content value="style" className="pt-4 focus:outline-none">
+          <StyleTab draft={draft} update={update} onError={(text) => setMessage({ tone: "error", text })} onMessage={setMessage} brand={brand} />
         </Tabs.Content>
         <Tabs.Content value="layout" className="pt-4 focus:outline-none">
           <LayoutTab draft={draft} update={update} />
@@ -462,7 +683,9 @@ export function BatchSettingsPanel({ onApplied, inSheet }: { onApplied?: () => v
         </Tabs.Content>
       </Tabs.Root>
 
-      <div className="sticky bottom-0 -mx-5 mt-2 grid gap-2 border-t border-line bg-surface px-5 pb-4 pt-3">
+      <ExportPreflight onAction={onPreflight} />
+
+      <div className="sticky bottom-0 -mx-5 grid gap-2 border-t border-line bg-surface px-5 pb-4 pt-3">
         <p className={cn("text-xs", unapplied ? "font-medium text-warn" : "text-muted")} aria-live="polite">
           {count === 0
             ? "Add images to apply settings."
@@ -474,32 +697,14 @@ export function BatchSettingsPanel({ onApplied, inSheet }: { onApplied?: () => v
                   ? `These images have different settings. Applying gives ${count === 1 ? "it" : `all ${count}`} the settings shown here.`
                   : `Applying changes ${scope} to the settings shown here.`}
         </p>
-        <Button
-          size="lg"
-          disabled={count === 0 || applying || Boolean(invalid)}
-          icon={applying ? <Spinner className="size-5" /> : undefined}
-          onClick={async () => {
-            setApplying(true);
-            try {
-              await applySettings(targets, draft);
-              setMessage({ tone: "ok", text: `Applied to ${count} image${count === 1 ? "" : "s"}. No reprocessing needed.` });
-              onApplied?.();
-            } catch (e) {
-              setMessage({ tone: "error", text: e instanceof Error ? e.message : "Couldn't apply these settings." });
-            } finally {
-              setApplying(false);
-            }
-          }}
-        >
-          {count === 0 ? "No images yet" : selected.length ? `Apply to ${count} selected` : count === 1 ? "Apply to 1 image" : `Apply to all ${count} images`}
-        </Button>
-        <button
-          type="button"
-          onClick={() => update(DEFAULT_BATCH_SETTINGS)}
-          className="mx-auto inline-flex items-center gap-1.5 text-[13px] font-semibold text-blue-700 hover:underline"
-        >
-          <RotateCcw className="size-3.5" aria-hidden="true" /> Reset to default
-        </button>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+          <Button size="lg" disabled={count === 0 || applying || Boolean(invalid)} icon={applying ? <Spinner className="size-5" /> : undefined} onClick={() => void apply()}>
+            {count === 0 ? "No images yet" : selected.length ? `Apply to selected (${count})` : count === 1 ? "Apply to 1 image" : `Apply to all ${count} images`}
+          </Button>
+          <Button size="lg" variant="secondary" onClick={() => update(DEFAULT_BATCH_SETTINGS)} title="Reset the panel to the default settings (applied images don't change until you apply)">
+            Reset
+          </Button>
+        </div>
         <p aria-live="polite" className={cn("min-h-4 text-center text-xs", message?.tone === "error" ? "text-danger" : "text-success")}>
           {message?.text}
         </p>

@@ -19,6 +19,7 @@ import { useProject } from "@/lib/project/store";
 import { sessionAccess } from "@/lib/session-gate";
 import { destinationById, destinationSettings, folderFor, type DestinationId } from "@/lib/export-sets";
 import { recordExport } from "@/lib/studio/export-history";
+import { matchSettings } from "./match-size";
 import * as storage from "./persist";
 import { renderBatchBlob, renderBatchPreview, type BatchSources } from "./render";
 import { reviewMask } from "./review";
@@ -68,7 +69,13 @@ export interface BatchItem {
   refined: boolean;
 }
 
-export type BatchView = "compact" | "grid" | "list";
+export type BatchView = "compact" | "grid" | "list" | "compare";
+
+/** "Match product size": scale every product to look the size of one reference image. */
+export interface MatchSize {
+  on: boolean;
+  referenceId: string | null;
+}
 
 export type StorageState =
   | { state: "loading" }
@@ -104,6 +111,13 @@ interface BatchState {
   storage: StorageState;
   /** The plan used for previews (exports re-check the session). */
   pro: boolean;
+  /** Earlier applied settings, newest last, for "Undo batch changes". */
+  history: Array<Record<string, BatchSettings>>;
+  matchSize: MatchSize;
+  /** Add each image's untouched original to ZIP downloads. */
+  includeOriginals: boolean;
+  setMatchSize: (match: MatchSize) => void;
+  setIncludeOriginals: (on: boolean) => void;
   setName: (name: string) => void;
   setView: (view: BatchView) => void;
   setQuery: (query: string) => void;
@@ -126,6 +140,11 @@ export const useBatch = create<BatchState>((set) => ({
   report: null,
   storage: { state: "loading" },
   pro: false,
+  history: [],
+  matchSize: { on: false, referenceId: null },
+  includeOriginals: false,
+  setMatchSize: (matchSize) => set({ matchSize, draftEdited: true }),
+  setIncludeOriginals: (includeOriginals) => set({ includeOriginals }),
   setName: (name) => set({ name }),
   setView: (view) => set({ view }),
   setQuery: (query) => set({ query }),
@@ -510,10 +529,29 @@ export function targetIds(state: Pick<BatchState, "items" | "selected"> = useBat
   return state.selected.length ? state.selected : state.items.map((i) => i.id);
 }
 
+/** The reference image for "Match product size", when it's on and usable (finished, with a known subject). */
+export function matchReference(state: Pick<BatchState, "items"> & { matchSize?: MatchSize } = useBatch.getState()): BatchItem | null {
+  const m = state.matchSize;
+  if (!m?.on) return null;
+  const ready = state.items.filter((i) => isReady(i) && i.bounds);
+  return ready.find((i) => i.id === m.referenceId) ?? ready[0] ?? null;
+}
+
+/** The settings each target would get from the draft (per-image padding when matching product size). */
+export function draftFor(ids: string[], state: Pick<BatchState, "items" | "draft"> & { matchSize?: MatchSize } = useBatch.getState()): Map<string, BatchSettings> {
+  const wanted = new Set(ids);
+  const targets = state.items.filter((i) => wanted.has(i.id));
+  const reference = matchReference(state);
+  const draft = normaliseSettings(state.draft);
+  if (reference) return new Map([...matchSettings(draft, reference, targets)].map(([id, v]) => [id, normaliseSettings(v)]));
+  return new Map(targets.map((t) => [t.id, draft]));
+}
+
 /** Whether the draft matches the applied settings of every target. */
-export function draftIsApplied(state: Pick<BatchState, "items" | "selected" | "draft"> = useBatch.getState()) {
-  const ids = new Set(targetIds(state));
-  return state.items.filter((i) => ids.has(i.id)).every((i) => sameSettings(i.settings, state.draft));
+export function draftIsApplied(state: Pick<BatchState, "items" | "selected" | "draft"> & { matchSize?: MatchSize } = useBatch.getState()) {
+  const ids = targetIds(state);
+  const want = draftFor(ids, state);
+  return state.items.filter((i) => want.has(i.id)).every((i) => sameSettings(i.settings, want.get(i.id)!));
 }
 
 /** Whether the targets have different applied settings from each other. */
@@ -524,7 +562,7 @@ export function targetsMixed(state: Pick<BatchState, "items" | "selected"> = use
 }
 
 /** The panel has edits that aren't applied to the images it targets. */
-export function hasUnappliedEdits(state: Pick<BatchState, "items" | "selected" | "draft" | "draftEdited"> = useBatch.getState()) {
+export function hasUnappliedEdits(state: Pick<BatchState, "items" | "selected" | "draft" | "draftEdited"> & { matchSize?: MatchSize } = useBatch.getState()) {
   return state.draftEdited && !draftIsApplied(state);
 }
 
@@ -549,12 +587,66 @@ export function toggleSelected(id: string) {
 
 /* ------------------------------------------------------------- settings --- */
 
-/** Apply settings to the given items. Masks are reused: nothing is reprocessed. */
+const HISTORY_LIMIT = 30;
+
+/**
+ * Give each listed image its settings. The settings they had are kept so the
+ * change can be undone. Masks are reused: nothing is reprocessed.
+ */
+export async function applySettingsMap(map: Map<string, BatchSettings>) {
+  const before: Record<string, BatchSettings> = {};
+  const changed: string[] = [];
+  useBatch.setState((s) => {
+    const items = s.items.map((i) => {
+      const next = map.get(i.id);
+      if (!next) return i;
+      const value = normaliseSettings(next);
+      if (sameSettings(i.settings, value)) return i;
+      before[i.id] = i.settings;
+      changed.push(i.id);
+      return { ...i, settings: value };
+    });
+    return { items, draftEdited: false, history: changed.length ? [...s.history, before].slice(-HISTORY_LIMIT) : s.history };
+  });
+  await refreshPreviews(changed);
+  return changed.length;
+}
+
+/** Apply one set of settings to the given items. */
 export async function applySettings(ids: string[], settings: BatchSettings) {
+  await applySettingsMap(new Map(ids.map((id) => [id, settings])));
+}
+
+/** Apply the panel's draft to the given items (with per-image padding when matching product size). */
+export async function applyDraft(ids: string[]) {
+  return applySettingsMap(draftFor(ids));
+}
+
+/** Change part of each listed image's applied settings (the bar's quick format switch). */
+export async function patchSettings(ids: string[], change: Partial<BatchSettings>) {
   const wanted = new Set(ids);
-  const value = normaliseSettings(settings);
-  useBatch.setState((s) => ({ items: s.items.map((i) => (wanted.has(i.id) ? { ...i, settings: value } : i)), draftEdited: false }));
+  const { items } = useBatch.getState();
+  return applySettingsMap(new Map(items.filter((i) => wanted.has(i.id)).map((i) => [i.id, { ...i.settings, ...change }])));
+}
+
+/** Undo the last settings change (one Apply, fix or format switch). Returns how many images changed back. */
+export async function undoSettings(): Promise<number> {
+  const { history } = useBatch.getState();
+  const last = history[history.length - 1];
+  if (!last) return 0;
+  const ids: string[] = [];
+  useBatch.setState((s) => ({
+    history: s.history.slice(0, -1),
+    items: s.items.map((i) => {
+      if (!last[i.id]) return i;
+      ids.push(i.id);
+      return { ...i, settings: last[i.id] };
+    }),
+  }));
   await refreshPreviews(ids);
+  // The panel shows what the targets have now.
+  setSelection(useBatch.getState().selected);
+  return ids.length;
 }
 
 /** Keep an uploaded background so a restored batch can still use it. */
@@ -664,8 +756,9 @@ export async function downloadItem(id: string): Promise<void> {
  * for several. Unfinished images, and any that fail to render, are left out
  * and listed; they never block the others.
  */
-export async function exportItems(ids: string[], scope: "selected" | "all"): Promise<void> {
+export async function exportItems(ids: string[], scope: "selected" | "all", options: { includeOriginals?: boolean } = {}): Promise<void> {
   const { items, name } = useBatch.getState();
+  const withOriginals = options.includeOriginals ?? useBatch.getState().includeOriginals;
   const wanted = new Set(ids);
   const chosen = items.filter((i) => wanted.has(i.id));
   const ready = chosen.filter(isReady);
@@ -676,7 +769,7 @@ export async function exportItems(ids: string[], scope: "selected" | "all"): Pro
     });
     return;
   }
-  if (ready.length === 1 && scope === "selected") {
+  if (ready.length === 1 && scope === "selected" && !withOriginals) {
     await downloadItem(ready[0].id);
     if (excluded.length) {
       const report = useBatch.getState().report;
@@ -694,6 +787,7 @@ export async function exportItems(ids: string[], scope: "selected" | "all"): Pro
       else chunks.push(chunk);
     });
     const used = new Set<string>();
+    const originals = new Set<string>();
     let added = 0;
     let preview: Blob | null = null;
     for (let i = 0; i < ready.length; i++) {
@@ -707,6 +801,15 @@ export async function exportItems(ids: string[], scope: "selected" | "all"): Pro
         zip.add(entry);
         entry.push(data, true);
         added++;
+        if (withOriginals) {
+          // The file exactly as it was added, in its own folder.
+          let original = item.name;
+          for (let n = 2; originals.has(original.toLowerCase()); n++) original = item.name.replace(/(\.[^.]+)?$/, `-${n}$1`);
+          originals.add(original.toLowerCase());
+          const source = new ZipPassThrough(`originals/${original}`);
+          zip.add(source);
+          source.push(new Uint8Array(await item.file.arrayBuffer()), true);
+        }
       } catch (error) {
         excluded.push({ name: item.name, reason: error instanceof Error ? error.message : "couldn't be rendered" });
       }
@@ -721,7 +824,7 @@ export async function exportItems(ids: string[], scope: "selected" | "all"): Pro
     useBatch.setState({
       report: {
         tone: excluded.length ? "warn" : "ok",
-        message: `Downloaded ${added} image${added === 1 ? "" : "s"} in ${zipName}.${describeExcluded(excluded)}`,
+        message: `Downloaded ${added} image${added === 1 ? "" : "s"}${withOriginals ? " and the originals" : ""} in ${zipName}.${describeExcluded(excluded)}`,
         excluded,
       },
     });

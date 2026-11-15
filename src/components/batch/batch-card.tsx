@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
 import { AlertTriangle, Ban, Check, Clock, Download, Ellipsis, Loader2, Lock, RotateCcw, Scissors, Sparkles, Trash2, Wand2, X } from "lucide-react";
 import { useState } from "react";
+import { create } from "zustand";
 import { phaseText } from "@/components/editor/engine-text";
 import { ActivityBar, ProgressBar, Spinner } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
@@ -25,12 +26,15 @@ import { useEngineState } from "@/lib/processing/registry";
 import { useProject } from "@/lib/project/store";
 import { signInHref } from "@/lib/session-gate";
 
+/** Hold-to-compare: while on, every finished card shows its original. */
+export const usePeek = create<{ originals: boolean }>(() => ({ originals: false }));
+
 type Tone = "ready" | "processing" | "review" | "error" | "idle";
 
 export function statusOf(item: BatchItem): { label: string; tone: Tone; icon: React.ElementType } {
   switch (item.status) {
     case "ready":
-      return item.review ? { label: "Check edges", tone: "review", icon: AlertTriangle } : { label: "Ready", tone: "ready", icon: Check };
+      return item.review ? { label: "Needs review", tone: "review", icon: AlertTriangle } : { label: "Ready", tone: "ready", icon: Check };
     case "processing":
       return { label: "Processing", tone: "processing", icon: Loader2 };
     case "queued":
@@ -248,10 +252,15 @@ function Note({ item }: { item: BatchItem }) {
   return null;
 }
 
-export function BatchCard({ item, selected, compact }: { item: BatchItem; selected: boolean; compact?: boolean }) {
+export function BatchCard({ item, selected, compact, compare }: { item: BatchItem; selected: boolean; compact?: boolean; compare?: boolean }) {
   const checkboxId = `batch-select-${item.id}`;
   const done = item.status === "ready";
-  const image = done ? (item.previewUrl ?? item.thumbUrl) : item.thumbUrl;
+  const peek = usePeek((s) => s.originals);
+  const [show, setShow] = useState<"result" | "original">("result");
+  const original = done && (show === "original" || peek);
+  const result = done ? (item.previewUrl ?? item.thumbUrl) : item.thumbUrl;
+  const image = original ? item.thumbUrl : result;
+  const sideBySide = compare && done && item.thumbUrl && result;
   return (
     <li
       data-batch-item={item.name}
@@ -260,14 +269,30 @@ export function BatchCard({ item, selected, compact }: { item: BatchItem; select
         selected ? "shadow-[0_0_0_2px_var(--color-blue)]" : "shadow-[0_0_0_1px_var(--color-line)] hover:shadow-[0_0_0_1px_var(--color-line-strong),var(--shadow-card)]",
       )}
     >
-      <label htmlFor={checkboxId} className={cn("relative block aspect-[4/3] cursor-pointer overflow-hidden", done ? "checkerboard" : "bg-paper-2")}>
-        {image && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={image}
-            alt={done ? `${item.name}, background removed` : item.name}
-            className={cn("absolute inset-0 size-full object-contain p-3", done && "animate-fade-in", isBusy(item) && "opacity-75")}
-          />
+      <label htmlFor={checkboxId} className={cn("relative block cursor-pointer overflow-hidden", sideBySide ? "aspect-[8/3]" : "aspect-[4/3]", !sideBySide && (done && !original ? "checkerboard" : "bg-paper-2"))}>
+        {sideBySide ? (
+          <span className="absolute inset-0 grid grid-cols-2">
+            <span className="relative bg-paper-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item.thumbUrl!} alt={`${item.name}, original`} className="absolute inset-0 size-full object-contain p-3" />
+              <span className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-ink-3">Original</span>
+            </span>
+            <span className="checkerboard relative border-l border-line">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={result!} alt={`${item.name}, background removed`} className="absolute inset-0 size-full object-contain p-3" />
+              <span className="absolute bottom-2 left-2 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-blue-700">Result</span>
+            </span>
+          </span>
+        ) : (
+          image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={image}
+              alt={done ? (original ? `${item.name}, original` : `${item.name}, background removed`) : item.name}
+              data-showing={original ? "original" : "result"}
+              className={cn("absolute inset-0 size-full object-contain p-3", done && !original && "animate-fade-in", isBusy(item) && "opacity-75")}
+            />
+          )
         )}
         <span className="sr-only">Select {item.name}</span>
       </label>
@@ -279,7 +304,15 @@ export function BatchCard({ item, selected, compact }: { item: BatchItem; select
         aria-label={`Select ${item.name}`}
         className="absolute left-3 top-3 size-5 cursor-pointer rounded-md accent-[var(--color-blue)]"
       />
-      <StatusBadge item={item} className="absolute right-3 top-3" />
+      {done && !sideBySide && item.thumbUrl && (
+        <div role="radiogroup" aria-label={`Show ${item.name} as`} className="absolute right-2.5 top-2.5 flex rounded-full border border-line bg-white/95 p-0.5 text-[11px] font-semibold shadow-sm">
+          {(["original", "result"] as const).map((v) => (
+            <button key={v} type="button" role="radio" aria-checked={show === v} onClick={() => setShow(v)} className={cn("rounded-full px-2 py-0.5 capitalize transition-colors", show === v ? "bg-blue-50 text-blue-700" : "text-muted hover:text-ink")}>
+              {v}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex flex-1 flex-col gap-2 border-t border-line p-3">
         <div className="flex items-start gap-1">
           <div className="min-w-0 flex-1">
@@ -291,6 +324,7 @@ export function BatchCard({ item, selected, compact }: { item: BatchItem; select
               <OutputSize item={item} />
             </p>
           </div>
+          <StatusBadge item={item} className="mt-0.5 shrink-0 shadow-none" />
           <ItemMenu item={item} />
         </div>
         <Note item={item} />

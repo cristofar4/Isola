@@ -138,3 +138,30 @@ export function describeLayout(layout: BrandLayout, colors: BrandColor[]) {
   const bg = layout.background.kind === "transparent" ? "transparent" : layout.background.kind === "white" ? "white" : (colors[layout.background.index]?.name ?? "brand colour");
   return `${BRAND_CANVAS_LABEL[layout.canvas]}, ${layout.padding}% padding, ${bg} background, ${layout.shadow ? "soft shadow" : "no shadow"}, ${layout.format.toUpperCase()}`;
 }
+
+/** A brand preset made from Batch Studio settings ("Save preset"). Uploaded background images can't be saved, so they become white. */
+export function batchSettingsToPreset(settings: BatchSettings, name: string, keepColors: BrandColor[] = []): BrandPresetInput {
+  const s = normaliseSettings(settings);
+  const colors = keepColors.slice(0, MAX_COLORS);
+  let background: BrandBackground = { kind: "transparent" };
+  if (s.background.kind === "color") {
+    const hex = s.background.color.toUpperCase();
+    if (hex === BATCH_WHITE) background = { kind: "white" };
+    else {
+      let index = colors.findIndex((c) => c.hex.toUpperCase() === hex);
+      if (index < 0) {
+        if (colors.length >= MAX_COLORS) colors.pop();
+        colors.push({ name: "Background", hex });
+        index = colors.length - 1;
+      }
+      background = { kind: "brand", index };
+    }
+  } else if (s.background.kind === "image") background = { kind: "white" };
+  let canvas: BrandCanvas;
+  if (s.canvas === "custom") {
+    const r = s.customSize.width / Math.max(1, s.customSize.height);
+    canvas = r > 1.2 ? "landscape" : r < 0.9 ? "portrait" : "square";
+  } else canvas = s.canvas;
+  const format = background.kind === "transparent" ? "png" : s.format;
+  return { name: name.trim().slice(0, 60), colors, layout: { canvas, padding: s.padding, shadow: s.shadow, background, align: s.align, format } };
+}

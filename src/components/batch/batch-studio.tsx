@@ -4,11 +4,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
 import {
   AlertTriangle,
-  ArrowDown,
   Ban,
   ChevronDown,
   CircleCheck,
+  Columns2,
+  Crop,
   Download,
+  Eye,
+  Info,
   Ellipsis,
   HardDrive,
   Image as ImageIcon,
@@ -17,16 +20,14 @@ import {
   List,
   Lock,
   Pencil,
-  Plus,
   RotateCw,
   ScanSearch,
   Scissors,
   Search,
   ShoppingBag,
   SlidersHorizontal,
-  Square,
-  SquareCheckBig,
   Trash2,
+  Undo2,
   Upload,
   X,
 } from "lucide-react";
@@ -48,12 +49,17 @@ import {
   hasUnappliedEdits,
   isBusy,
   isReady,
+  matchReference,
   openInEditor,
+  patchSettings,
   processItems,
   removeItems,
   restoreBatch,
   resumeWaiting,
   setSelection,
+  targetIds,
+  targetsMixed,
+  undoSettings,
   useBatch,
   type BatchItem,
   type BatchView,
@@ -66,7 +72,7 @@ import { useProject } from "@/lib/project/store";
 import { usePlan } from "@/lib/plan";
 import { exportPolicy, policySummary } from "@/lib/plan-policy";
 import { signInHref, useOnSignIn } from "@/lib/session-gate";
-import { BatchCard, BatchRow } from "./batch-card";
+import { BatchCard, BatchRow, usePeek } from "./batch-card";
 import { BatchSettingsPanel, useSettingsTab } from "./batch-settings-panel";
 import { ConsistencyPanel, useCheckTarget, useConsistencyReport } from "./consistency-panel";
 import { ExportSetDialog } from "./export-set-dialog";
@@ -220,6 +226,117 @@ function StatusStrip() {
   );
 }
 
+export type BatchFilter = "all" | "ready" | "processing" | "review" | "failed" | "waiting";
+
+const matchesFilter = (item: BatchItem, filter: BatchFilter) => {
+  switch (filter) {
+    case "all":
+      return true;
+    case "ready":
+      return item.status === "ready" && !item.review;
+    case "review":
+      return item.status === "ready" && !!item.review;
+    case "processing":
+      return item.status === "processing" || item.status === "queued";
+    case "failed":
+      return item.status === "failed" || item.status === "cancelled";
+    case "waiting":
+      return item.status === "needs-auth" || item.status === "needs-pro";
+  }
+};
+
+/** Show everything, or only the images in one state. Counts are live. */
+function FilterChips({ filter, onChange }: { filter: BatchFilter; onChange: (f: BatchFilter) => void }) {
+  const items = useBatch((s) => s.items);
+  const chips: Array<{ id: BatchFilter; label: string; dot?: string; always?: boolean }> = [
+    { id: "all", label: "All", always: true },
+    { id: "ready", label: "Ready", dot: "bg-success", always: true },
+    { id: "processing", label: "Processing", dot: "bg-blue", always: true },
+    { id: "review", label: "Review", dot: "bg-[#E9820C]", always: true },
+    { id: "failed", label: "Failed", dot: "bg-danger" },
+    { id: "waiting", label: "Waiting", dot: "bg-subtle" },
+  ];
+  return (
+    <div role="group" aria-label="Show" className="flex flex-wrap items-center gap-2">
+      {chips.map((c) => {
+        const n = items.filter((i) => matchesFilter(i, c.id)).length;
+        if (!c.always && n === 0 && filter !== c.id) return null;
+        return (
+          <button
+            key={c.id}
+            type="button"
+            aria-pressed={filter === c.id}
+            data-filter={c.id}
+            onClick={() => onChange(c.id)}
+            className={cn("inline-flex h-9 items-center gap-2 rounded-[9px] border px-3 text-[13px] font-medium transition-colors", filter === c.id ? "border-blue/30 bg-blue-50 text-blue-700" : "border-line bg-surface text-ink hover:border-line-strong")}
+          >
+            {c.dot && <Dot className={cn("size-2", c.dot)} />}
+            {c.label}
+            <span className="tabular-nums text-muted">{n}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The four steps of a collection, each with its real state: backgrounds
+ * removed, one layout applied, details reviewed, exported. The current step is
+ * the first one that isn't done; each step opens the tools for it.
+ */
+function Workflow({ flagged, onProcess, onLayout, onReview, onExport }: { flagged: number; onProcess: () => void; onLayout: () => void; onReview: () => void; onExport: () => void }) {
+  const items = useBatch((s) => s.items);
+  const draft = useBatch((s) => s.draft);
+  const draftEdited = useBatch((s) => s.draftEdited);
+  const matchSize = useBatch((s) => s.matchSize);
+  const report = useBatch((s) => s.report);
+  const c = countItems(items);
+  const ready = items.filter(isReady);
+  const all = { items, selected: [] as string[] };
+  const reference = matchReference({ items, matchSize });
+  // One layout: every finished image shares its settings (padding aside when sizes are matched).
+  const uniform = reference ? ready.every((i) => sameSettings({ ...i.settings, padding: 0 }, { ...ready[0].settings, padding: 0 })) : !targetsMixed({ items: ready, selected: [] });
+  const steps = [
+    { id: "remove", label: "Remove backgrounds", icon: ImageIcon, done: c.total > 0 && c.ready === c.total, note: c.total ? `${c.ready} of ${c.total}` : "Add images", run: onProcess },
+    { id: "layout", label: "Match layout", icon: Crop, done: ready.length > 0 && uniform && !hasUnappliedEdits({ ...all, draft, draftEdited, matchSize }), note: ready.length === 0 ? "" : uniform ? (reference ? "Sizes matched" : "One layout") : "Mixed settings", run: onLayout },
+    { id: "review", label: "Review details", icon: ScanSearch, done: ready.length > 0 && c.review === 0 && flagged === 0, note: ready.length === 0 ? "" : c.review + flagged ? `${Math.max(c.review, flagged)} to check` : "All clear", run: onReview },
+    { id: "export", label: "Export collection", icon: Upload, done: !!report && report.tone !== "error" && /^Downloaded/.test(report.message), note: c.ready ? `${c.ready} ready` : "", run: onExport },
+  ];
+  const current = steps.findIndex((s) => !s.done);
+  return (
+    <nav aria-label="Workflow" className="mt-5">
+      <ol className="grid grid-cols-2 gap-1.5 lg:flex lg:gap-0">
+        {steps.map((s, i) => {
+          const active = i === (current === -1 ? steps.length - 1 : current);
+          return (
+            <li key={s.id} className="min-w-0 lg:-ml-2.5 lg:flex-1 lg:first:ml-0">
+              <button
+                type="button"
+                onClick={s.run}
+                aria-current={active ? "step" : undefined}
+                data-step={s.id}
+                data-done={s.done}
+                className={cn(
+                  "flex h-12 w-full items-center gap-2.5 rounded-[10px] px-4 text-left text-[14px] font-medium transition-colors lg:rounded-none lg:pl-7",
+                  i === 0 ? "lg:rounded-l-[12px] lg:pl-4 lg:[clip-path:polygon(0_0,calc(100%-14px)_0,100%_50%,calc(100%-14px)_100%,0_100%)]" : i === steps.length - 1 ? "lg:rounded-r-[12px] lg:[clip-path:polygon(0_0,100%_0,100%_100%,0_100%,14px_50%)]" : "lg:[clip-path:polygon(0_0,calc(100%-14px)_0,100%_50%,calc(100%-14px)_100%,0_100%,14px_50%)]",
+                  active ? "bg-blue text-white" : "bg-paper-2 text-ink hover:bg-line focus-visible:bg-line",
+                )}
+              >
+                {s.done ? <CircleCheck className={cn("size-[18px] shrink-0", active ? "text-white" : "text-success")} aria-hidden="true" /> : <s.icon className="size-[18px] shrink-0" aria-hidden="true" />}
+                <span className="tabular-nums opacity-80">{String(i + 1).padStart(2, "0")}</span>
+                <span className="min-w-0 flex-1 truncate font-semibold">{s.label}</span>
+                {s.note && <span className={cn("hidden shrink-0 pr-2 text-[12px] xl:inline", active ? "text-white" : "text-muted")}>{s.note}</span>}
+                <span className="sr-only">{s.done ? " (done)" : active ? " (current step)" : ""}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
 function ExportBar({ onOpenExportSettings }: { onOpenExportSettings: () => void }) {
   const items = useBatch((s) => s.items);
   const selected = useBatch((s) => s.selected);
@@ -229,13 +346,21 @@ function ExportBar({ onOpenExportSettings }: { onOpenExportSettings: () => void 
   const draft = useBatch((s) => s.draft);
   const draftEdited = useBatch((s) => s.draftEdited);
   const pro = useBatch((s) => s.pro);
+  const matchSize = useBatch((s) => s.matchSize);
+  const includeOriginals = useBatch((s) => s.includeOriginals);
+  const setIncludeOriginals = useBatch((s) => s.setIncludeOriginals);
   const chosen = new Set(selected);
   const selectedItems = items.filter((i) => chosen.has(i.id));
   const selectedReady = selectedItems.filter(isReady).length;
+  // The quick format switch acts on the finished images the panel targets.
+  const targetSet = new Set(targetIds({ items, selected }));
+  const quickTargets = items.filter((i) => targetSet.has(i.id) && isReady(i)).map((i) => i.id);
   const ready = items.filter(isReady).length;
   const c = countItems(items);
-  const unapplied = hasUnappliedEdits({ items, selected, draft, draftEdited });
-  const shared = items.length > 0 && items.every((i) => sameSettings(i.settings, items[0].settings)) ? items[0].settings : null;
+  const unapplied = hasUnappliedEdits({ items, selected, draft, draftEdited, matchSize });
+  // Padding may differ per image when sizes are matched; format and size are what this label is about.
+  const flat = (x: BatchSettings) => ({ ...x, padding: 0 });
+  const shared = items.length > 0 && items.every((i) => sameSettings(flat(i.settings), flat(items[0].settings))) ? items[0].settings : null;
   const formatText = items.length === 0 ? `${formatLabel(draft)} · ${sizeLabel(draft)}` : shared ? `${formatLabel(shared)} · ${sizeLabel(shared)}` : "Mixed settings";
 
   let reason: string;
@@ -273,49 +398,75 @@ function ExportBar({ onOpenExportSettings }: { onOpenExportSettings: () => void 
           </button>
         </div>
       )}
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-2.5 px-4 py-3 sm:px-6 md:flex-row md:items-center md:gap-4 lg:px-8">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          {selected.length ? <SquareCheckBig className="hidden size-6 shrink-0 text-blue sm:block" aria-hidden="true" /> : <Square className="hidden size-6 shrink-0 text-line-strong sm:block" aria-hidden="true" />}
-          <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold text-ink">
-              {selected.length} selected · {selectedReady} ready to download
-            </p>
-            <p id="batch-export-reason" className="truncate text-xs text-muted" aria-live="polite">
-              {reason}
-              {unapplied && items.length > 0 && <span className="font-medium text-warn"> Settings panel has unapplied changes.</span>}
-            </p>
-          </div>
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-2.5 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:gap-4 lg:px-8">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[16px] font-bold text-ink" data-export-summary>
+            {selected.length} selected · {selectedReady} ready
+          </p>
+          <p id="batch-export-reason" className="truncate text-xs text-muted" aria-live="polite">
+            {reason}
+            {unapplied && items.length > 0 && <span className="font-medium text-warn"> Settings panel has unapplied changes.</span>}
+          </p>
         </div>
-        {exporting && exporting.total > 1 && <ProgressBar value={exporting.done} max={exporting.total} label="Export progress" className="md:max-w-[160px]" />}
-        <button
-          type="button"
-          onClick={onOpenExportSettings}
-          className="hidden h-10 items-center gap-2 rounded-[10px] px-3 text-[13px] font-medium text-ink hover:bg-paper lg:inline-flex"
-          title={`${policySummary(exportPolicy(pro))}. Change format and size in Batch settings.`}
-        >
-          <ImageIcon className="size-4 text-muted" aria-hidden="true" />
-          {formatText}
-          <ChevronDown className="size-4 text-muted" aria-hidden="true" />
-        </button>
-        <div className="grid grid-cols-2 gap-2 md:flex md:shrink-0">
+        {exporting && exporting.total > 1 && <ProgressBar value={exporting.done} max={exporting.total} label="Export progress" className="lg:max-w-[140px]" />}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <DropdownMenu.Root modal={false}>
+            <DropdownMenu.Trigger
+              disabled={quickTargets.length === 0 || exporting !== null}
+              title={`${policySummary(exportPolicy(pro))}.`}
+              aria-label={`Export format: ${formatText}`}
+              className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-line bg-surface px-3 text-[13px] font-medium text-ink hover:border-line-strong disabled:opacity-50"
+            >
+              {formatText}
+              <ChevronDown className="size-4 text-muted" aria-hidden="true" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content align="start" side="top" sideOffset={6} className="z-50 min-w-[260px] animate-scale-in rounded-xl border border-line bg-surface p-1 text-sm shadow-[var(--shadow-float)]">
+                <DropdownMenu.Label className="px-2.5 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                  Format for {selected.length ? `${quickTargets.length} selected` : `all ${quickTargets.length} ready`}
+                </DropdownMenu.Label>
+                {(
+                  [
+                    ["png", "PNG", "Lossless; keeps transparency"],
+                    ["jpeg", "JPEG", "Smaller; transparent areas are filled"],
+                  ] as const
+                ).map(([format, label, note]) => (
+                  <DropdownMenu.Item key={format} onSelect={() => void patchSettings(quickTargets, { format })} className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 outline-none data-[highlighted]:bg-paper">
+                    <span className="w-12 font-semibold">{label}</span>
+                    <span className="text-[12px] text-muted">{note}</span>
+                  </DropdownMenu.Item>
+                ))}
+                <DropdownMenu.Separator className="my-1 h-px bg-line" />
+                <DropdownMenu.Item onSelect={onOpenExportSettings} className="cursor-pointer rounded-lg px-2.5 py-2 outline-none data-[highlighted]:bg-paper">
+                  More export settings…
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+          <label className="flex cursor-pointer items-center gap-2 text-[14px] text-ink" title="Adds each image's untouched original to the ZIP, in an “originals” folder">
+            <input type="checkbox" checked={includeOriginals} onChange={(e) => setIncludeOriginals(e.target.checked)} className="size-[18px] cursor-pointer accent-[var(--color-blue)]" />
+            Include original files
+          </label>
+        </div>
+        <div className="grid grid-cols-2 gap-2 lg:flex lg:shrink-0">
+          <Button
+            variant="outline-blue"
+            className="h-11 px-3 sm:px-5"
+            disabled={ready === 0 || exporting !== null}
+            aria-describedby="batch-export-reason"
+            onClick={() => void exportItems(items.map((i) => i.id), "all")}
+          >
+            Export all ready{ready ? ` (${ready})` : ""}
+          </Button>
           <Button
             className="h-11 px-3 sm:px-5"
             disabled={selectedReady === 0 || exporting !== null}
             aria-describedby="batch-export-reason"
             onClick={() => void exportItems(selected, "selected")}
-            icon={exporting ? <Spinner /> : <Download className="size-4" aria-hidden="true" />}
+            icon={exporting ? <Spinner /> : undefined}
           >
-            {selectedReady > 1 ? "Download selected ZIP" : "Download selected"}
-          </Button>
-          <Button
-            variant="secondary"
-            className="h-11 px-3 sm:px-5"
-            disabled={ready === 0 || exporting !== null}
-            aria-describedby="batch-export-reason"
-            onClick={() => void exportItems(items.map((i) => i.id), "all")}
-            icon={<ArrowDown className="size-4" aria-hidden="true" />}
-          >
-            Export all ready{ready ? ` (${ready})` : ""}
+            {selectedReady > 1 || (includeOriginals && selectedReady === 1) ? "Download selected ZIP" : "Download selected"}
+            {!exporting && <Download className="size-4" aria-hidden="true" />}
           </Button>
         </div>
       </div>
@@ -440,8 +591,8 @@ function PresetNotice({ loaded, onDismiss }: { loaded: LoadedPreset; onDismiss: 
   const title = loaded.kind === "catalogue" ? "Catalogue preset loaded" : `Brand preset “${loaded.preset.name}” loaded`;
   const description =
     loaded.kind === "catalogue"
-      ? "White square canvas, 10% padding, centred products, JPEG. It's in Batch settings, not applied yet. Add your product photos, then apply it to every image."
-      : `${describeLayout(loaded.preset.layout, loaded.preset.colors)}. It's in Batch settings, not applied yet.`;
+      ? "White square canvas, 10% padding, centred products, JPEG. It's in Collection settings, not applied yet. Add your product photos, then apply it to every image."
+      : `${describeLayout(loaded.preset.layout, loaded.preset.colors)}. It's in Collection settings, not applied yet.`;
   return (
     <div role="status" className="mt-4 flex flex-col gap-3 rounded-[14px] border border-blue-100 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center">
       <ShoppingBag className="hidden size-5 shrink-0 text-blue sm:block" aria-hidden="true" />
@@ -449,7 +600,7 @@ function PresetNotice({ loaded, onDismiss }: { loaded: LoadedPreset; onDismiss: 
         <p className="font-semibold text-ink">{title}</p>
         <p>
           {applied
-            ? `Applied to ${items.length === 1 ? "1 image" : `all ${items.length} images`}. New images you add can be given the same look with Apply in Batch settings.`
+            ? `Applied to ${items.length === 1 ? "1 image" : `all ${items.length} images`}. New images you add can be given the same look with Apply in Collection settings.`
             : description}
         </p>
       </div>
@@ -501,6 +652,10 @@ export function BatchStudio() {
   const [preset, setPreset] = useState<LoadedPreset | null>(null);
   const [checkOpen, setCheckOpen] = useState(false);
   const [exportSetOpen, setExportSetOpen] = useState(false);
+  const [filter, setFilter] = useState<BatchFilter>("all");
+  const [undone, setUndone] = useState<string | null>(null);
+  const historyDepth = useBatch((s) => s.history.length);
+  const peeking = usePeek((s) => s.originals);
   const [checkTarget] = useCheckTarget();
   const report = useConsistencyReport(items, checkTarget, plan.pro);
   const flagged = report ? flaggedCount(report) : 0;
@@ -528,7 +683,51 @@ export function BatchStudio() {
   const chosen = new Set(selected);
   const selectedItems = items.filter((i) => chosen.has(i.id));
   const needle = query.trim().toLowerCase();
-  const visible = needle ? items.filter((i) => i.name.toLowerCase().includes(needle)) : items;
+  const visible = items.filter((i) => matchesFilter(i, filter) && (!needle || i.name.toLowerCase().includes(needle)));
+  const waitingIds = items.filter((i) => i.status === "failed" || i.status === "cancelled" || i.status === "needs-auth" || i.status === "needs-pro").map((i) => i.id);
+
+  async function undoBatch() {
+    const n = await undoSettings();
+    setUndone(n ? `Undid the last change to ${n} image${n === 1 ? "" : "s"}.` : null);
+  }
+
+  // What's shown now, for the shortcuts below.
+  const visibleIds = useRef<string[]>([]);
+  useEffect(() => {
+    visibleIds.current = visible.map((i) => i.id);
+  });
+
+  // Shortcuts: select everything shown, clear the selection, undo, and hold O to see the originals.
+  useEffect(() => {
+    const typing = (e: KeyboardEvent) => e.target instanceof HTMLElement && (e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName));
+    function down(e: KeyboardEvent) {
+      if (typing(e) || document.querySelector("[role=dialog],[role=alertdialog],[role=menu]")) return;
+      const mod = e.metaKey || e.ctrlKey;
+      const state = useBatch.getState();
+      if (mod && e.key.toLowerCase() === "a" && state.items.length) {
+        e.preventDefault();
+        setSelection(visibleIds.current);
+      } else if (mod && e.key.toLowerCase() === "z" && !e.shiftKey && state.history.length) {
+        e.preventDefault();
+        void undoSettings().then((n) => setUndone(n ? `Undid the last change to ${n} image${n === 1 ? "" : "s"}.` : null));
+      } else if (e.key === "Escape" && state.selected.length) setSelection([]);
+      else if (e.key.toLowerCase() === "o" && !mod && !e.repeat) usePeek.setState({ originals: true });
+    }
+    function up(e: KeyboardEvent) {
+      if (e.key.toLowerCase() === "o") usePeek.setState({ originals: false });
+    }
+    const blur = () => usePeek.setState({ originals: false });
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", blur);
+      usePeek.setState({ originals: false });
+    };
+  }, []);
+
   const eligible = selectedItems.filter((i) => i.status === "failed" || i.status === "cancelled" || i.status === "needs-auth" || i.status === "needs-pro");
   const retryable = (selectedItems.length ? selectedItems : items).filter((i) => i.status === "failed" || i.status === "cancelled");
   const cancellable = (selectedItems.length ? selectedItems : items).filter(isBusy);
@@ -547,6 +746,11 @@ export function BatchStudio() {
     if (!signedIn) return router.push(signInHref("/batch"));
     if (needsPro) return router.push("/pricing?from=batch");
     processItems(eligible.map((i) => i.id));
+  }
+
+  function startSelectedOrAll() {
+    if (!signedIn) return router.push(signInHref("/batch"));
+    if (needsPro) return router.push("/pricing?from=batch");
   }
 
   function openExportSettings() {
@@ -586,7 +790,7 @@ export function BatchStudio() {
         {/* Page header */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
           <h1 className="display text-[38px] sm:text-[44px]">Batch Studio</h1>
-          <div className="grid w-full max-w-[340px] gap-1 lg:ml-6 lg:border-l lg:border-line lg:pl-6">
+          <div className="grid w-full max-w-[360px] gap-1.5 lg:ml-6 lg:border-l lg:border-line lg:pl-6">
             <div className="relative">
               <label htmlFor="batch-name" className="sr-only">
                 Batch name
@@ -601,9 +805,10 @@ export function BatchStudio() {
               />
               <Pencil className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
             </div>
+            <p className="text-[14px] text-ink-3">One consistent finish. Across your collection.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
-            <Button variant="secondary" size="lg" onClick={() => inputRef.current?.click()} icon={<Plus className="size-4" aria-hidden="true" />}>
+            <Button variant="outline-blue" size="lg" onClick={() => inputRef.current?.click()} icon={<ImageIcon className="size-4" aria-hidden="true" />}>
               Add images
             </Button>
             <Button
@@ -617,15 +822,13 @@ export function BatchStudio() {
               Export set
             </Button>
             <Button
-              variant="dark"
               size="lg"
               disabled={readyIds.length === 0 || exporting !== null}
-              title={readyIds.length === 0 ? "No finished images yet" : undefined}
+              title={readyIds.length === 0 ? "No finished images yet" : `Download every finished image (${readyIds.length})`}
               onClick={() => void exportItems(items.map((i) => i.id), "all")}
-              icon={exporting ? <Spinner className="size-5" /> : undefined}
+              icon={exporting ? <Spinner className="size-5" /> : <Upload className="size-4" aria-hidden="true" />}
             >
-              Export all ready
-              {!exporting && <ArrowDown className="size-4" aria-hidden="true" />}
+              Export ready
             </Button>
           </div>
         </div>
@@ -633,6 +836,16 @@ export function BatchStudio() {
           <StorageNote />
         </div>
 
+        <Workflow
+          flagged={flagged}
+          onProcess={() => (waitingIds.length ? (signedIn && !needsPro ? processItems(waitingIds) : startSelectedOrAll()) : setFilter(countItems(items).processing + countItems(items).queued ? "processing" : "all"))}
+          onLayout={() => {
+            setTab("layout");
+            if (!window.matchMedia("(min-width: 1024px)").matches) setSettingsOpen(true);
+          }}
+          onReview={openCheck}
+          onExport={openExportSettings}
+        />
         <StatusStrip />
         <EngineNotice />
 
@@ -700,16 +913,21 @@ export function BatchStudio() {
         <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_370px] xl:grid-cols-[minmax(0,1fr)_390px]">
           {/* Images */}
           <section aria-label="Images in this batch" className="min-w-0 rounded-[18px] border border-line bg-surface p-4 shadow-[var(--shadow-card)] sm:p-5">
-            <div role="toolbar" aria-label="Batch actions" className="flex flex-wrap items-center gap-2 border-b border-line pb-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pb-3">
               <SelectAll visible={visible} />
-              {selected.length > 0 && (
+              {selected.length > 0 ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 py-1 pl-2.5 pr-1 text-xs font-semibold text-blue-700">
                   {selected.length} selected
                   <button type="button" onClick={() => setSelection([])} aria-label="Clear selection" className="rounded-full p-0.5 hover:bg-blue-100">
                     <X className="size-3.5" aria-hidden="true" />
                   </button>
                 </span>
+              ) : (
+                <span className="text-[14px] text-muted">0 selected</span>
               )}
+              <FilterChips filter={filter} onChange={setFilter} />
+            </div>
+            <div role="toolbar" aria-label="Batch actions" className="flex flex-wrap items-center gap-2 border-y border-line py-3">
               <button type="button" className={toolButton} disabled={Boolean(removeReason)} title={removeReason ?? undefined} onClick={startSelected}>
                 <Scissors className="size-4" aria-hidden="true" /> Remove background
               </button>
@@ -726,6 +944,20 @@ export function BatchStudio() {
               >
                 <ScanSearch className="size-4" aria-hidden="true" /> Check consistency
                 {flagged > 0 && <span className="rounded-full bg-warn-50 px-1.5 text-[11px] font-bold text-warn">{flagged}</span>}
+              </button>
+              <button
+                type="button"
+                className={cn(toolButton, peeking && "border-blue bg-blue-50 text-blue-700")}
+                disabled={readyIds.length === 0}
+                aria-pressed={peeking}
+                title="Hold to see the originals (or hold the O key)"
+                onPointerDown={() => usePeek.setState({ originals: true })}
+                onPointerUp={() => usePeek.setState({ originals: false })}
+                onPointerLeave={() => usePeek.setState({ originals: false })}
+                onKeyDown={(e) => (e.key === " " || e.key === "Enter") && usePeek.setState({ originals: true })}
+                onKeyUp={() => usePeek.setState({ originals: false })}
+              >
+                <Eye className="size-4" aria-hidden="true" /> Hold to compare
               </button>
               <DropdownMenu.Root modal={false}>
                 <DropdownMenu.Trigger className={toolButton} disabled={items.length === 0}>
@@ -784,6 +1016,7 @@ export function BatchStudio() {
                     [
                       { value: "compact", label: "Small thumbnails", icon: <LayoutGrid className="size-3.5" aria-hidden="true" /> },
                       { value: "grid", label: "Large thumbnails", icon: <LayoutGrid className="size-[18px]" aria-hidden="true" /> },
+                      { value: "compare", label: "Side by side: original and result", icon: <Columns2 className="size-4" aria-hidden="true" /> },
                       { value: "list", label: "List", icon: <List className="size-4" aria-hidden="true" /> },
                     ] as const
                   ).map((o) => (
@@ -807,7 +1040,16 @@ export function BatchStudio() {
               {hint}
             </p>
 
-            {items.length > 0 && visible.length === 0 && <p className="mt-6 text-center text-sm text-muted">No images match “{query}”.</p>}
+            {items.length > 0 && visible.length === 0 && (
+              <p className="mt-6 text-center text-sm text-muted">
+                {needle ? `No images match “${query}”${filter !== "all" ? " in this filter" : ""}.` : "No images in this state."}{" "}
+                {filter !== "all" && (
+                  <button type="button" className="font-semibold text-blue-700 hover:underline" onClick={() => setFilter("all")}>
+                    Show all
+                  </button>
+                )}
+              </p>
+            )}
             {visible.length > 0 &&
               (view === "list" ? (
                 <ul className="mt-4 grid gap-1" aria-label="Batch images">
@@ -818,14 +1060,26 @@ export function BatchStudio() {
               ) : (
                 <ul
                   className="mt-4 grid gap-4"
-                  style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${view === "compact" ? 190 : 260}px), 1fr))` }}
+                  style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${view === "compact" ? 190 : view === "compare" ? 380 : 260}px), 1fr))` }}
                   aria-label="Batch images"
                 >
                   {visible.map((item) => (
-                    <BatchCard key={item.id} item={item} selected={chosen.has(item.id)} compact={view === "compact"} />
+                    <BatchCard key={item.id} item={item} selected={chosen.has(item.id)} compact={view === "compact"} compare={view === "compare"} />
                   ))}
                 </ul>
               ))}
+
+            {items.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[10px] bg-paper px-3 py-2 text-[13px] text-ink-3">
+                <Info className="size-4 shrink-0 text-muted" aria-hidden="true" />
+                <p className="min-w-0 flex-1" aria-live="polite">
+                  {undone ?? (cancellable.length ? "Keep editing while other images process." : "Hold O to see the originals. Ctrl+A selects everything shown; Ctrl+Z undoes a batch change.")}
+                </p>
+                <button type="button" onClick={() => void undoBatch()} disabled={historyDepth === 0} title={historyDepth ? "Undo the last Apply, fix or format change (Ctrl+Z)" : "No batch changes to undo yet"} className="inline-flex items-center gap-1.5 font-semibold text-blue-700 hover:underline disabled:text-subtle disabled:no-underline">
+                  <Undo2 className="size-4" aria-hidden="true" /> Undo batch changes
+                </button>
+              </div>
+            )}
 
             <button
               type="button"
@@ -853,11 +1107,11 @@ export function BatchStudio() {
           {/* Settings (desktop) */}
           <aside
             ref={settingsRef}
-            aria-label="Batch settings"
+            aria-label="Collection settings"
             className="hidden overflow-y-auto overscroll-contain rounded-[18px] border border-line bg-surface shadow-[var(--shadow-card)] [scrollbar-width:thin] lg:sticky lg:top-20 lg:block lg:max-h-[calc(100dvh-12rem)]"
           >
             <div className="px-5 pt-5">
-              <BatchSettingsPanel />
+              <BatchSettingsPanel onReview={openCheck} />
             </div>
           </aside>
         </div>
@@ -868,8 +1122,15 @@ export function BatchStudio() {
       <ConsistencyPanel open={checkOpen} onOpenChange={setCheckOpen} />
       <ExportSetDialog open={exportSetOpen} onOpenChange={setExportSetOpen} />
 
-      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen} title="Batch settings" side="bottom" className="lg:hidden">
-        <BatchSettingsPanel inSheet onApplied={() => setSettingsOpen(false)} />
+      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen} title="Collection settings" side="bottom" className="lg:hidden">
+        <BatchSettingsPanel
+          inSheet
+          onApplied={() => setSettingsOpen(false)}
+          onReview={() => {
+            setSettingsOpen(false);
+            openCheck();
+          }}
+        />
       </Sheet>
     </div>
   );

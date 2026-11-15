@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/progress";
-import { applySettings, isReady, openInEditor, useBatch, type BatchItem } from "@/lib/batch/batch-store";
+import { applySettingsMap, isReady, openInEditor, useBatch, type BatchItem } from "@/lib/batch/batch-store";
 import { cn } from "@/lib/cn";
 import { ISSUE_LABEL, TARGETS, checkCollection, flaggedCount, targetSummary, type CheckEntry, type Fix, type Issue, type Report, type TargetId } from "@/lib/consistency";
 import { exportPolicy } from "@/lib/plan-policy";
@@ -121,7 +121,8 @@ export function ConsistencyPanel({ open, onOpenChange }: { open: boolean; onOpen
     }
     if (fix.kind !== "settings") return;
     setBusy(key);
-    for (const change of fix.changes) await applySettings([change.id], change.settings);
+    // One change, so "Undo batch changes" takes the whole fix back.
+    await applySettingsMap(new Map(fix.changes.map((c) => [c.id, c.settings])));
     setBusy(null);
     setStatus(`Applied to ${fix.changes.length === 1 ? "1 image" : `${fix.changes.length} images`}. Previews and downloads use the new settings.`);
   }
