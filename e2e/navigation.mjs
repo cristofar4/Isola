@@ -169,6 +169,32 @@ check("Choosing Resize & crop with an image open selects the crop tool", (await 
   await mobile.close();
 }
 
+// Search in the site header.
+{
+  const anon = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const s = await anon.newPage();
+  await s.goto(BASE, { waitUntil: "networkidle" });
+  await s.locator("[data-site-search]").click();
+  const search = s.getByRole("dialog", { name: "Search ISOLA" });
+  await search.waitFor();
+  await s.keyboard.type("batch");
+  const first = search.getByRole("option").first();
+  check("The site header has search: it finds tools, pages and docs", /Batch Studio/.test(await first.innerText()) && (await search.getByText("Developer docs").count()) === 1, (await first.innerText()).replace(/\s+/g, " "));
+  await s.keyboard.press("Enter");
+  await s.waitForURL("**/batch");
+  check("Enter opens the result", new URL(s.url()).pathname === "/batch");
+  await s.keyboard.press("Control+k");
+  await s.getByRole("dialog", { name: "Search ISOLA" }).waitFor();
+  await s.keyboard.type("zzzzqq");
+  check("⌘K opens search anywhere on the site, and says so when nothing matches", await s.getByRole("dialog", { name: "Search ISOLA" }).getByText(/No results|Nothing matches|No matches/i).first().isVisible());
+  await s.keyboard.press("Escape");
+  await s.setViewportSize({ width: 390, height: 844 });
+  await s.goto(BASE, { waitUntil: "networkidle" });
+  await s.getByRole("button", { name: "Search", exact: true }).click();
+  check("On phones, search is a button in the header", await s.getByRole("dialog", { name: "Search ISOLA" }).isVisible());
+  await anon.close();
+}
+
 await browser.close();
 await mailbox.close();
 console.log(`\n${total - failures}/${total} navigation checks passed`);

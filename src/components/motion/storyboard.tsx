@@ -30,7 +30,7 @@ function ShotThumb({ film, at, label }: { film: Film; at: number; label: string 
     const id = setTimeout(() => renderFrame(ctx, film, at, c.width, c.height, previewResources(false)), 120);
     return () => clearTimeout(id);
   }, [film, at, v]);
-  return <canvas ref={ref} role="img" aria-label={label} className="block h-[64px] w-full bg-black object-contain" />;
+  return <canvas ref={ref} role="img" aria-label={label} className="block h-[64px] w-full bg-m-well object-contain" />;
 }
 
 /** The film's shots in order. The same data as the timeline: reordering here moves the shots' clips there. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyFilm, migrateFilm, newClip, newShot, outputSize, type Film } from "@/lib/motion/model";
-import { addClip, addShot, deleteClips, deleteShot, duplicateKeyframe, duplicateShot, moveClip, moveKeyframe, reorderShots, setKeyframe, setShotDuration, setTransition, splitClip, trimClip, validateFilm } from "@/lib/motion/ops";
+import { CAMERA_MOVES, addCameraKeyframes, addClip, addTransformKeyframes, applyCameraMove, cameraMoveKeys, describeCameraMove, scaleFilm, setAllTransitions, setLightSweep, shotSweeps, addShot, deleteClips, deleteShot, duplicateKeyframe, duplicateShot, moveClip, moveKeyframe, reorderShots, setKeyframe, setShotDuration, setTransition, splitClip, trimClip, validateFilm } from "@/lib/motion/ops";
 import { clipRange, clipValue, cubicBezier, filmDuration, shotsAt, timecode, valueAt } from "@/lib/motion/time";
 
 function film2(): Film {
@@ -200,7 +200,7 @@ describe("stored films", () => {
 });
 
 import { emptyScene, productLayer, shadowLayer, textLayer, type ProductLayer } from "@/lib/scene/model";
-import { KITS, buildFromStyle, defaultParams, extractStyle, layerSetFromScene } from "@/lib/motion/kits";
+import { KIT_MOODS, KITS, buildFromStyle, defaultParams, extractStyle, layerSetFromScene } from "@/lib/motion/kits";
 import { applySceneUpdate, diffScene, filmFromScene } from "@/lib/motion/scene-link";
 
 function scene() {
@@ -309,5 +309,104 @@ describe("update from scene", () => {
     expect(validateFilm(detached)).toEqual([]);
     const removed = applySceneUpdate(film, next, { conflicts: {}, addNew: false, removeMissing: true });
     expect(removed.clips.some((c) => c.link?.layerId === jar.id)).toBe(false);
+  });
+});
+
+describe("quick motion", () => {
+  it("camera moves are ordinary keyframes at the shot's ends, and are recognised again", () => {
+    const f = film2();
+    const shot = f.shots[0];
+    for (const move of CAMERA_MOVES.slice(1)) {
+      const next = applyCameraMove(f, shot.id, move, 0.6, "ease-out").film;
+      const s = next.shots[0];
+      const lists = Object.values(s.camera);
+      expect(lists.length).toBeGreaterThan(0);
+      for (const list of lists) {
+        expect(list!.map((k) => k.t)).toEqual([0, shot.duration]);
+        expect(list!.every((k) => k.ease === "ease-out")).toBe(true);
+      }
+      expect(describeCameraMove(s)).toEqual({ move, intensity: 0.6, ease: "ease-out" });
+      expect(validateFilm(next)).toEqual([]);
+    }
+    expect(describeCameraMove(shot).move).toBe("none");
+    expect(applyCameraMove(applyCameraMove(f, shot.id, "push-in", 1).film, shot.id, "none", 1).film.shots[0].camera).toEqual({});
+  });
+  it("a push in zooms more with intensity; pans keep enough zoom that the set's edges never show", () => {
+    const zoomEnd = (i: number) => cameraMoveKeys(4, "push-in", i).zoom![1].v;
+    expect(zoomEnd(1)).toBeGreaterThan(zoomEnd(0.3));
+    expect(cameraMoveKeys(4, "push-in", 0.5).zoom![0].v).toBe(1);
+    for (const move of ["pan-left", "pan-right", "rise", "drift"] as const) {
+      for (const i of [0.05, 0.4, 1]) {
+        const cam = cameraMoveKeys(4, move, i);
+        for (const end of [0, 1]) {
+          const zoom = cam.zoom![end].v;
+          const pan = Math.abs((cam.panX ?? cam.panY)![end].v);
+          // A frame-filling layer at depth 1 stays inside the frame while |pan| ≤ (1 − 1/zoom) / 2.
+          expect(pan).toBeLessThanOrEqual((1 - 1 / zoom) / 2 + 1e-9);
+        }
+      }
+    }
+  });
+  it("hand-edited camera keyframes read as custom, never as a preset", () => {
+    const f = film2();
+    const moved = applyCameraMove(f, f.shots[0].id, "push-in", 0.5).film;
+    const edited = setKeyframe(moved, { kind: "camera", shotId: f.shots[0].id, prop: "zoom" }, 2, 1.5).film;
+    expect(describeCameraMove(edited.shots[0]).move).toBe("custom");
+    const odd = setKeyframe(setKeyframe(f, { kind: "camera", shotId: f.shots[0].id, prop: "rotate" }, 0, 0).film, { kind: "camera", shotId: f.shots[0].id, prop: "rotate" }, 4, 5).film;
+    expect(describeCameraMove(odd.shots[0]).move).toBe("custom");
+  });
+  it("a lighting sweep is its own keyframed overlay clip for the shot, and comes off again", () => {
+    const f = film2();
+    const on = setLightSweep(f, f.shots[1].id, true).film;
+    const sweeps = shotSweeps(on, f.shots[1].id);
+    expect(sweeps).toHaveLength(1);
+    expect(sweeps[0]).toMatchObject({ start: 0, duration: 3, role: "overlay", depth: 0 });
+    expect(sweeps[0].keyframes.lightX!.map((k) => k.t)).toEqual([0, 3]);
+    expect(sweeps[0].keyframes.lightX![0].v).toBeLessThan(0);
+    expect(sweeps[0].keyframes.lightX![1].v).toBeGreaterThan(1);
+    expect(shotSweeps(on, f.shots[0].id)).toHaveLength(0);
+    expect(on.clips.filter((c) => c.source.kind === "image")).toEqual(f.clips); // product clips untouched
+    expect(validateFilm(on)).toEqual([]);
+    expect(setLightSweep(on, f.shots[1].id, true).film).toBe(on); // already on
+    // A second shot's sweep shares the lighting track.
+    const both = setLightSweep(on, f.shots[0].id, true).film;
+    expect(both.tracks.length).toBe(on.tracks.length);
+    const off = setLightSweep(both, f.shots[1].id, false).film;
+    expect(shotSweeps(off, f.shots[1].id)).toHaveLength(0);
+    expect(shotSweeps(off, f.shots[0].id)).toHaveLength(1);
+  });
+  it("Add keyframe pins a clip's position and scale at the playhead; the camera when nothing is selected", () => {
+    const f = film2();
+    const jar = f.clips[1]; // in shot B (starts at 4s), 0.5s in, 2s long
+    expect(addTransformKeyframes(f, jar.id, 1).problem).toMatch(/playhead/);
+    const pinned = addTransformKeyframes(f, jar.id, 5).film.clips[1];
+    expect(Object.keys(pinned.keyframes).sort()).toEqual(["scale", "x", "y"]);
+    expect(pinned.keyframes.x).toHaveLength(1);
+    expect(pinned.keyframes.x![0]).toMatchObject({ t: 0.5, v: jar.transform.x });
+    // Pinning leaves the picture as it was.
+    for (const prop of ["x", "y", "scale"] as const) expect(clipValue(pinned, prop, 1.2)).toBe(clipValue(jar, prop, 1.2));
+    const cam = addCameraKeyframes(f, f.shots[0].id, 1.5).film.shots[0].camera;
+    expect(cam.zoom).toMatchObject([{ t: 1.5, v: 1 }]);
+    expect(cam.panX).toMatchObject([{ t: 1.5, v: 0 }]);
+    expect(cam.rotate).toBeUndefined();
+  });
+  it("one transition for every cut, and the film's length scales shots, clips and keyframes together", () => {
+    const f = film2();
+    const all = setAllTransitions(f, "dissolve", 0.6).film;
+    expect(all.shots.map((s) => s.transition.kind)).toEqual(["cut", "dissolve"]);
+    expect(setAllTransitions(all, "cut").film.shots[1].transition).toEqual({ kind: "cut", duration: 0 });
+    const keyed = setKeyframe(f, { kind: "clip", clipId: f.clips[0].id, prop: "x" }, 2, 0.7).film;
+    const doubled = scaleFilm(keyed, 2).film;
+    expect(filmDuration(doubled)).toBe(14);
+    expect(doubled.clips[0].duration).toBe(8);
+    expect(doubled.clips[0].keyframes.x![0].t).toBe(4);
+    expect(scaleFilm(f, 0.01).problem).toBeTruthy();
+  });
+  it("every built-in style is tagged with at least one mood used by the library filter", () => {
+    for (const kit of KITS) {
+      expect(kit.moods.length).toBeGreaterThan(0);
+      expect(kit.moods.every((m) => KIT_MOODS.includes(m))).toBe(true);
+    }
+    for (const mood of KIT_MOODS) expect(KITS.some((k) => k.moods.includes(mood))).toBe(true);
   });
 });

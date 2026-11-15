@@ -178,11 +178,16 @@ function LogoSlot({ title, note, dark, value, onChange }: { title: string; note:
 function FontRow({ title, note, value, sample, onChange }: { title: string; note: string; value: BrandFont; sample: string; onChange: (f: BrandFont) => void }) {
   const ids = { font: useId(), weight: useId() };
   return (
-    <div className="grid items-center gap-3 sm:grid-cols-[150px_minmax(0,1fr)_130px_minmax(0,1.2fr)]">
-      <div>
-        <p className="text-[14px] font-semibold text-ink">{title}</p>
-        <p className="text-[12px] text-muted">{note}</p>
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="col-span-2 flex min-w-0 items-center justify-between gap-3 sm:col-span-3">
+        <div className="min-w-0">
+          <p className="text-[14px] font-semibold text-ink">{title}</p>
+          <p className="text-[12px] text-muted">{note}</p>
+        </div>
       </div>
+      <p className="order-last col-span-2 truncate rounded-[10px] bg-paper px-3 py-2 text-[20px] leading-tight text-ink sm:order-none sm:col-span-1" style={{ fontFamily: FONT_CSS[value.font], fontWeight: value.weight }} data-font-sample={title}>
+        {sample}
+      </p>
       <div>
         <label htmlFor={ids.font} className="sr-only">
           {title} font
@@ -207,9 +212,6 @@ function FontRow({ title, note, value, sample, onChange }: { title: string; note
           ))}
         </select>
       </div>
-      <p className="truncate rounded-[10px] bg-paper px-3 py-2 text-[20px] leading-tight text-ink" style={{ fontFamily: FONT_CSS[value.font], fontWeight: value.weight }} data-font-sample={title}>
-        {sample}
-      </p>
     </div>
   );
 }
@@ -323,7 +325,7 @@ function Editor({ initial, id, onSaved, onCancel, onDeleted }: { initial: BrandP
               <legend className="text-[17px] font-bold text-ink">Brand colours</legend>
               <ul className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Brand colours">
                 {draft.colors.map((c, i) => (
-                  <li key={i} className="grid gap-1.5">
+                  <li key={i} className="grid min-w-0 grid-cols-1 gap-1.5">
                     <input type="color" aria-label={`Colour ${i + 1}`} value={/^#[0-9a-f]{6}$/i.test(c.hex) ? c.hex : "#000000"} onChange={(e) => setColor(i, { hex: e.target.value.toUpperCase() })} className="h-[72px] w-full cursor-pointer rounded-[12px] border border-line bg-surface p-1" />
                     <div className="flex items-center gap-1">
                       <input aria-label={`Colour ${i + 1} name`} value={c.name} maxLength={30} onChange={(e) => setColor(i, { name: e.target.value })} className="h-8 min-w-0 flex-1 rounded-[8px] border border-transparent px-1.5 text-[14px] font-semibold text-ink hover:border-line focus:border-blue focus:outline-none" />
@@ -351,8 +353,8 @@ function Editor({ initial, id, onSaved, onCancel, onDeleted }: { initial: BrandP
             <fieldset>
               <legend className="text-[17px] font-bold text-ink">Logos</legend>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
-                <LogoSlot title="Primary" note="Main logo, on light backgrounds" value={identity.logos.primary} onChange={(v) => ident({ logos: { ...identity.logos, primary: v } })} />
-                <LogoSlot title="Light" note="For dark backgrounds" dark value={identity.logos.light} onChange={(v) => ident({ logos: { ...identity.logos, light: v } })} />
+                <LogoSlot title="Primary" note="On light backgrounds" value={identity.logos.primary} onChange={(v) => ident({ logos: { ...identity.logos, primary: v } })} />
+                <LogoSlot title="Light" note="On dark backgrounds" dark value={identity.logos.light} onChange={(v) => ident({ logos: { ...identity.logos, light: v } })} />
               </div>
               <p className="mt-2 text-[12px] text-muted">Logos are files in this browser&apos;s asset library. The preset remembers which ones; on another device, add them to that library too.</p>
             </fieldset>

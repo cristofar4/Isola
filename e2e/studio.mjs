@@ -123,13 +123,40 @@ await page.waitForURL("**/studio/presets**");
 const form = page.getByRole("form", { name: "New brand preset" });
 await form.waitFor();
 await form.getByLabel("Preset name").fill("Catalogue white");
+// Identity: the colour swatches stay inside their columns.
+const swatches = await form.locator('ul[aria-label="Brand colours"] > li').evaluateAll((els) => els.map((li) => [li.getBoundingClientRect().width, li.querySelector("input[type=color]")?.getBoundingClientRect().width ?? 0]));
+check("Brand colours sit in a tidy grid", swatches.length >= 3 && swatches.every(([cell, swatch]) => swatch === 0 || swatch <= cell + 0.5), JSON.stringify(swatches.map((x) => x.map(Math.round))));
+const canvasInk = (locator) =>
+  locator.evaluate((c) => {
+    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    let min = 255;
+    let max = 0;
+    for (let i = 0; i < d.length; i += 64) {
+      min = Math.min(min, d[i]);
+      max = Math.max(max, d[i]);
+    }
+    return max - min;
+  });
+const identityPreview = page.locator("[data-identity-preview]");
+await identityPreview.locator("canvas").first().waitFor();
+await page.waitForTimeout(800);
+check("The identity preview is drawn by the scene renderer (not a mock-up)", (await canvasInk(identityPreview.locator("canvas").first())) > 30);
+await form.getByRole("tab", { name: "Image style" }).click();
 await form.getByLabel("Background").selectOption("white");
-await form.getByLabel("Format").selectOption("jpeg");
-await form.getByLabel("Use as my default preset").check();
 await page.waitForTimeout(400);
 check("The preset editor shows a live preview drawn by the export renderer", (await imagesLoaded(form.locator("[data-preset-preview]"))) === 1);
+await form.getByRole("tab", { name: "Motion", exact: true }).click();
+await form.getByLabel("Motion style").selectOption("soft-luxury");
+await form.getByLabel("Transitions").selectOption("dissolve");
+await page.waitForTimeout(600);
+const motionSummary = (await page.locator("[data-motion-summary]").innerText()).replace(/\s+/g, " ");
+check("Motion defaults preview with the real renderer and say what they are", /Soft luxury/.test(motionSummary) && (await page.getByRole("complementary", { name: "Preview and apply" }).getByRole("tab", { name: "Motion" }).getAttribute("aria-selected")) === "true", motionSummary.slice(0, 120));
+await form.getByRole("tab", { name: "Export", exact: true }).click();
+await form.getByLabel("Format", { exact: true }).selectOption("jpeg");
+await page.getByLabel("Use as my default preset").check();
+await page.waitForTimeout(400);
 await page.screenshot({ path: join(OUT, "presets-editor.png") });
-await form.getByRole("button", { name: "Create preset" }).click();
+await page.getByRole("button", { name: "Create preset" }).click();
 const created = page.locator('[data-preset="Catalogue white"]');
 await created.waitFor();
 check(
@@ -138,8 +165,17 @@ check(
 );
 presets = (await (await freeCtx.request.get(`${BASE}/api/presets`)).json()).presets;
 const white = presets.find((p) => p.name === "Catalogue white");
+check(
+  "The preset stores its identity (type, motion and export defaults) with the account",
+  white.identity?.motion.style === "soft-luxury" && white.identity.motion.transition === "dissolve" && white.identity.typography.heading.font && white.identity.export.container === "mp4" && white.format === "jpeg",
+  JSON.stringify(white.identity?.motion),
+);
 
-// Command palette.
+// Command palette: from the sidebar's search box, the top bar, or ⌘K.
+await page.locator("[data-sidebar-search]").click();
+await page.getByRole("dialog", { name: "Search the studio" }).waitFor();
+check("The studio sidebar has a search box that opens search", await page.getByRole("dialog", { name: "Search the studio" }).isVisible());
+await page.keyboard.press("Escape");
 await page.keyboard.press("Control+k");
 const palette = page.getByRole("dialog", { name: "Search the studio" });
 await palette.waitFor();

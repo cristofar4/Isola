@@ -179,7 +179,7 @@ export function DeliverPanel() {
         </div>
       ) : (
         <DarkButton tone="primary" icon={<FilmIcon className="size-4" aria-hidden="true" />} disabled={!encoding || problems.length > 0} onClick={() => void render()}>
-          Export film
+          Export video
         </DarkButton>
       )}
       {error && (

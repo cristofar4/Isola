@@ -45,7 +45,7 @@ export const MOTION_STYLE_LABEL: Record<(typeof MOTION_STYLE_IDS)[number], strin
 };
 /** "auto" keeps whatever the motion style itself uses between shots. */
 export const BRAND_TRANSITIONS = ["auto", "cut", "dissolve", "dip", "slide", "wipe"] as const;
-export const BRAND_TRANSITION_LABEL: Record<(typeof BRAND_TRANSITIONS)[number], string> = { auto: "As the style defines", cut: "Cut", dissolve: "Soft dissolve", dip: "Dip to black", slide: "Slide", wipe: "Wipe" };
+export const BRAND_TRANSITION_LABEL: Record<(typeof BRAND_TRANSITIONS)[number], string> = { auto: "Style default", cut: "Cut", dissolve: "Soft dissolve", dip: "Dip to black", slide: "Slide", wipe: "Wipe" };
 export const BRAND_FORMATS = ["square", "portrait", "wide", "story"] as const;
 export type BrandFormat = (typeof BRAND_FORMATS)[number];
 

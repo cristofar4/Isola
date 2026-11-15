@@ -52,6 +52,11 @@ await audit("/batch (mobile settings drawer)");
 await page.keyboard.press("Escape");
 await page.setViewportSize({ width: 1280, height: 900 });
 await page.goto(BASE, { waitUntil: "networkidle" });
+await page.locator("[data-site-search]").click();
+await page.getByRole("dialog", { name: "Search ISOLA" }).waitFor();
+await page.waitForTimeout(500);
+await audit("/ (site search open)");
+await page.keyboard.press("Escape");
 await page.getByRole("button", { name: /Account menu/ }).click();
 await page.waitForTimeout(300);
 await audit("/ (account menu open)");
@@ -70,6 +75,11 @@ await page.goto(`${BASE}/studio/presets?new=1`, { waitUntil: "networkidle" });
 await page.getByRole("form", { name: "New brand preset" }).waitFor();
 await page.waitForTimeout(500);
 await audit("/studio/presets (editor open)");
+for (const tab of ["Image style", "Motion", "Export"]) {
+  await page.getByRole("form", { name: "New brand preset" }).getByRole("tab", { name: tab, exact: true }).click();
+  await page.waitForTimeout(400);
+  await audit(`/studio/presets (${tab.toLowerCase()})`);
+}
 // Asset library, projects, a project board, trash and downloads.
 await page.goto(`${BASE}/studio/assets`, { waitUntil: "networkidle" });
 await page.getByText("Your library is empty").waitFor();
@@ -118,15 +128,33 @@ await page.getByRole("dialog", { name: "Choose a motion style" }).waitFor();
 await page.waitForTimeout(800);
 await audit("/studio/scenes/[id] (choose a motion style)");
 await page.getByRole("dialog", { name: "Choose a motion style" }).getByRole("button", { name: "Animate in Motion Studio" }).click();
-await page.waitForURL("**/motion/**", { timeout: 30_000 });
+await page.waitForURL("**/studio/motion/**", { timeout: 30_000 });
 await page.locator("[data-viewer]").waitFor({ timeout: 30_000 });
 await page.waitForTimeout(800);
-await audit("/motion/[id] (assemble)");
-for (const ws of ["Animate", "Colour", "Sound", "Deliver"]) {
-  await page.getByRole("button", { name: ws, exact: true }).click();
-  await page.waitForTimeout(700);
-  await audit(`/motion/[id] (${ws.toLowerCase()})`);
+await audit("/studio/motion/[id] (motion, quick)");
+for (const mode of ["Keyframes", "Layer"]) {
+  await page.getByRole("radio", { name: mode }).click();
+  await page.waitForTimeout(500);
+  await audit(`/studio/motion/[id] (motion, ${mode.toLowerCase()})`);
 }
+for (const tab of ["Colour", "Text", "Sound", "Export"]) {
+  await page.getByRole("tab", { name: tab, exact: true }).click();
+  await page.waitForTimeout(700);
+  await audit(`/studio/motion/[id] (${tab.toLowerCase()})`);
+}
+for (const tab of ["Media", "Elements", "Styles"]) {
+  await page.getByRole("tab", { name: tab, exact: true }).click();
+  await page.waitForTimeout(500);
+  await audit(`/studio/motion/[id] (library: ${tab.toLowerCase()})`);
+}
+await page.getByRole("button", { name: "Use the dark workspace" }).click();
+await page.waitForTimeout(500);
+await audit("/studio/motion/[id] (dark workspace)");
+await page.getByRole("tab", { name: "Motion", exact: true }).click();
+await page.getByRole("radio", { name: "Quick" }).click();
+await page.waitForTimeout(500);
+await audit("/studio/motion/[id] (dark, quick)");
+await page.getByRole("button", { name: "Use the light workspace" }).click();
 await page.goto(`${BASE}/studio/motion`, { waitUntil: "networkidle" });
 await audit("/studio/motion");
 await page.setViewportSize({ width: 390, height: 844 });

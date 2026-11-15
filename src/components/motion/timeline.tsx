@@ -424,7 +424,7 @@ export function Timeline() {
       </div>
       {selectedClip && Object.keys(selectedClip.keyframes).length > 0 && (
         <p className="flex items-center gap-1.5 border-t border-m-line px-3 py-1 text-[11px] text-m-subtle">
-          <DiamondIcon className="size-3" aria-hidden="true" /> Drag a keyframe diamond to move it in time. Edit values and curves in Animate.
+          <DiamondIcon className="size-3" aria-hidden="true" /> Drag a keyframe diamond to move it in time. Edit values and curves under Motion › Keyframes.
         </p>
       )}
     </div>

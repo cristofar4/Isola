@@ -20,7 +20,7 @@ function FilmCard({ film, onMessage }: { film: Film; onMessage: (t: string) => v
   const item = "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] text-ink outline-none data-[highlighted]:bg-paper";
   return (
     <li data-film={film.name} className="overflow-hidden rounded-[16px] border border-line bg-surface shadow-[var(--shadow-card)]" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <Link href={`/studio/motion/${film.id}`} aria-label={`Open ${film.name}`} className="block bg-black">
+      <Link href={`/studio/motion/${film.id}`} aria-label={`Open ${film.name}`} className="block bg-m-well">
         <FilmPreview film={film} playing={hover} label={`${film.name} preview`} className="aspect-video object-contain" still={0.4} />
       </Link>
       <div className="flex items-start gap-2 px-4 py-3">

@@ -51,5 +51,5 @@ export function FilmPreview({ film, playing, className, label, still = 0.55 }: {
       off();
     };
   }, [film, playing, still]);
-  return <canvas ref={ref} role="img" aria-label={label} className={cn("block h-auto w-full bg-black", className)} />;
+  return <canvas ref={ref} role="img" aria-label={label} className={cn("block h-auto w-full bg-m-well", className)} />;
 }

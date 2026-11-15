@@ -592,7 +592,10 @@ export function setLightSweep(film: Film, shotId: string, on: boolean): EditResu
   if (!on) {
     if (existing.some((c) => trackOf(film, c.trackId)?.locked)) return { film, problem: "Unlock the lighting track to remove the sweep." };
     const gone = new Set(existing.map((c) => c.id));
-    return { film: withClips(film, film.clips.filter((c) => !gone.has(c.id))) };
+    const clips = film.clips.filter((c) => !gone.has(c.id));
+    // A lighting track left with nothing on it goes too.
+    const emptied = new Set(existing.map((c) => c.trackId).filter((id) => !clips.some((c) => c.trackId === id) && /^light/i.test(trackOf(film, id)?.name ?? "")));
+    return { film: { ...withClips(film, clips), tracks: film.tracks.filter((t) => !emptied.has(t.id)) } };
   }
   if (existing.length) return { film };
   const make = (trackId: string): Clip => ({

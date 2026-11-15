@@ -450,7 +450,7 @@ export function AddText() {
       >
         <Layers className="size-4" aria-hidden="true" /> End card (brand colour + call to action)
       </button>
-      <p className="text-[11px] leading-snug text-m-subtle">Added at the playhead, in the current shot, on its own track. Text says only what you type; edit it in the inspector. Animations: fade, slide, reveal and stagger.</p>
+      <p className="text-[11px] leading-snug text-m-subtle">Added at the playhead, in the current shot, on its own track. Text says only what you type; edit it under Text. Animations: fade, slide, reveal and stagger.</p>
     </div>
   );
 }

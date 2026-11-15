@@ -98,7 +98,7 @@ interface Layout {
   rightOpen: boolean;
   bottomOpen: boolean;
 }
-const DEFAULT_LAYOUT: Layout = { left: 300, right: 320, bottom: 260, leftOpen: true, rightOpen: true, bottomOpen: true };
+const DEFAULT_LAYOUT: Layout = { left: 300, right: 328, bottom: 260, leftOpen: true, rightOpen: true, bottomOpen: true };
 
 /** A drag handle between panels. */
 function Splitter({ axis, onDrag, label, value, min, max }: { axis: "x" | "y"; onDrag: (delta: number) => void; label: string; value: number; min: number; max: number }) {
@@ -193,7 +193,7 @@ function Inspector({ workspace }: { workspace: Workspace }) {
 /** A row of tabs heading a side panel. */
 function PanelTabs<T extends string>({ label, tabs, value, onChange }: { label: string; tabs: Array<{ id: T; label: string; icon?: typeof Upload }>; value: T; onChange: (id: T) => void }) {
   return (
-    <div role="tablist" aria-label={label} className="flex shrink-0 gap-0.5 overflow-x-auto border-b border-m-line px-2 [scrollbar-width:none]">
+    <div role="tablist" aria-label={label} className="@container flex shrink-0 gap-0.5 overflow-x-auto border-b border-m-line px-2 [scrollbar-width:none]">
       {tabs.map((t) => (
         <button
           key={t.id}
@@ -203,7 +203,7 @@ function PanelTabs<T extends string>({ label, tabs, value, onChange }: { label: 
           onClick={() => onChange(t.id)}
           className={cn("relative inline-flex h-10 shrink-0 items-center gap-1.5 px-2.5 text-[13px] font-semibold", value === t.id ? "text-m-accent-text after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-m-accent" : "text-m-muted hover:text-m-strong")}
         >
-          {t.icon && <t.icon className="size-4" aria-hidden="true" />}
+          {t.icon && <t.icon className="hidden size-4 @[330px]:block" aria-hidden="true" />}
           {t.label}
         </button>
       ))}
@@ -215,12 +215,16 @@ function useShortcuts() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const el = e.target as HTMLElement | null;
-      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) && !(e.key === "Escape")) return;
+      const mod = e.metaKey || e.ctrlKey;
+      // While typing, keys belong to the field. Dropdowns, sliders and tick boxes keep their own
+      // plain keys (arrows, space, letters) but let undo, redo and duplicate through.
+      const control = !!el && (el.tagName === "SELECT" || (el.tagName === "INPUT" && /^(range|checkbox|radio|color|file|button)$/.test((el as HTMLInputElement).type)));
+      const typing = !!el && !control && (el.isContentEditable || /^(INPUT|TEXTAREA)$/.test(el.tagName));
+      if ((typing || (control && !mod)) && e.key !== "Escape") return;
       if (document.querySelector("[role=dialog]")) return;
       const st = useEditor.getState();
       const film = st.film;
       if (!film) return;
-      const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -314,6 +318,9 @@ function Editor() {
   const openInspector = (id: Workspace) => {
     setWorkspace(id);
     setLayout((l) => ({ ...l, rightOpen: true }));
+    // The library follows along: sound files beside Sound, titles and lights beside Text.
+    if (id === "sound") setTab("audio");
+    if (id === "text") setTab("elements");
     if (narrow) setMobilePanel("inspector");
   };
 

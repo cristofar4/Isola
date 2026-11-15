@@ -138,12 +138,32 @@ check("Six motion styles, each previewed by the real renderer (not blank)", prev
 check("The scene itself isn't changed by previewing", page.url() === sceneUrl);
 await dialog.locator('[data-style="social-launch"]').click();
 await dialog.getByRole("button", { name: "Animate in Motion Studio" }).click();
-await page.waitForURL("**/motion/**", { timeout: 30_000 });
+await page.waitForURL("**/studio/motion/**", { timeout: 30_000 });
 const filmUrl = page.url();
 await page.locator("[data-viewer]").waitFor({ timeout: 30_000 });
 await page.waitForTimeout(1200);
 
 /* 2. Motion Studio ----------------------------------------------------------- */
+const sidebar = page.getByRole("complementary", { name: "Studio sidebar" });
+check(
+  "The film editor opens inside the studio (sidebar, search and Create in reach), in the light workspace",
+  (await sidebar.getByRole("link", { name: "Motion Studio" }).getAttribute("aria-current")) === "page" && (await page.getByRole("button", { name: /Search tools/ }).isVisible()) && (await page.locator("[data-motion-studio]").getAttribute("data-motion-studio")) === "light",
+);
+const panelColour = () => page.getByRole("complementary", { name: "Inspector" }).evaluate((el) => getComputedStyle(el).backgroundColor);
+const lightPanel = await panelColour();
+await page.getByRole("button", { name: "Use the dark workspace" }).click();
+const darkPanel = await panelColour();
+await page.getByRole("button", { name: "Use the light workspace" }).click();
+check("A dark workspace is one click away, and back", lightPanel === "rgb(255, 255, 255)" && darkPanel !== lightPanel && (await panelColour()) === lightPanel, `${lightPanel} ↔ ${darkPanel}`);
+check("The status bar names the linked scene", /Linked source:\s*Sample scene/.test((await page.locator("[data-linked-source]").innerText()).replace(/\s+/g, " ")));
+const kitCards = () => page.locator("[data-kit]").evaluateAll((els) => els.map((e) => e.getAttribute("data-kit")));
+await page.getByLabel("Find a motion style").fill("lux");
+const luxOnly = await kitCards();
+await page.getByLabel("Find a motion style").fill("");
+await page.locator('[data-mood="Social"]').click();
+const social = await kitCards();
+await page.locator('[data-mood="Social"]').click();
+check("Motion styles can be searched and filtered by mood", luxOnly.join() === "layered-parallax,soft-luxury" && social.join() === "editorial-cut,social-launch" && (await kitCards()).length === 6, `“lux” → ${luxOnly.join(", ")} · Social → ${social.join(", ")}`);
 const shots = () => page.locator("[data-shot]").evaluateAll((els) => els.map((e) => e.getAttribute("data-shot")));
 check("Social launch builds five shots from the scene's layers", JSON.stringify(await shots()) === JSON.stringify(["Hook", "Product", "Detail", "Caption", "End card"]), (await shots()).join(", "));
 check("Clips made from scene layers are linked to the scene", (await page.locator("[data-clip]").filter({ hasText: "↔" }).count()) >= 8);
@@ -183,11 +203,12 @@ check("Split at the playhead (S) makes two clips; undo joins them", afterSplit =
 // Keyframes, motion path and curves (Animate).
 await page.locator('[data-shot="Hook"] button').first().click();
 await page.locator('[data-track="Product"] [data-clip="Serum"]').first().click();
-await page.getByRole("button", { name: "Animate", exact: true }).click();
+await page.getByRole("tab", { name: "Motion", exact: true }).click();
+await page.getByRole("radio", { name: "Keyframes" }).click();
 for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowRight");
 await page.getByRole("button", { name: "Add Position X keyframe" }).click();
 for (let i = 0; i < 18; i++) await page.keyboard.press("ArrowRight");
-const px = page.locator('[data-inspector-panel="animate"]').getByRole("textbox", { name: "Position X" });
+const px = page.locator('[data-inspector-panel="motion"]').getByRole("textbox", { name: "Position X" });
 await px.fill("760");
 await px.press("Enter");
 await px.blur();
@@ -196,7 +217,7 @@ check("Position keyframes draw a motion path you can drag", (await page.locator(
 for (let i = 0; i < 9; i++) await page.keyboard.press("ArrowLeft");
 await page.waitForTimeout(150);
 const midLinear = Number(await px.inputValue());
-await page.locator('[data-inspector-panel="animate"] select[id^="ease-"]').first().selectOption("ease-in");
+await page.locator('[data-inspector-panel="motion"] select[id^="ease-"]').first().selectOption("ease-in");
 await page.waitForTimeout(250);
 const midEaseIn = Number(await px.inputValue());
 const startX = 1067; // the first keyframe (x = 600/1080 of the scene, in a 1920-wide film)
@@ -204,10 +225,90 @@ check("Changing a keyframe's ease changes the in-between values (ease-in moves l
 await page.getByRole("radio", { name: "Scene camera" }).click();
 check("Scene camera keyframes are separate from layer keyframes", (await page.getByText(/Moves the whole of Hook/).isVisible()) && (await page.locator('[data-prop="Zoom"]').count()) === 1);
 
+// Quick motion: one-step controls that write ordinary keyframes and clips (on the Detail shot, which nothing else here uses).
+await page.getByRole("radio", { name: "Quick" }).click();
+await page.locator('[data-shot="Detail"] button').first().click();
+await page.waitForTimeout(200);
+const quick = page.locator("[data-quick-motion]");
+await quick.locator("#quick-camera").selectOption("push-in");
+await page.waitForTimeout(200);
+const intensity = quick.getByRole("slider", { name: /Intensity/ });
+await intensity.focus();
+for (let i = 0; i < 6; i++) await page.keyboard.press("ArrowRight");
+await page.waitForTimeout(200);
+await page.getByRole("radio", { name: "Keyframes" }).click();
+await page.getByRole("radio", { name: "Scene camera" }).click();
+const zoomField = page.locator('[data-inspector-panel="motion"]').getByRole("textbox", { name: "Zoom" });
+const zoomStart = Number(await zoomField.inputValue());
+await page.keyboard.press("End");
+await page.locator('[data-shot="Detail"] button').first().click();
+for (let i = 0; i < 22; i++) await page.keyboard.press("ArrowRight");
+await page.waitForTimeout(200);
+const zoomLate = Number(await zoomField.inputValue());
+await page.getByRole("radio", { name: "Quick" }).click();
+check(
+  "A camera move is one choice: Push in at 70% is real zoom keyframes across the shot, shown again as Push in",
+  zoomStart === 100 && zoomLate > 112 && (await quick.locator("#quick-camera").inputValue()) === "push-in" && (await intensity.inputValue()) === "70",
+  `zoom ${zoomStart}% → ${zoomLate}% · intensity ${await intensity.inputValue()}%`,
+);
+await quick.getByRole("switch", { name: "Lighting sweep" }).click();
+await page.waitForTimeout(250);
+const sweepOn = (await page.locator('[data-clip="Light sweep"]').count()) === 1 && (await quick.getByRole("switch", { name: "Lighting sweep" }).getAttribute("aria-checked")) === "true";
+await quick.getByRole("switch", { name: "Lighting sweep" }).click();
+await page.waitForTimeout(250);
+check("The lighting sweep is its own clip on the timeline, and comes off again", sweepOn && (await page.locator('[data-clip="Light sweep"]').count()) === 0);
+const statusLine = async () => (await page.locator("[data-status-bar]").innerText()).replace(/\s+/g, " ");
+const lengthField = quick.getByRole("textbox", { name: "Film length" });
+const lengthBefore = await lengthField.inputValue();
+await lengthField.fill("12");
+await lengthField.press("Enter");
+await page.waitForTimeout(250);
+const stretched = await statusLine();
+await page.keyboard.press("Escape");
+await page.locator('[data-shot="Detail"] button').first().click();
+await page.keyboard.press("Control+z");
+await page.waitForTimeout(250);
+check("Film length stretches the whole film in proportion, and undoes", /12\.0s/.test(stretched) && (await statusLine()).includes(`${Number(lengthBefore).toFixed(1)}s`), `${lengthBefore}s → ${stretched.match(/[\d.]+s/)?.[0]} → undo`);
+await quick.locator("#quick-transition").selectOption("dissolve");
+await page.waitForTimeout(200);
+const dissolved = (await quick.locator("#quick-transition").inputValue()) === "dissolve" && (await quick.getByRole("textbox", { name: "Transition length" }).count()) === 1;
+// Undo works with the dropdown still focused.
+await page.keyboard.press("Control+z");
+await page.waitForTimeout(200);
+check("One transition for every cut, and undo restores the cuts (even from the dropdown)", dissolved && (await quick.locator("#quick-transition").inputValue()) === "cut");
+
+// Timeline tools: keyframe and trim at the playhead.
+await page.locator('[data-shot="Detail"] button').first().click();
+for (let i = 0; i < 8; i++) await page.keyboard.press("ArrowRight");
+const detailClip = page.locator('[data-track="Product"] [data-clip="Serum"]').nth(2);
+await detailClip.click();
+await page.getByRole("button", { name: "Add keyframe" }).click();
+await page.waitForTimeout(200);
+const pinned = (await quick.getByRole("button", { name: "Remove Position X keyframe" }).count()) === 1 && (await quick.getByRole("button", { name: "Remove Scale keyframe" }).count()) === 1;
+const labelBefore = await detailClip.getAttribute("aria-label");
+await page.getByRole("button", { name: "Trim end to playhead (W)" }).click();
+await page.waitForTimeout(200);
+const labelTrimmed = await detailClip.getAttribute("aria-label");
+const playheadNow = await page.locator("[data-timecode]").innerText();
+await page.keyboard.press("Control+z");
+await page.keyboard.press("Control+z");
+await page.waitForTimeout(200);
+check(
+  "Add keyframe pins the selected layer at the playhead; Trim cuts its end there",
+  pinned && labelTrimmed !== labelBefore && labelTrimmed.endsWith(`to ${playheadNow}`) && (await detailClip.getAttribute("aria-label")) === labelBefore,
+  `${labelBefore} → ${labelTrimmed}`,
+);
+await page.getByRole("tab", { name: "Text", exact: true }).click();
+const titles = await page.locator("[data-text-clip]").count();
+await page.locator("[data-text-clip]").first().click();
+check("The Text tab lists the film's titles and edits the one you choose", titles >= 2 && (await page.locator("[data-text-panel]").getByLabel("Words").inputValue()).length > 0, `${titles} titles`);
+await page.getByRole("tab", { name: "Motion", exact: true }).click();
+await page.keyboard.press("Escape");
+
 // Colour: a background grade leaves the product's pixels alone.
 await page.locator('[data-shot="Product"] button').first().click();
 for (let i = 0; i < 20; i++) await page.keyboard.press("ArrowRight");
-await page.getByRole("button", { name: "Colour", exact: true }).click();
+await page.getByRole("tab", { name: "Colour", exact: true }).click();
 await page.waitForTimeout(500);
 // The serum stands at x ≈ 0.556 of the frame (600 of 1080 in the scene), so sample the middle of the bottle.
 const productBefore = await viewerPixel(0.556, 0.5);
@@ -231,7 +332,8 @@ const scopeInk = await page.locator('[data-scopes] canvas[aria-label="RGB parade
 check("Colour scopes are drawn from the preview's pixels", scopeInk > 50, `${scopeInk} lit points`);
 
 // Sound: import, waveform, real meters.
-await page.getByRole("button", { name: "Sound", exact: true }).click();
+await page.getByRole("tab", { name: "Sound", exact: true }).click();
+check("Opening Sound brings the Audio library alongside", (await page.getByRole("tab", { name: "Audio", exact: true }).getAttribute("aria-selected")) === "true");
 await page.locator("#motion-sound-files").setInputFiles(TONE);
 await page.locator('[data-clip="tone"]').waitFor({ timeout: 20_000 });
 check("Imported sound lands on an audio track with its waveform", (await page.locator('[data-clip="tone"] svg path').count()) === 1);
@@ -244,7 +346,7 @@ await page.keyboard.press("Space");
 check("Meters read the actual signal while playing", /^-?\d+(\.\d)? dB$/.test(meter) && Number.parseFloat(meter) > -30, meter);
 
 // Video with its own sound.
-await page.getByRole("button", { name: "Assemble", exact: true }).click();
+await page.getByRole("tab", { name: "Media", exact: true }).click();
 await page.locator("#motion-files").setInputFiles(CLIP);
 await page.locator('[data-media="clip.mp4"]').waitFor({ timeout: 30_000 });
 check("A video is checked, stored and added with its own sound", (await page.locator('[data-clip="clip"]').count()) === 1 && (await page.locator('[data-clip="clip sound"]').count()) === 1);
@@ -277,6 +379,7 @@ await page.evaluate(
 );
 await page.reload({ waitUntil: "networkidle" });
 await page.locator("[data-viewer]").waitFor();
+await page.getByRole("tab", { name: "Media", exact: true }).click();
 const relink = page.locator('[data-media="tone.wav"]').getByText("Relink");
 await relink.waitFor({ timeout: 15_000 });
 check("Media missing from this browser is flagged with a way to relink it", await relink.isVisible());
@@ -304,12 +407,13 @@ check("Update from scene shows what changed, then updates the linked title", /Yo
 check("…and the scene-changed notice goes away", (await page.getByRole("button", { name: "Review update" }).count()) === 0);
 
 /* 3. Deliver ---------------------------------------------------------------- */
-await page.getByRole("button", { name: "Deliver", exact: true }).click();
+await page.getByRole("button", { name: "Export video" }).first().click();
+check("Export video opens the Export tab", (await page.getByRole("tab", { name: "Export", exact: true }).getAttribute("aria-selected")) === "true");
 await page.getByRole("radio", { name: /MP4 · H\.264/ }).waitFor({ timeout: 20_000 });
 check("Only formats this browser can encode are offered, labelled by codec", (await page.getByRole("radio", { name: /MP4 · H\.264/ }).count()) === 1, (await page.locator("[data-deliver] [role=radiogroup][aria-label=Format]").innerText()).replace(/\s+/g, " "));
 const outSize = (await page.locator("[data-output-size]").innerText()).replace(/\s+/g, " ");
 const t0 = Date.now();
-await page.locator("[data-deliver]").getByRole("button", { name: "Export film" }).click();
+await page.locator("[data-deliver]").getByRole("button", { name: "Export video" }).click();
 await page.locator("[data-export-progress]").waitFor({ timeout: 10_000 }).catch(() => undefined);
 await page.locator("[data-export-ready]").waitFor({ timeout: 240_000 });
 const ready = (await page.locator("[data-export-ready]").innerText()).replace(/\s+/g, " ");
@@ -345,8 +449,9 @@ const exportPx = await page.evaluate(async (b64) => {
 check("The exported frame matches the preview at the same time", diff(previewPx, exportPx) < 8, `mean difference ${diff(previewPx, exportPx).toFixed(1)} (of 255) at ${tc}`);
 
 // Persistence.
-await page.reload({ waitUntil: "networkidle" });
+await page.goto(filmUrl.replace("/studio/motion/", "/motion/"), { waitUntil: "networkidle" });
 await page.locator("[data-viewer]").waitFor();
+check("The old full-window address redirects into the studio", page.url() === filmUrl, page.url());
 check("The film (shots, clips, keyframes, sound, export settings) is stored and reloads", JSON.stringify(await shots()) === JSON.stringify(["Hook", "Product", "Detail", "Caption", "End card"]) && (await page.locator('[data-clip="tone"]').count()) === 1 && (await page.locator("[data-clip]").filter({ hasText: "Spring serum" }).count()) >= 1);
 
 await page.goto(`${BASE}/studio/motion`, { waitUntil: "networkidle" });
