@@ -1060,7 +1060,7 @@ export function BatchStudio() {
               ) : (
                 <ul
                   className="mt-4 grid gap-4"
-                  style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${view === "compact" ? 190 : view === "compare" ? 380 : 260}px), 1fr))` }}
+                  style={{ gridTemplateColumns: `repeat(auto-fill, minmax(min(100%, ${view === "compact" ? 170 : view === "compare" ? 340 : 220}px), 1fr))` }}
                   aria-label="Batch images"
                 >
                   {visible.map((item) => (

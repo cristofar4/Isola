@@ -150,7 +150,7 @@ check("⌘K finds your brand presets", await option.isVisible());
 await page.keyboard.press("Enter");
 await page.waitForURL(`**/batch?preset=${white.id}`);
 await page.getByText("Brand preset “Catalogue white” loaded").waitFor({ timeout: 20_000 });
-check("…and applying one loads it into Batch settings", await visible(page.getByText(/1:1 \(Square\), 12% padding, white background, soft shadow, JPEG\. It's in Batch settings/)).first().isVisible());
+check("…and applying one loads it into Collection settings", await visible(page.getByText(/1:1 \(Square\), 12% padding, white background, soft shadow, JPEG\. It's in Collection settings/)).first().isVisible());
 
 // An export from the editor is remembered.
 await page.goto(`${BASE}/editor`, { waitUntil: "networkidle" });

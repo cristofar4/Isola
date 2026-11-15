@@ -126,7 +126,7 @@ function NavLink({ item, pathname, onNavigate, compact }: { item: NavItem; pathn
   );
 }
 
-function Sidebar({ pathname, onNavigate, compact = false }: { pathname: string; onNavigate?: () => void; compact?: boolean }) {
+function Sidebar({ pathname, onNavigate, compact = false, onSearch }: { pathname: string; onNavigate?: () => void; compact?: boolean; onSearch?: () => void }) {
   const { data } = authClient.useSession();
   const plan = usePlan();
   const name = data?.user.name ?? "";
@@ -147,6 +147,28 @@ function Sidebar({ pathname, onNavigate, compact = false }: { pathname: string; 
           {plan.isPending ? "…" : plan.pro ? "Pro" : "Free"}
         </span>
       </div>
+
+      {onSearch && (
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            onSearch();
+          }}
+          aria-label="Search the studio"
+          title={compact ? "Search (⌘K)" : undefined}
+          data-sidebar-search
+          className={cn("flex h-10 items-center gap-2.5 rounded-[10px] border border-white/10 bg-white/5 text-[14px] text-white/75 hover:bg-white/10 hover:text-white", compact ? "justify-center px-0" : "px-3")}
+        >
+          <Search className="size-[18px] shrink-0" aria-hidden="true" />
+          {!compact && (
+            <>
+              <span className="min-w-0 flex-1 truncate text-left">Search</span>
+              <kbd className="shrink-0 rounded-md border border-white/15 px-1.5 text-[11px] font-semibold text-white/70">⌘K</kbd>
+            </>
+          )}
+        </button>
+      )}
 
       <nav aria-label="Studio" className="grid gap-5">
         {(
@@ -250,14 +272,14 @@ function CreateMenu() {
 }
 
 /** The sidebar with the current page highlighted. Reading the path waits for the request, so it streams in. */
-function CurrentSidebar({ onNavigate, compact }: { onNavigate?: () => void; compact?: boolean }) {
-  return <Sidebar pathname={usePathname()} onNavigate={onNavigate} compact={compact} />;
+function CurrentSidebar({ onNavigate, compact, onSearch }: { onNavigate?: () => void; compact?: boolean; onSearch?: () => void }) {
+  return <Sidebar pathname={usePathname()} onNavigate={onNavigate} compact={compact} onSearch={onSearch} />;
 }
 
-function PlacedSidebar({ onNavigate, compact }: { onNavigate?: () => void; compact?: boolean }) {
+function PlacedSidebar({ onNavigate, compact, onSearch }: { onNavigate?: () => void; compact?: boolean; onSearch?: () => void }) {
   return (
-    <Suspense fallback={<Sidebar pathname="" onNavigate={onNavigate} compact={compact} />}>
-      <CurrentSidebar onNavigate={onNavigate} compact={compact} />
+    <Suspense fallback={<Sidebar pathname="" onNavigate={onNavigate} compact={compact} onSearch={onSearch} />}>
+      <CurrentSidebar onNavigate={onNavigate} compact={compact} onSearch={onSearch} />
     </Suspense>
   );
 }
@@ -292,7 +314,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
     <div className={cn("min-h-dvh bg-paper lg:grid", collapsed ? "lg:grid-cols-[76px_minmax(0,1fr)]" : "lg:grid-cols-[256px_minmax(0,1fr)]")}>
       <aside id="studio-sidebar" aria-label="Studio sidebar" className="hidden bg-[#111b2b] lg:block">
         <div className="sticky top-0 h-dvh">
-          <PlacedSidebar compact={collapsed} />
+          <PlacedSidebar compact={collapsed} onSearch={() => setPalette(true)} />
         </div>
       </aside>
 
@@ -361,7 +383,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
             <Dialog.Close aria-label="Close menu" className="absolute right-3 top-4 z-10 inline-flex size-9 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white">
               <X className="size-5" aria-hidden="true" />
             </Dialog.Close>
-            <PlacedSidebar onNavigate={() => setDrawer(false)} />
+            <PlacedSidebar onNavigate={() => setDrawer(false)} onSearch={() => setPalette(true)} />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

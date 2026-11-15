@@ -314,7 +314,7 @@ await page.waitForURL((u) => u.pathname === "/studio/batch");
 
 /* 7. Settings: draft, apply to the selection only, exports match previews */
 await card(page, "broken.png").getByRole("checkbox").uncheck();
-const panel = page.getByRole("complementary", { name: "Batch settings" });
+const panel = page.getByRole("complementary", { name: "Collection settings" });
 await panel.getByRole("radio", { name: "Soft grey" }).click();
 await panel.getByRole("tab", { name: "Layout" }).click();
 await panel.getByRole("button", { name: "Square (1:1)" }).click();
@@ -326,7 +326,7 @@ await panel.getByRole("switch", { name: "Keep original filenames" }).click();
 check("Unapplied settings are flagged as a draft", await panel.getByText(/Not applied yet/).isVisible());
 dl = await download(page, () => card(page, "serum-bottle.jpg").getByRole("button", { name: /^Download/ }).click());
 check("Downloads keep using applied settings until the draft is applied", dl.suggested === "serum-bottle.png", dl.suggested);
-await panel.getByRole("button", { name: "Apply to 2 selected" }).click();
+await panel.getByRole("button", { name: "Apply to selected (2)" }).click();
 await panel.getByText(/Applied to 2 images/).waitFor();
 dl = await download(page, () => page.getByRole("button", { name: "Download selected ZIP" }).click(), "styled.zip");
 const styled = unzipSync(readFileSync(dl.file));
@@ -370,20 +370,20 @@ async function shadowDelta(page, fileA, fileB) {
 }
 await page.getByRole("button", { name: "Clear selection" }).click();
 await card(page, "portrait-curly.jpg").getByRole("checkbox").check();
-await panel.getByRole("tab", { name: "Background" }).click();
+await panel.getByRole("tab", { name: "Style" }).click();
 await panel.getByRole("radio", { name: "White" }).click();
 await panel.getByRole("tab", { name: "Layout" }).click();
 await panel.getByRole("button", { name: "Square (1:1)" }).click();
 await panel.getByRole("radio", { name: "Centre", exact: true }).click();
 await panel.getByRole("tab", { name: "Export" }).click();
 await panel.getByLabel("Export format").selectOption("png");
-await panel.getByRole("button", { name: "Apply to 1 selected" }).click();
+await panel.getByRole("button", { name: "Apply to selected (1)" }).click();
 await panel.getByText(/Applied to 1 image/).waitFor();
 const noShadow = await download(page, () => card(page, "portrait-curly.jpg").getByRole("button", { name: /^Download/ }).click(), "portrait-no-shadow.png");
 await savePreview(page, "portrait-curly.jpg", join(OUT, "preview-no-shadow.png"));
 await panel.getByRole("tab", { name: "Layout" }).click();
 await panel.getByRole("switch", { name: "Soft shadow" }).click();
-await panel.getByRole("button", { name: "Apply to 1 selected" }).click();
+await panel.getByRole("button", { name: "Apply to selected (1)" }).click();
 await panel.getByText(/Applied to 1 image/).waitFor();
 await page.waitForTimeout(500);
 const withShadow = await download(page, () => card(page, "portrait-curly.jpg").getByRole("button", { name: /^Download/ }).click(), "portrait-shadow.png");
@@ -394,6 +394,71 @@ const exportDelta = await shadowDelta(page, noShadow.file, withShadow.file);
 const previewDelta = await shadowDelta(page, join(OUT, "preview-no-shadow.png"), join(OUT, "preview-shadow.png"));
 check("Soft shadow darkens the white background in the exported file", exportDelta > 0.003, `${(exportDelta * 100).toFixed(2)}% of pixels`);
 check("…and the preview shows the same shadow", previewDelta > 0.003 && Math.abs(previewDelta - exportDelta) < 0.02, `${(previewDelta * 100).toFixed(2)}% in the preview`);
+
+/* 8b. Pro tools: filters, compare, size matching, undo, originals, preflight */
+await page.getByRole("button", { name: "Clear selection" }).click();
+const shownNames = () => page.locator("[data-batch-item]").evaluateAll((els) => els.map((e) => e.getAttribute("data-batch-item")));
+const everything = await shownNames();
+await page.locator('[data-filter="failed"]').click();
+const onlyFailed = await shownNames();
+await page.locator('[data-filter="all"]').click();
+check("Filter chips show only the images in that state, with live counts", onlyFailed.join() === "broken.png" && (await page.locator('[data-filter="failed"]').innerText()).includes("1") && (await shownNames()).length === everything.length, onlyFailed.join(", "));
+const pc = card(page, "product.jpg");
+await pc.getByRole("radio", { name: "original" }).click();
+const showingOriginal = await pc.locator("img").getAttribute("data-showing");
+await pc.getByRole("radio", { name: "result" }).click();
+await page.keyboard.down("o");
+const peeked = await pc.locator("img").getAttribute("data-showing");
+await page.keyboard.up("o");
+check("Cards switch between Original and Result, and holding O shows every original", showingOriginal === "original" && peeked === "original" && (await pc.locator("img").getAttribute("data-showing")) === "result");
+const stepState = await page.locator("[data-step]").evaluateAll((els) => Object.fromEntries(els.map((e) => [e.dataset.step, `${e.dataset.done}${e.getAttribute("aria-current") ? "*" : ""}`])));
+check("The workflow shows where the collection really is (a failed image keeps step 1 open)", stepState.remove === "false*" && stepState.export === "true", JSON.stringify(stepState));
+
+await pc.getByRole("checkbox").check();
+await card(page, "serum-bottle.jpg").getByRole("checkbox").check();
+await panel.getByRole("tab", { name: "Style" }).click();
+check("Preflight describes the selection's real output", /JPEG selected/.test(await panel.locator('[data-preflight-line="format"]').innerText()) && /1,600 × 1,600/.test(await panel.locator('[data-preflight-line="size"]').innerText()), (await panel.locator("[data-preflight]").innerText()).replace(/\s+/g, " "));
+await panel.getByRole("switch", { name: "Match product size" }).click();
+await panel.getByLabel("Size reference").selectOption({ label: "Reference: serum-bottle.jpg" });
+await panel.getByRole("button", { name: "Apply to selected (2)" }).click();
+await panel.getByText(/Sizes matched to serum-bottle\.jpg/).waitFor();
+const boxOf = async (name, file) => {
+  const d = await download(page, () => card(page, name).getByRole("button", { name: /^Download/ }).click(), file);
+  return (await inspect(page, d.file, { subject: { bg: [238, 239, 236] } })).box;
+};
+const visual = (b) => Math.sqrt((b.x1 - b.x0) * (b.y1 - b.y0));
+const matchedShoe = await boxOf("product.jpg", "matched-product.jpg");
+const matchedSerum = await boxOf("serum-bottle.jpg", "matched-serum.jpg");
+check(
+  "Match product size shrinks the larger product to the reference's visual size",
+  visual(matchedShoe) < visual(exp.box) - 0.05 && Math.abs(visual(matchedShoe) - visual(matchedSerum)) / visual(matchedSerum) < 0.12,
+  `shoe ${visual(exp.box).toFixed(3)} → ${visual(matchedShoe).toFixed(3)}, serum ${visual(matchedSerum).toFixed(3)}`,
+);
+await page.getByRole("button", { name: "Undo batch changes" }).click();
+await page.getByText(/Undid the last change to 1 image/).waitFor();
+const undoneShoe = await boxOf("product.jpg", "undone-product.jpg");
+check("Undo batch changes puts the previous settings back", Math.abs(visual(undoneShoe) - visual(exp.box)) < 0.02, `${visual(undoneShoe).toFixed(3)} vs ${visual(exp.box).toFixed(3)}`);
+await panel.getByRole("switch", { name: "Match product size" }).click();
+
+await page.getByRole("checkbox", { name: "Include original files" }).check();
+dl = await download(page, () => page.getByRole("button", { name: "Download selected ZIP" }).click(), "with-originals.zip");
+const withOriginals = unzipSync(readFileSync(dl.file));
+check(
+  "Include original files adds the untouched originals to the ZIP",
+  Object.keys(withOriginals).sort().join() === "originals/product.jpg,originals/serum-bottle.jpg,product-isola.jpg,serum-bottle-isola.jpg" && Buffer.from(withOriginals["originals/product.jpg"]).equals(readFileSync(PRODUCT)),
+  Object.keys(withOriginals).sort().join(", "),
+);
+await page.getByRole("checkbox", { name: "Include original files" }).uncheck();
+await page.getByRole("button", { name: /^Export format/ }).click();
+await page.getByRole("menuitem", { name: /^PNG/ }).click();
+await panel.locator('[data-preflight-line="format"]').getByText("PNG with background selected").waitFor();
+dl = await download(page, () => pc.getByRole("button", { name: /^Download/ }).click());
+check("The export bar switches format for the selection in place", dl.suggested === "product-isola.png", dl.suggested);
+await page.keyboard.press("Control+z");
+await page.getByText(/Undid the last change to 2 images/).waitFor();
+check("Ctrl+Z undoes it", /JPEG selected/.test(await panel.locator('[data-preflight-line="format"]').innerText()));
+await page.getByRole("button", { name: "Clear selection" }).click();
+await card(page, "portrait-curly.jpg").getByRole("checkbox").check();
 
 /* 9. Cancel and retry ----------------------------------------------------- */
 writeFileSync(join(OUT, "serum-copy.jpg"), readFileSync(SERUM));
@@ -446,7 +511,7 @@ await page.screenshot({ path: join(OUT, "batch-desktop.png") });
   const barNow = await m.locator("[data-batch-export-bar]").boundingBox();
   check("The export bar doesn't cover the last image's buttons", last && barNow && last.y + last.height <= barNow.y + 1, `button bottom ${Math.round(last.y + last.height)}, bar top ${Math.round(barNow.y)}`);
   await m.getByRole("button", { name: "Settings" }).click();
-  const sheet = m.getByRole("dialog", { name: "Batch settings" });
+  const sheet = m.getByRole("dialog", { name: "Collection settings" });
   await sheet.waitFor();
   await m.waitForTimeout(600);
   check("Settings open in an accessible drawer on mobile", await sheet.getByRole("tab", { name: "Layout" }).isVisible());

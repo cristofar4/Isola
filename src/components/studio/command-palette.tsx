@@ -8,11 +8,12 @@ import { DOC_PAGES } from "@/lib/docs";
 import { cn } from "@/lib/cn";
 import { loadLibrary, useLibrary } from "@/lib/studio/library";
 import { loadSnapshot } from "@/lib/studio/snapshot";
+import { TOOL_GROUPS } from "@/lib/tools";
 import { usePresets } from "./use-presets";
 
 interface Command {
   id: string;
-  group: "Actions" | "Projects" | "Assets" | "Go to" | "Brand presets" | "Batch images" | "Developer docs";
+  group: "Actions" | "Tools" | "Projects" | "Assets" | "Go to" | "Brand presets" | "Batch images" | "Developer docs";
   label: string;
   hint?: string;
   href: string;
@@ -49,7 +50,21 @@ const STATIC: Command[] = [
 
 const DOCS: Command[] = DOC_PAGES.map((p) => ({ id: `doc-${p.href}`, group: "Developer docs", label: p.title, hint: "Docs", href: p.href, keywords: `${p.summary} ${p.sections.map((s) => s.title).join(" ")}` }));
 
-const GROUP_ORDER: Command["group"][] = ["Actions", "Projects", "Assets", "Brand presets", "Batch images", "Go to", "Developer docs"];
+/** The public site's search: tools, pages and the developer docs. Nothing from an account. */
+const SITE: Command[] = [
+  ...TOOL_GROUPS.flatMap((g) => g.items.map((t) => ({ id: `tool-${t.href}`, group: "Tools" as const, label: t.label, hint: g.title, href: t.href, keywords: `${t.description} ${t.detail}` }))),
+  { id: "site-home", group: "Go to", label: "Home", href: "/", keywords: "landing start" },
+  { id: "site-tools", group: "Go to", label: "All tools", href: "/tools", keywords: "everything list" },
+  { id: "site-pricing", group: "Go to", label: "Pricing", href: "/pricing", keywords: "pro free plans cost naira" },
+  { id: "site-help", group: "Go to", label: "Help centre", href: "/support", keywords: "support questions faq contact" },
+  { id: "site-studio", group: "Go to", label: "Your studio", hint: "Sign in", href: "/studio", keywords: "dashboard projects library scenes motion" },
+  { id: "site-signin", group: "Go to", label: "Sign in", href: "/sign-in", keywords: "log in account" },
+  { id: "site-signup", group: "Go to", label: "Create account", href: "/sign-up", keywords: "register join get started" },
+  { id: "site-privacy", group: "Go to", label: "Privacy", href: "/privacy", keywords: "data storage" },
+  { id: "site-terms", group: "Go to", label: "Terms", href: "/terms", keywords: "legal" },
+];
+
+const GROUP_ORDER: Command["group"][] = ["Actions", "Tools", "Projects", "Assets", "Brand presets", "Batch images", "Go to", "Developer docs"];
 
 function matches(command: Command, query: string) {
   if (!query) return true;
@@ -61,8 +76,13 @@ function matches(command: Command, query: string) {
     .every((word) => hay.includes(word));
 }
 
-/** ⌘K: jump to any tool, page, preset or image in your batch. */
-export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+/**
+ * ⌘K: jump to any tool, page, preset or image in your batch. On the public
+ * site (`scope="site"`) it searches tools, pages and the docs only, and never
+ * touches account data.
+ */
+export function CommandPalette({ open, onOpenChange, scope = "studio" }: { open: boolean; onOpenChange: (open: boolean) => void; scope?: "studio" | "site" }) {
+  const site = scope === "site";
   const router = useRouter();
   const listId = useId();
   const presets = usePresets((s) => s.presets);
@@ -73,7 +93,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || site) return;
     if (!presets) void loadPresets();
     void loadLibrary().catch(() => undefined);
     let alive = true;
@@ -93,11 +113,15 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     return () => {
       alive = false;
     };
-  }, [open, presets, loadPresets]);
+  }, [open, site, presets, loadPresets]);
 
   const projects = useLibrary((s) => s.projects);
   const assets = useLibrary((s) => s.assets);
   const results = useMemo(() => {
+    if (site) {
+      const all = [...SITE, ...DOCS].filter((c) => matches(c, query.trim()));
+      return GROUP_ORDER.flatMap((g) => all.filter((c) => c.group === g)).slice(0, 40);
+    }
     const projectCommands: Command[] = projects
       .filter((p) => !p.trashedAt)
       .map((p) => ({ id: `project-${p.id}`, group: "Projects", label: p.name, hint: `${p.versions.length} versions`, href: `/studio/projects/${p.id}`, keywords: "project" }));
@@ -114,7 +138,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     }));
     const all = [...STATIC, ...projectCommands, ...(query.trim() ? assetCommands : []), ...presetCommands, ...images, ...DOCS].filter((c) => matches(c, query.trim()));
     return GROUP_ORDER.flatMap((g) => all.filter((c) => c.group === g)).slice(0, 40);
-  }, [presets, images, query, projects, assets]);
+  }, [site, presets, images, query, projects, assets]);
 
   const current = Math.min(active, Math.max(0, results.length - 1));
 
@@ -145,7 +169,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           className="fixed left-1/2 top-[12vh] z-50 flex max-h-[72vh] w-[min(92vw,620px)] -translate-x-1/2 animate-scale-in flex-col overflow-hidden rounded-[18px] bg-surface shadow-[var(--shadow-float)] focus:outline-none"
           aria-describedby={undefined}
         >
-          <Dialog.Title className="sr-only">Search the studio</Dialog.Title>
+          <Dialog.Title className="sr-only">{site ? "Search ISOLA" : "Search the studio"}</Dialog.Title>
           <div className="flex items-center gap-3 border-b border-line px-4">
             <Search className="size-5 shrink-0 text-muted" aria-hidden="true" />
             <input
@@ -154,8 +178,8 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
               aria-expanded="true"
               aria-controls={listId}
               aria-activedescendant={results[current] ? `${listId}-${current}` : undefined}
-              aria-label="Search tools, presets and images"
-              placeholder="Search tools, presets, images and docs…"
+              aria-label={site ? "Search tools, pages and docs" : "Search tools, presets and images"}
+              placeholder={site ? "Search tools, pages and developer docs…" : "Search tools, presets, images and docs…"}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -210,7 +234,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
           </div>
           <p className="border-t border-line px-4 py-2.5 text-[12px] text-muted">
             <kbd className="font-sans font-semibold">↑</kbd> <kbd className="font-sans font-semibold">↓</kbd> to move ·{" "}
-            <kbd className="font-sans font-semibold">Enter</kbd> to open · <kbd className="font-sans font-semibold">⌘K</kbd> anywhere in the studio
+            <kbd className="font-sans font-semibold">Enter</kbd> to open · <kbd className="font-sans font-semibold">⌘K</kbd> anywhere {site ? "on the site" : "in the studio"}
           </p>
         </Dialog.Content>
       </Dialog.Portal>

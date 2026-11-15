@@ -128,9 +128,9 @@ check(
 );
 await page.goto(`${BASE}/batch?preset=catalogue`, { waitUntil: "networkidle" });
 await visible(page.getByText("Catalogue preset loaded")).waitFor();
-const panel = page.getByRole("complementary", { name: "Batch settings" });
-check("Signed in, Product images loads the catalogue preset into Batch settings", (await panel.getByRole("button", { name: "Square (1:1)" }).getAttribute("aria-pressed")) === "true");
-await panel.getByRole("tab", { name: "Background" }).click();
+const panel = page.getByRole("complementary", { name: "Collection settings" });
+check("Signed in, Product images loads the catalogue preset into Collection settings", (await panel.getByRole("button", { name: "Square (1:1)" }).getAttribute("aria-pressed")) === "true");
+await panel.getByRole("tab", { name: "Style" }).click();
 check("…with a white background", (await panel.getByRole("radio", { name: "White" }).getAttribute("aria-checked")) === "true");
 await page.locator("#batch-files").setInputFiles(join(process.cwd(), "e2e", "fixtures", "product.jpg"));
 await page.getByRole("button", { name: "Apply to 1 image" }).first().waitFor();
