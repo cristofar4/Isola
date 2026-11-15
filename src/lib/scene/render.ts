@@ -58,6 +58,17 @@ export function missingAssets(scene: Pick<Scene, "layers">, res: Pick<SceneResou
   return sceneAssetIds(scene).filter((id) => !res.image(id));
 }
 
+/**
+ * The scene's key light, in degrees (positive: from the left). It's the
+ * direction the shadows are cast from; without shadows, the backdrop's own.
+ */
+export function keyLight(scene: Pick<Scene, "layers">): number {
+  const shadow = scene.layers.find((l) => l.kind === "shadow" && l.visible);
+  if (shadow && shadow.kind === "shadow") return shadow.direction;
+  const backdrop = scene.layers.find((l) => l.kind === "backdrop");
+  return backdrop?.kind === "backdrop" && backdropInfo(backdrop.backdrop)?.id === "warm-stone" ? -40 : 40;
+}
+
 export interface RenderSceneOptions {
   /** Layers to leave out (e.g. Compare shows the product without the set). */
   skip?: (layer: SceneLayer) => boolean;
@@ -67,8 +78,7 @@ export interface RenderSceneOptions {
 
 export function renderScene(ctx: Ctx, scene: Pick<Scene, "layers">, W: number, H: number, res: SceneResources, opts: RenderSceneOptions = {}) {
   const short = Math.min(W, H);
-  const backdrop = scene.layers.find((l) => l.kind === "backdrop");
-  const lightDirection = backdrop?.kind === "backdrop" ? (backdropInfo(backdrop.backdrop)?.id === "warm-stone" ? -40 : 40) : 40;
+  const lightDirection = keyLight(scene);
   ctx.save();
   for (const layer of scene.layers) {
     if (!layer.visible || opts.skip?.(layer)) continue;

@@ -17,6 +17,8 @@ interface Props {
   mode: DragMode;
   snap: boolean;
   compare: boolean;
+  /** 1 fits the frame in the space; more zooms in (the area then scrolls). */
+  zoom?: number;
   onSelect: (id: string | null) => void;
   onPreview: (scene: Scene) => void;
   onCommit: (scene: Scene, base: Scene) => void;
@@ -39,7 +41,7 @@ function patchLayer(scene: Scene, id: string, patch: Partial<SceneLayer>): Scene
  * The scene at its real proportions, drawn by renderScene. Selection boxes,
  * handles and guides are an SVG overlay on top: they never reach an export.
  */
-export function SceneCanvas({ scene, format, selectedId, mode, snap, compare, onSelect, onPreview, onCommit }: Props) {
+export function SceneCanvas({ scene, format, selectedId, mode, snap, compare, zoom = 1, onSelect, onPreview, onCommit }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -55,12 +57,12 @@ export function SceneCanvas({ scene, format, selectedId, mode, snap, compare, on
     const ro = new ResizeObserver(() => {
       const r = el.getBoundingClientRect();
       const pad = 24;
-      const s = Math.min((r.width - pad * 2) / f.width, (r.height - pad * 2) / f.height);
+      const s = Math.min((r.width - pad * 2) / f.width, (r.height - pad * 2) / f.height) * zoom;
       setBox({ w: Math.max(40, Math.floor(f.width * s)), h: Math.max(40, Math.floor(f.height * s)) });
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [f.width, f.height]);
+  }, [f.width, f.height, zoom]);
 
   useEffect(() => {
     void loadAssetImages(sceneAssetIds(scene));
@@ -198,8 +200,8 @@ export function SceneCanvas({ scene, format, selectedId, mode, snap, compare, on
   })() : null;
 
   return (
-    <div ref={wrapRef} className="relative flex h-full min-h-[280px] w-full items-center justify-center">
-      <div className="relative shadow-[0_10px_40px_-18px_rgb(32_41_45/0.45)]" style={{ width: box.w, height: box.h }}>
+    <div ref={wrapRef} className="relative flex h-full min-h-[280px] w-full overflow-auto">
+      <div className="relative m-auto shrink-0 shadow-[0_10px_40px_-18px_rgb(32_41_45/0.45)]" style={{ width: box.w, height: box.h }}>
         <canvas ref={canvasRef} role="img" aria-label={`${scene.name}, ${f.label}`} className={`block size-full ${compare ? "checkerboard" : ""}`} />
         <div
           data-scene-overlay

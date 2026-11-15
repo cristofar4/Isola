@@ -15,8 +15,11 @@ import {
   EyeOff,
   Hand,
   Image as ImageIcon,
+  Layers,
   Lock,
   Magnet,
+  Minus,
+  MousePointer2,
   Move,
   Plus,
   Redo2,
@@ -25,6 +28,7 @@ import {
   Search,
   ShieldCheck,
   SplitSquareHorizontal,
+  Sun,
   Trash2,
   Type,
   Undo2,
@@ -59,7 +63,7 @@ import {
   type SceneFormatId,
   type SceneLayer,
 } from "@/lib/scene/model";
-import { missingAssets, sceneAssetIds } from "@/lib/scene/render";
+import { keyLight, missingAssets, sceneAssetIds } from "@/lib/scene/render";
 import { assetImage, loadAssetImages } from "@/lib/scene/resources";
 import { getScene, loadScenes, saveScene, useScenes } from "@/lib/scene/store";
 import { addAssets, makeCutout, useLibrary, type Asset } from "@/lib/studio/library";
@@ -206,7 +210,7 @@ function AssetTile({ asset, onPick }: { asset: Asset; onPick: () => void }) {
 
 type Category = "All" | "Studio" | "Natural" | "Interior";
 
-function LeftPanel({ scene, onAddAsset, onBackdrop, notice }: { scene: Scene; onAddAsset: (a: Asset, as: "product" | "logo" | "background") => void; onBackdrop: (id: BackdropId) => void; notice: (text: string, tone?: "ok" | "error") => void }) {
+function LeftPanel({ scene, onAddAsset, onBackdrop, notice, brandLogo }: { scene: Scene; onAddAsset: (a: Asset, as: "product" | "logo" | "background") => void; onBackdrop: (id: BackdropId) => void; notice: (text: string, tone?: "ok" | "error") => void; brandLogo: Asset | null }) {
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState<Category>("All");
   const [cutting, setCutting] = useState<string | null>(null);
@@ -295,6 +299,11 @@ function LeftPanel({ scene, onAddAsset, onBackdrop, notice }: { scene: Scene; on
         <Button variant="secondary" onClick={() => inputRef.current?.click()} icon={<Plus className="size-4" aria-hidden="true" />}>
           Add product
         </Button>
+        {brandLogo && (
+          <Button variant="secondary" onClick={() => onAddAsset(brandLogo, "logo")} icon={<ShieldCheck className="size-4" aria-hidden="true" />} title={`Adds ${brandLogo.name} from your default brand preset`}>
+            Add brand logo
+          </Button>
+        )}
         <p className="text-[12px] leading-relaxed text-muted">Cutouts and logos from your asset library. A photo without transparency gets its background removed on this device first.</p>
         {cutting && (
           <p role="status" className="flex items-center gap-2 rounded-[10px] bg-blue-50 px-3 py-2 text-[13px] text-blue-700">
@@ -366,6 +375,7 @@ function Loaded({ initial }: { initial: Scene }) {
   const [compare, setCompare] = useState(false);
   const [tab, setTab] = useState<"scene" | "layer" | "export">("layer");
   const [animate, setAnimate] = useState(false);
+  const [zoom, setZoom] = useState(1);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [exportFormats, setExportFormats] = useState<SceneFormatId[]>([initial.format]);
   const [stillType, setStillType] = useState<StillFormat>("png");
@@ -504,6 +514,18 @@ function Loaded({ initial }: { initial: Scene }) {
   }
 
   const shadow = selected?.kind === "product" ? scene.layers.find((l) => l.kind === "shadow" && l.targetId === selected.id) : null;
+  const hasShadows = scene.layers.some((l) => l.kind === "shadow" && l.visible);
+  const light = keyLight(scene);
+  const surfaceName = backdrop?.kind === "backdrop" && ["ivory-plinth", "warm-stone", "marble"].includes(backdrop.backdrop ?? "") ? "Pedestal surface" : "Floor";
+  // A product is "on the surface" when its bottom edge sits on the backdrop's surface line.
+  const onSurface = selected?.kind === "product" && Math.abs(standOnSurface(selected, surfaceY, f.width, f.height).y - selected.y) < 0.004;
+  /** Point every shadow (and the matched light) the same way. */
+  const setKeyLight = (direction: number, commitNow: boolean) => {
+    const next = { ...scene, layers: scene.layers.map((l) => (l.kind === "shadow" ? { ...l, direction } : l)) };
+    if (commitNow) return commit(next, liveBase.current ?? scene);
+    liveBase.current ??= scene;
+    preview(next);
+  };
   const toolBtn = (active: boolean) => cn("inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-[14px] font-medium", active ? "bg-blue-50 text-blue-700 ring-1 ring-blue/20" : "text-ink-3 hover:bg-ink/5 hover:text-ink");
   const layersTopFirst = [...scene.layers].reverse();
 
@@ -525,24 +547,43 @@ function Loaded({ initial }: { initial: Scene }) {
           className="h-9 w-[200px] min-w-0 rounded-[9px] border border-transparent px-2 text-[16px] font-semibold text-ink hover:border-line focus:border-blue focus:outline-none"
         />
         <span className="hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
-        <div role="group" aria-label="Drag mode" className="flex items-center gap-1">
-          <button type="button" className={toolBtn(mode === "move")} aria-pressed={mode === "move"} onClick={() => setMode("move")}>
-            <Move className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Move</span>
+        <div role="group" aria-label="Tools" className="flex items-center gap-1">
+          <button type="button" className={toolBtn(mode === "move" && tab === "layer")} onClick={() => { setMode("move"); setTab("layer"); }} title="Select and move layers in the scene">
+            <MousePointer2 className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Select</span>
           </button>
-          <button type="button" className={toolBtn(mode === "rotate")} aria-pressed={mode === "rotate"} onClick={() => setMode("rotate")}>
-            <RotateCw className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Rotate</span>
+          <button type="button" className={toolBtn(tab === "scene")} onClick={() => setTab("scene")} title="Background, key light and the layers list">
+            <Layers className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Layers</span>
           </button>
-          <button type="button" className={toolBtn(mode === "scale")} aria-pressed={mode === "scale"} onClick={() => setMode("scale")}>
-            <Scaling className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Scale</span>
-          </button>
-          <button type="button" className={toolBtn(snap)} aria-pressed={snap} onClick={() => setSnap((s) => !s)} title="Snap to centre, thirds, other layers and the surface (hold Alt to ignore)">
-            <Magnet className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Snap</span>
+          <button
+            type="button"
+            className={toolBtn(false)}
+            title="Key light: the direction every shadow is cast from"
+            onClick={() => {
+              setTab("scene");
+              requestAnimationFrame(() => document.getElementById("key-light")?.focus());
+            }}
+          >
+            <Sun className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Lighting</span>
           </button>
           <button type="button" className={toolBtn(compare)} aria-pressed={compare} onClick={() => setCompare((c) => !c)} title="Show the products without the set">
             <SplitSquareHorizontal className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Compare</span>
           </button>
           <button type="button" className={toolBtn(false)} title={identity ? `Adds a title in your brand's heading typeface (${FONT_LABEL[identity.typography.heading.font]})` : undefined} onClick={() => apply((s) => ({ ...s, layers: [...s.layers, textLayer({ color: brand[1]?.hex ?? "#20292D", ...(identity ? { font: identity.typography.heading.font, weight: identity.typography.heading.weight } : {}) })] }))}>
             <Type className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Text</span>
+          </button>
+        </div>
+        <div role="group" aria-label="Zoom" className="flex items-center gap-1">
+          <button type="button" className={toolBtn(zoom === 1)} aria-pressed={zoom === 1} onClick={() => setZoom(1)}>
+            Fit
+          </button>
+          <button type="button" className={toolBtn(false)} aria-label="Zoom out" disabled={zoom <= 0.5} onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}>
+            <Minus className="size-4" aria-hidden="true" />
+          </button>
+          <span className="w-12 text-center text-[13px] tabular-nums text-ink-3" aria-live="polite" data-zoom>
+            {Math.round(zoom * 100)}%
+          </span>
+          <button type="button" className={toolBtn(false)} aria-label="Zoom in" disabled={zoom >= 3} onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))}>
+            <Plus className="size-4" aria-hidden="true" />
           </button>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -575,12 +616,52 @@ function Loaded({ initial }: { initial: Scene }) {
       <div className="grid min-h-0 flex-1 lg:grid-cols-[280px_minmax(0,1fr)_320px]">
         <aside aria-label="Backdrops and assets" className="order-2 flex min-h-[320px] flex-col border-t border-line bg-surface lg:order-none lg:max-h-[calc(100dvh-7.5rem)] lg:border-r lg:border-t-0">
           <h2 className="sr-only">Backdrops and assets</h2>
-          <LeftPanel scene={scene} onAddAsset={addAsset} onBackdrop={setBackdrop} notice={notice} />
+          <LeftPanel scene={scene} onAddAsset={addAsset} onBackdrop={setBackdrop} notice={notice} brandLogo={brandLogo} />
         </aside>
 
         <div className="flex min-h-[420px] min-w-0 flex-col bg-paper-2/60">
-          <div className="min-h-[360px] flex-1">
-            <SceneCanvas scene={scene} format={scene.format} selectedId={selectedId} mode={mode} snap={snap} compare={compare} onSelect={setSelectedId} onPreview={preview} onCommit={(next, base) => commit(next, base)} />
+          <div className="relative min-h-[360px] flex-1">
+            <SceneCanvas scene={scene} format={scene.format} selectedId={selectedId} mode={mode} snap={snap} compare={compare} zoom={zoom} onSelect={setSelectedId} onPreview={preview} onCommit={(next, base) => commit(next, base)} />
+            {hasShadows && (
+              <button type="button" onClick={() => { setTab("scene"); requestAnimationFrame(() => document.getElementById("key-light")?.focus()); }} className="absolute right-4 top-4 inline-flex items-center gap-2 rounded-full border border-line bg-white/95 py-1 pl-2.5 pr-3 text-[13px] font-medium text-ink shadow-sm hover:border-line-strong" data-key-light={Math.round(light)}>
+                <Sun className="size-4 text-[#C98A00]" aria-hidden="true" />
+                Key light
+                <svg width="18" height="18" viewBox="-9 -9 18 18" aria-hidden="true" style={{ transform: `rotate(${-light}deg)` }}>
+                  <path d="M0 -7V6M0 6l-3.5 -3.5M0 6l3.5 -3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            )}
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-3">
+              <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-1 rounded-[14px] border border-line bg-white/95 p-1 shadow-[var(--shadow-card)]">
+                <div role="group" aria-label="Drag mode" className="flex items-center gap-0.5">
+                  <button type="button" className={toolBtn(mode === "move")} aria-pressed={mode === "move"} onClick={() => setMode("move")}>
+                    <Move className="size-4" aria-hidden="true" /> Move
+                  </button>
+                  <button type="button" className={toolBtn(mode === "rotate")} aria-pressed={mode === "rotate"} onClick={() => setMode("rotate")}>
+                    <RotateCw className="size-4" aria-hidden="true" /> Rotate
+                  </button>
+                  <button type="button" className={toolBtn(mode === "scale")} aria-pressed={mode === "scale"} onClick={() => setMode("scale")}>
+                    <Scaling className="size-4" aria-hidden="true" /> Scale
+                  </button>
+                  <button type="button" className={toolBtn(snap)} aria-pressed={snap} onClick={() => setSnap((v) => !v)} title="Snap to centre, thirds, other layers and the surface (hold Alt to ignore)">
+                    <Magnet className="size-4" aria-hidden="true" /> Snap
+                  </button>
+                </div>
+                <span className="mx-1 hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
+                <div role="radiogroup" aria-label="Show" className="flex rounded-[10px] bg-paper p-0.5">
+                  {(
+                    [
+                      [true, "Original"],
+                      [false, "Scene"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button key={label} type="button" role="radio" aria-checked={compare === value} title={value ? "The products on their own, without the set" : "The whole scene"} onClick={() => setCompare(value)} className={cn("h-8 rounded-[8px] px-3 text-[13px] font-semibold", compare === value ? "bg-blue text-white" : "text-ink-3 hover:text-ink")}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           {/* Linked formats */}
           <div className="flex items-stretch gap-3 overflow-x-auto border-t border-line bg-surface px-3 py-3" role="group" aria-label="Formats">
@@ -647,6 +728,23 @@ function Loaded({ initial }: { initial: Scene }) {
                   </Button>
                 )}
               </Section>
+              <Section title="Lighting">
+                <RangeField
+                  label="Key light direction"
+                  value={light}
+                  min={-75}
+                  max={75}
+                  step={1}
+                  disabled={!scene.layers.some((l) => l.kind === "shadow")}
+                  format={(v) => (Math.abs(v) < 1 ? "From above" : `${Math.abs(Math.round(v))}° from the ${v > 0 ? "left" : "right"}`)}
+                  onChange={(v) => setKeyLight(v, false)}
+                  onCommit={() => {
+                    if (liveBase.current) commit(scene, liveBase.current);
+                    liveBase.current = null;
+                  }}
+                />
+                <p className="text-[12px] text-muted">{scene.layers.some((l) => l.kind === "shadow") ? "Every product's shadow is cast from the key light, so they agree. Fine-tune one shadow in its product's controls." : "Add a product to light it."}</p>
+              </Section>
               <Section title="Scene layers" action={<span className="text-[12px] text-muted">Top is in front</span>}>
                 <ul className="grid gap-0.5" aria-label="Scene layers">
                   {layersTopFirst.map((l) => {
@@ -689,15 +787,33 @@ function Loaded({ initial }: { initial: Scene }) {
                         </span>
                       </p>
                     )}
-                    <NumberField label="Position X" unit="px" value={selected.x * f.width} onChange={(v) => patch(selected.id, { x: v / f.width })} />
-                    <NumberField label="Position Y" unit="px" value={selected.y * f.height} onChange={(v) => patch(selected.id, { y: v / f.height })} />
-                    <NumberField label="Scale" unit="%" value={selected.scale * 100} min={2} max={400} onChange={(v) => patch(selected.id, { scale: v / 100 })} />
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 text-[13px] text-ink-3">Position</span>
+                      <span className="text-[12px] font-semibold text-muted" aria-hidden="true">
+                        X
+                      </span>
+                      <NumberField hideLabel label="Position X" unit="px" value={selected.x * f.width} onChange={(v) => patch(selected.id, { x: v / f.width })} />
+                      <span className="text-[12px] font-semibold text-muted" aria-hidden="true">
+                        Y
+                      </span>
+                      <NumberField hideLabel label="Position Y" unit="px" value={selected.y * f.height} onChange={(v) => patch(selected.id, { y: v / f.height })} />
+                    </div>
+                    <RangeField label="Scale" value={selected.scale} min={0.05} max={selected.kind === "text" ? 3 : 1.5} step={0.01} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => live(selected.id, { scale: v })} onCommit={endLive} />
                     <NumberField label="Rotation" unit="°" value={selected.rotation} decimals={1} step={1} min={-360} max={360} onChange={(v) => patch(selected.id, { rotation: v })} />
                     <RangeField label="Opacity" value={selected.opacity} min={0} max={1} step={0.01} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => live(selected.id, { opacity: v })} onCommit={endLive} />
                     {selected.kind === "product" && (
-                      <Button variant="secondary" size="sm" onClick={() => patch(selected.id, standOnSurface(selected, surfaceY, f.width, f.height))}>
-                        Stand on the surface
-                      </Button>
+                      <label className="flex items-center gap-2 text-[13px] text-ink-3">
+                        <span className="min-w-0 flex-1">Ground contact</span>
+                        <select
+                          aria-label="Ground contact"
+                          value={onSurface ? "surface" : "free"}
+                          onChange={(e) => e.target.value === "surface" && patch(selected.id, standOnSurface(selected, surfaceY, f.width, f.height))}
+                          className="h-8 w-[168px] rounded-[8px] border border-line bg-surface px-2 text-[13px] text-ink"
+                        >
+                          <option value="surface">{surfaceName}</option>
+                          <option value="free">{onSurface ? "Free (drag it off)" : "Free placement"}</option>
+                        </select>
+                      </label>
                     )}
                   </Section>
                   {selected.kind === "product" && shadow?.kind === "shadow" && (
@@ -816,6 +932,41 @@ function Loaded({ initial }: { initial: Scene }) {
               </Section>
             </Tabs.Content>
           </Tabs.Root>
+          <div className="sticky bottom-0 grid gap-2 border-t border-line bg-surface p-4">
+            <Button
+              size="lg"
+              disabled={exporting}
+              onClick={async () => {
+                setExporting(true);
+                setMessage(null);
+                try {
+                  notice(`Downloaded ${await downloadScene(scene, [scene.format], stillType)}.`);
+                } catch (e) {
+                  notice(e instanceof Error ? e.message : "The export failed.", "error");
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              icon={exporting ? <Spinner className="size-4" /> : undefined}
+            >
+              Download scene {!exporting && <Download className="size-4" aria-hidden="true" />}
+            </Button>
+            <Button
+              variant="outline-blue"
+              size="lg"
+              onClick={() => {
+                if (brandFormats.length) {
+                  apply((sc) => ({ ...sc, formats: [...sc.formats, ...brandFormats] }));
+                  setExportFormats((fs) => [...new Set([...fs, ...brandFormats])]);
+                  notice(`Added ${brandFormats.map((id) => SCENE_FORMATS[id].label).join(", ")}. They share this scene's layers.`);
+                }
+                setTab("export");
+              }}
+              icon={<Layers className="size-4" aria-hidden="true" />}
+            >
+              Create linked formats
+            </Button>
+          </div>
         </aside>
       </div>
       <AnimateDialog scene={scene} open={animate} onOpenChange={setAnimate} />
