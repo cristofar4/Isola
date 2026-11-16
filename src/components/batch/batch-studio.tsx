@@ -324,7 +324,7 @@ function Workflow({ flagged, onProcess, onLayout, onReview, onExport }: { flagge
                 )}
               >
                 {s.done ? <CircleCheck className={cn("size-[18px] shrink-0", active ? "text-white" : "text-success")} aria-hidden="true" /> : <s.icon className="size-[18px] shrink-0" aria-hidden="true" />}
-                <span className="tabular-nums opacity-80">{String(i + 1).padStart(2, "0")}</span>
+                <span className={cn("tabular-nums", active ? "text-white" : "text-ink-3")}>{String(i + 1).padStart(2, "0")}</span>
                 <span className="min-w-0 flex-1 truncate font-semibold">{s.label}</span>
                 {s.note && <span className={cn("hidden shrink-0 pr-2 text-[12px] xl:inline", active ? "text-white" : "text-muted")}>{s.note}</span>}
                 <span className="sr-only">{s.done ? " (done)" : active ? " (current step)" : ""}</span>

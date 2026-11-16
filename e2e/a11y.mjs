@@ -155,7 +155,7 @@ await page.locator("[data-viewer]").waitFor({ timeout: 30_000 });
 await page.waitForTimeout(800);
 await audit("/studio/motion/[id] (motion, quick)");
 for (const mode of ["Keyframes", "Layer"]) {
-  await page.getByRole("radio", { name: mode }).click();
+  await page.getByRole("radio", { name: mode, exact: true }).click();
   await page.waitForTimeout(500);
   await audit(`/studio/motion/[id] (motion, ${mode.toLowerCase()})`);
 }
@@ -173,7 +173,7 @@ await page.getByRole("button", { name: "Use the dark workspace" }).click();
 await page.waitForTimeout(500);
 await audit("/studio/motion/[id] (dark workspace)");
 await page.getByRole("tab", { name: "Motion", exact: true }).click();
-await page.getByRole("radio", { name: "Quick" }).click();
+await page.getByRole("radio", { name: "Quick", exact: true }).click();
 await page.waitForTimeout(500);
 await audit("/studio/motion/[id] (dark, quick)");
 await page.getByRole("button", { name: "Use the light workspace" }).click();
