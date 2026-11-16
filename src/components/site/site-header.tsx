@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, Menu, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Menu, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { CommandPalette } from "@/components/studio/command-palette";
 import { Logo } from "@/components/ui/logo";
-import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/cn";
-import { TOOL_GROUPS } from "@/lib/tools";
 import { MainNav } from "./tools-menu";
-import { MobileCta, MobileUserLinks, UserMenu } from "./user-menu";
+import { MobileMenu } from "./mobile-menu";
+import { UserMenu } from "./user-menu";
 
 const links = [
   { href: "/batch", label: "Batch Studio" },
@@ -29,6 +28,7 @@ export function SiteHeader() {
   const pathname = usePathname();
   const section = sectionOf(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
   const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   // The developer docs have their own search on "/" and ⌘K; everywhere else those open this one.
@@ -98,10 +98,12 @@ export function SiteHeader() {
         </div>
 
         <button
+          ref={menuButton}
           type="button"
           className="inline-flex size-10 items-center justify-center rounded-lg text-ink hover:bg-ink/5 md:hidden"
           aria-label="Open menu"
           aria-expanded={menuOpen}
+          aria-controls={menuOpen ? "mobile-menu" : undefined}
           onClick={() => setMenuOpen(true)}
         >
           <Menu className="size-5" aria-hidden="true" />
@@ -110,36 +112,7 @@ export function SiteHeader() {
 
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} scope="site" />
 
-      <Sheet open={menuOpen} onOpenChange={setMenuOpen} title="Menu" side="right">
-        <nav aria-label="Mobile" className="grid gap-1 pt-2" onClick={(e) => (e.target as HTMLElement).closest("a") && setMenuOpen(false)}>
-          {TOOL_GROUPS.map((group) => (
-            <div key={group.title} className="grid gap-0.5">
-              <p className="eyebrow px-3 pb-1 pt-3 text-subtle">{group.title}</p>
-              {group.items.map((tool) => (
-                <Link key={tool.href} href={tool.href} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-paper">
-                  <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-blue-50 text-blue">
-                    <tool.icon className="size-[18px]" aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[15px] font-medium text-ink">{tool.label}</span>
-                    <span className="block text-[13px] text-muted">{tool.description}</span>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          ))}
-          <Link href="/tools" className="inline-flex items-center gap-1.5 px-3 py-2 text-[14px] font-semibold text-blue-700">
-            Explore all tools <ArrowUpRight className="size-4" aria-hidden="true" />
-          </Link>
-          <div className="my-2 h-px bg-line" />
-          <Link href="/pricing" className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
-            Pricing
-          </Link>
-          <div className="my-2 h-px bg-line" />
-          <MobileUserLinks onNavigate={() => setMenuOpen(false)} />
-          <MobileCta onNavigate={() => setMenuOpen(false)} />
-        </nav>
-      </Sheet>
+      <MobileMenu open={menuOpen} onOpenChange={setMenuOpen} pathname={pathname} onSearch={() => setSearchOpen(true)} returnFocus={menuButton} />
     </header>
   );
 }

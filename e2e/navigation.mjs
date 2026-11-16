@@ -159,8 +159,24 @@ check("Choosing Resize & crop with an image open selects the crop tool", (await 
   const sheet = m.getByRole("dialog", { name: "Menu" });
   await sheet.waitFor();
   await m.waitForTimeout(500);
-  check("Mobile menu groups the tools like the desktop menu", (await sheet.getByText("Edit an image").isVisible()) && (await sheet.getByText("Learn & build").isVisible()));
+  const box = await sheet.boundingBox();
+  check("The phone menu fills the screen (no gap at the bottom)", box && box.y === 0 && Math.round(box.height) === 844 && Math.round(box.width) === 390, JSON.stringify(box));
+  check(
+    "It has search, the main pages and the editing tools, with Sign in and Create account in reach without scrolling",
+    (await sheet.getByRole("button", { name: "Search tools, pages and docs" }).isVisible()) &&
+      (await sheet.getByRole("link", { name: /^Pricing/ }).isVisible()) &&
+      (await sheet.getByRole("link", { name: /^Developers/ }).isVisible()) &&
+      (await sheet.getByText("Edit an image").isVisible()) &&
+      (await sheet.getByRole("link", { name: "Sign in", exact: true }).isVisible()) &&
+      (await sheet.getByRole("link", { name: "Create account", exact: true }).isVisible()),
+  );
+  check("No page appears twice in the menu", (await sheet.getByRole("link", { name: /^Batch Studio/ }).count()) === 1 && (await sheet.getByRole("link", { name: /^Developer/ }).count()) === 1);
   await m.screenshot({ path: join(OUT, "tools-menu-mobile.png") });
+  await m.keyboard.press("Escape");
+  await sheet.waitFor({ state: "hidden" });
+  check("Closing it puts focus back on the menu button", (await m.evaluate(() => document.activeElement?.getAttribute("aria-label"))) === "Open menu");
+  await m.getByRole("button", { name: "Open menu" }).click();
+  await sheet.waitFor();
   await sheet.getByRole("link", { name: /^Product images/ }).click();
   await m.waitForURL("**/batch?preset=catalogue");
   await m.waitForTimeout(400);

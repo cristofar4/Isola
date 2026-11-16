@@ -110,65 +110,56 @@ export function UserMenu() {
 }
 
 /** Account links inside the mobile menu sheet. */
-export function MobileUserLinks({ onNavigate }: { onNavigate: () => void }) {
+/**
+ * The bottom of the phone menu: Sign in / Create account when signed out;
+ * who you are, your studio, account and sign out when signed in.
+ */
+export function MobileAccount({ onNavigate }: { onNavigate: () => void }) {
   const router = useRouter();
   const signIn = useSignInHref();
   const { data: session, isPending } = authClient.useSession();
-  if (isPending) return null;
+  if (isPending) return <div className="h-12" aria-hidden="true" />;
   if (!session) {
     return (
-      <>
-        <Link href={signIn} className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
+      <div className="grid grid-cols-2 gap-2.5">
+        <ButtonLink href={signIn} variant="secondary" size="lg" className="min-w-0 px-3" onClick={onNavigate}>
           Sign in
-        </Link>
-        <Link href="/sign-up" className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
+        </ButtonLink>
+        <ButtonLink href="/sign-up" size="lg" className="min-w-0 px-3" onClick={onNavigate}>
           Create account
-        </Link>
-      </>
+        </ButtonLink>
+      </div>
     );
   }
   return (
-    <>
-      <div className="flex items-center gap-3 px-3 py-2">
-        <Avatar name={session.user.name} email={session.user.email} size="sm" />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{session.user.name}</p>
-          <p className="truncate text-xs text-muted">{session.user.email}</p>
+    <div className="grid grid-cols-1 gap-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <Avatar name={session.user.name} email={session.user.email} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-semibold text-ink">{session.user.name}</p>
+          <p className="truncate text-[13px] text-muted">{session.user.email}</p>
         </div>
+        <button
+          type="button"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[14px] font-medium text-ink-3 hover:bg-ink/5 hover:text-ink"
+          onClick={async () => {
+            onNavigate();
+            await authClient.signOut();
+            router.push("/");
+            router.refresh();
+          }}
+        >
+          <LogOut className="size-4" aria-hidden="true" /> Sign out
+        </button>
       </div>
-      <Link href="/studio" className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
-        Your studio
-      </Link>
-      <Link href="/account" className="rounded-lg px-3 py-2.5 text-[15px] font-medium hover:bg-paper">
-        Account
-      </Link>
-      <button
-        type="button"
-        className="rounded-lg px-3 py-2.5 text-left text-[15px] font-medium hover:bg-paper"
-        onClick={async () => {
-          onNavigate();
-          await authClient.signOut();
-          router.push("/");
-          router.refresh();
-        }}
-      >
-        Sign out
-      </button>
-    </>
-  );
-}
-
-/** The main button at the bottom of the mobile menu: create an account, or open the studio once signed in. */
-export function MobileCta({ onNavigate }: { onNavigate: () => void }) {
-  const { data: session, isPending } = authClient.useSession();
-  if (isPending) return null;
-  return session ? (
-    <ButtonLink href="/studio" size="lg" className="mt-3" onClick={onNavigate}>
-      Open your studio
-    </ButtonLink>
-  ) : (
-    <ButtonLink href="/sign-up" size="lg" className="mt-3" onClick={onNavigate}>
-      Get started
-    </ButtonLink>
+      <div className="grid grid-cols-2 gap-2.5">
+        <ButtonLink href="/account" variant="secondary" size="lg" className="min-w-0 px-3" onClick={onNavigate} icon={<UserRound className="size-4" aria-hidden="true" />}>
+          Account
+        </ButtonLink>
+        <ButtonLink href="/studio" size="lg" className="min-w-0 px-3" onClick={onNavigate} icon={<LayoutDashboard className="size-4" aria-hidden="true" />}>
+          Your studio
+        </ButtonLink>
+      </div>
+    </div>
   );
 }
