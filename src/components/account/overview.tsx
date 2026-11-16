@@ -46,7 +46,7 @@ export function AccountOverview({ user }: { user: CurrentUser }) {
         detail={
           plan.pro && plan.proUntil
             ? `${plan.renews ? "Renews" : "Active until"} ${formatDate(plan.proUntil, "short")}`
-            : `Exports up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px, watermarked`
+            : `Exports up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px, no watermark`
         }
       />
       <Tile

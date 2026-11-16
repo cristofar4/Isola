@@ -535,7 +535,7 @@ function Editor({ initial, id, onSaved, onCancel, onDeleted }: { initial: BrandP
                   </select>
                 </div>
               </div>
-              <p className="text-[13px] text-ink-3">New films start with these. Motion Studio only offers what your browser can actually encode, and Free exports keep the watermark and size limit.</p>
+              <p className="text-[13px] text-ink-3">New films start with these. Motion Studio only offers what your browser can actually encode, and Free exports keep the size limit.</p>
             </div>
           </Tabs.Content>
         </Tabs.Root>

@@ -4,7 +4,6 @@ import { Zip, ZipPassThrough } from "fflate";
 import { create } from "zustand";
 import { uploadLimits } from "@/lib/config";
 import { downloadBlob } from "@/lib/editor/export";
-import { drawWatermark } from "@/lib/editor/watermark";
 import { canvasToBlob, createCanvas, get2d, makeThumbnail } from "@/lib/image/decode";
 import { validateImageFile } from "@/lib/image/validate";
 import { applyPolicySize, exportPolicy } from "@/lib/plan-policy";
@@ -452,7 +451,6 @@ async function downloadableBlob(asset: Asset, pro: boolean): Promise<{ blob: Blo
   const ctx = get2d(out);
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(full as HTMLCanvasElement, 0, 0, size.width, size.height);
-  drawWatermark(ctx, size.width, size.height);
   return { blob: await canvasToBlob(out, "image/png"), name: `${stem(asset.name)}.png` };
 }
 

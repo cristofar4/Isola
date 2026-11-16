@@ -2,7 +2,6 @@
 
 import { Zip, ZipPassThrough } from "fflate";
 import { downloadBlob } from "@/lib/editor/export";
-import { drawWatermark } from "@/lib/editor/watermark";
 import { applyPolicySize, exportPolicy, type ExportPolicy } from "@/lib/plan-policy";
 import { sessionAccess } from "@/lib/session-gate";
 import { recordExport } from "@/lib/studio/export-history";
@@ -36,7 +35,6 @@ export async function renderSceneStill(scene: Scene, format: SceneFormatId, type
   const canvas = makeCanvas(width, height);
   const ctx = context2d(canvas);
   renderScene(ctx, scene, width, height, { image: assetImage, fonts: fontFamilies() });
-  if (policy.watermark) drawWatermark(ctx, width, height);
   return { blob: await toBlob(canvas, type), width, height };
 }
 

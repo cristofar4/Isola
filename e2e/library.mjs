@@ -113,7 +113,7 @@ await page.locator('[data-asset-details="serum-bottle-cutout.png"]').filter({ vi
 check("Make a cutout removes the background on this device and links it to its source", /Made from serum-bottle\.jpg/.test(await details().innerText()) && (await tabCount("Cutouts")) === 2);
 const cut = await download(page, () => details().getByRole("button", { name: "Download" }).click(), "serum-cutout.png");
 const meta = await sharp(cut.file).metadata();
-check("On Free, a cutout made here downloads at most 1,000px (with the watermark)", meta.height === 1000 && meta.width === 667 && meta.hasAlpha, `${meta.width}×${meta.height}`);
+check("On Free, a cutout made here downloads at most 1,000px", meta.height === 1000 && meta.width === 667 && meta.hasAlpha, `${meta.width}×${meta.height}`);
 await details().getByRole("button", { name: "Save as brand colours" }).click();
 await details().getByText(/Saved \d colours as the brand preset/).waitFor();
 const presets = (await (await context.request.get(`${BASE}/api/presets`)).json()).presets;

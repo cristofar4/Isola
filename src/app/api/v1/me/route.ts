@@ -28,7 +28,7 @@ export async function GET(request: Request) {
         watermark: policy.watermark,
         maxSide: policy.maxSide,
         masks: pro,
-        note: pro ? "Full resolution, no watermark." : `Watermarked, up to ${planConfig.freeMaxExportSide}px on the longest side. Upgrade to Pro for full resolution.`,
+        note: pro ? "Full resolution, with masks." : `Up to ${planConfig.freeMaxExportSide}px on the longest side, no watermark. Upgrade to Pro for full resolution and masks.`,
       },
       rateLimit: { limit: API_RATE_LIMIT_PER_HOUR, remaining: rate.remaining, resetAt: new Date(rate.resetAt).toISOString() },
       limits: {

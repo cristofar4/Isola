@@ -228,29 +228,29 @@ const topics: Topic[] = [
   {
     id: "plans",
     title: "Plans & billing",
-    blurb: "Free, Pro, watermark, Paystack",
+    blurb: "Free, Pro, export size, Paystack",
     icon: CreditCard,
     items: [
       {
         id: "free-vs-pro",
         q: "What's the difference between Free and Pro?",
-        text: `Free: watermarked downloads up to ${cap}px. Pro: full resolution, no watermark, Batch Studio, API masks.`,
+        text: `Free: downloads up to ${cap}px, no watermark. Pro: full resolution, Batch Studio, API masks.`,
         a: (
           <p>
-            Free accounts remove backgrounds and download watermarked images up to {cap}px. Pro ({formatNaira(planConfig.proPriceNgn)}{" "}
+            Free accounts remove backgrounds and download images up to {cap}px, with no watermark. Pro ({formatNaira(planConfig.proPriceNgn)}{" "}
             a month or {formatNaira(planConfig.proYearlyPriceNgn)} a year, the same features either way) gives full-resolution
-            exports without a watermark, Batch Studio, and full-resolution API results with masks.
+            exports, Batch Studio, and full-resolution API results with masks.
           </p>
         ),
       },
       {
         id: "watermark",
-        q: "How do I remove the watermark?",
-        text: "Upgrade to Pro; exports are then full resolution with no watermark.",
+        q: "Do downloads have a watermark?",
+        text: "No. No plan adds a watermark: Free downloads are up to 1,000px, Pro downloads are full resolution.",
         a: (
           <p>
-            Upgrade to Pro on the <Link href="/pricing">Pricing</Link> page. New downloads are then full resolution without a
-            watermark.
+            No. ISOLA doesn&apos;t add a watermark on any plan, including the free tries without an account. Free downloads are
+            up to {cap}px on the longest side; <Link href="/pricing">Pro</Link> downloads are full resolution.
           </p>
         ),
       },
@@ -281,10 +281,10 @@ const topics: Topic[] = [
         ),
       },
       {
-        id: "api-watermark",
-        q: "Why are my API results watermarked?",
-        text: `Free keys return watermarked cutouts up to ${cap}px; Pro keys are full resolution.`,
-        a: <p>The API follows your plan: Free keys return watermarked cutouts up to {cap}px, and Pro keys return full resolution without a watermark.</p>,
+        id: "api-size",
+        q: "Why are my API results smaller than my photo?",
+        text: `Free keys return cutouts up to ${cap}px; Pro keys are full resolution. No plan adds a watermark.`,
+        a: <p>The API follows your plan: Free keys return cutouts up to {cap}px on the longest side, and Pro keys return full resolution with masks. No plan adds a watermark.</p>,
       },
       {
         id: "api-limit",

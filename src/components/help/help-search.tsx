@@ -61,7 +61,7 @@ export function HelpSearch({ entries }: { entries: HelpEntry[] }) {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search for answers, e.g. watermark, batch, API key"
+          placeholder="Search for answers, e.g. export size, batch, API key"
           aria-controls={listId}
           className="h-14 w-full rounded-[14px] border border-line bg-surface pl-12 pr-4 text-[16px] text-ink shadow-[var(--shadow-card)] placeholder:text-subtle focus:border-blue focus:outline-none focus:ring-4 focus:ring-blue/15"
         />

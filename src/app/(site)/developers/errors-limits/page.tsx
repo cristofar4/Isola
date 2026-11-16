@@ -65,9 +65,9 @@ const fixes: Array<{ problem: string; cause: string; fix: string }> = [
     fix: "Use a normal window, free some space, or export finished images before leaving.",
   },
   {
-    problem: "Free downloads are 1,000px with a watermark",
-    cause: `That's the Free plan (${planConfig.freeMaxExportSide.toLocaleString("en-US")}px, watermarked).`,
-    fix: "Upgrade to Pro for full resolution without a watermark.",
+    problem: "Free downloads are 1,000px",
+    cause: `That's the Free plan's size limit (${planConfig.freeMaxExportSide.toLocaleString("en-US")}px on the longest side; no watermark).`,
+    fix: "Upgrade to Pro for full resolution.",
   },
 ];
 
@@ -173,7 +173,7 @@ export default function ErrorsLimitsPage() {
             </tr>
             <tr>
               <td>Free plan exports</td>
-              <td>{planConfig.freeMaxExportSide.toLocaleString("en-US")}px, watermarked</td>
+              <td>{planConfig.freeMaxExportSide.toLocaleString("en-US")}px, no watermark</td>
               <td>
                 <code>NEXT_PUBLIC_ISOLA_FREE_MAX_EXPORT_SIDE</code>
               </td>

@@ -153,11 +153,11 @@ redeployed:
    value, for example the output of
    `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 3. `BETTER_AUTH_URL`: the site's address, e.g. `https://isola.example.com`.
-4. Model files: serverless functions can't stream files this large, so upload
-   the `.onnx` files (`npm run models:fetch` puts them in `./models`) to a CDN
-   or object storage that sends CORS and `Cross-Origin-Resource-Policy:
-   cross-origin`, and set `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` to that folder's
-   address.
+4. Model files: nothing to do. The editor downloads the model in pieces, and
+   the model route fetches each piece from the mirror. For heavy traffic, you
+   can instead upload the `.onnx` files (`npm run models:fetch` puts them in
+   `./models`) to a CDN that sends CORS and `Cross-Origin-Resource-Policy:
+   cross-origin`, and set `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` to that folder.
 
 Optional for both: `SMTP_URL` (or `RESEND_API_KEY`) so new accounts confirm
 their email and password reset works, `PAYSTACK_SECRET_KEY` for Pro, and the
@@ -241,7 +241,7 @@ Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
   removal that fails or is cancelled gives its try back. When the last try
   finishes, and again when a guest asks for more, the editor opens "Want to
   make more?": what they made, what a free account gives (no image limit,
-  still on their device; free exports carry the watermark), and Create free
+  still on their device, no watermark), and Create free
   account / Sign in / Not now. What they made stays in the editor and can be
   refined and downloaded under the Free plan's rules. After that, the
   landing page's button reads "Continue with a free account" and leads to
@@ -314,7 +314,7 @@ Not built yet: changing the email address and saving projects to an account.
 | Background removal (account required) | ✓ | ✓ |
 | Single-image editor | ✓ | ✓ |
 | Export size | Up to 1,000px on the longest side | Full resolution (HD and beyond) |
-| Watermark | "ISOLA" tiled across exports | None |
+| Watermark | None | None |
 | Batch Studio | — | ✓ |
 
 Monthly and yearly Pro are the same plan with the same features; the pricing
@@ -343,7 +343,8 @@ page has a Monthly/Yearly toggle (yearly saves about 17%).
   `{BETTER_AUTH_URL}/api/billing/webhook`. Without a key, the Upgrade button
   says payments aren't set up yet and everyone stays on Free.
 - **How limits are enforced:** Pro status is stored on the server and only the
-  server can change it. The watermark and size rules live in one place,
+  server can change it. The size rules live in one place (no plan adds a
+  watermark: `watermark` is always `false`, kept for API clients),
   `src/lib/plan-policy.ts`, used by the editor's export and by every Batch
   Studio download and ZIP. Because background removal and export run in the
   browser (images are never uploaded), those rules are applied in the browser;
@@ -504,7 +505,7 @@ images, is labelled "Example").
   published rules, on the real output geometry after the plan's size limit:
   **Amazon main image** (pure white RGB 255,255,255 background, product filling
   at least 85% of the frame, 1,000px or more on the longest side, no
-  watermark, so Free exports are flagged) with "Make Amazon-ready" (square,
+  watermark; ISOLA adds none) with "Make Amazon-ready" (square,
   white, JPEG, padding 5%; 1,000px canvas for small photos), and **Instagram
   post** (4:5 to 1.91:1, 1080px wide, no transparency). The catalogue preset's
   10% padding leaves products filling 80%, which this catches. Rules are based
@@ -573,7 +574,7 @@ filters, sorting, grid or list, select all and a bulk toolbar.
 - **Save as brand colours:** an asset's main colours become a brand preset
   (white background, so new projects don't take the photo's colour unasked).
 - **Download** one asset or a selection (ZIP). Uploads download exactly as they
-  were; cutouts made here follow the plan (Free: 1,000px with the watermark).
+  were; cutouts made here follow the plan (Free: up to 1,000px).
 - Details show where an asset is used, and **Use in project** / **Open in
   editor** take it further. Assets used by a project can't be deleted for
   good until the project is.
@@ -645,7 +646,7 @@ side), so one scene renders in every format and at any size.
   Compare shows the products without the set; undo/redo.
 - **Linked formats:** Square, Portrait 4:5, Wide 16:9 and Story 9:16 share the
   layers; each has a live thumbnail. Export one as PNG/JPEG or several as a
-  ZIP (a folder per format), under the plan's rules (Free: watermark, 1,000px).
+  ZIP (a folder per format), under the plan's rules (Free: up to 1,000px).
 - **Toolbar and canvas:** Select, Layers, Lighting, Compare and Text tools;
   Fit and zoom in/out (the canvas scrolls when zoomed); a floating bar on the
   canvas chooses what a drag does (Move, Rotate, Scale), toggles Snap and
@@ -789,8 +790,8 @@ Keyframe times are relative to their clip.
   VP9/VP8 and Opus. Settings: aspect, 720p/1080p/4K, 24/25/30/60 fps,
   quality, sound on/off, file name. Progress is measured in frames; export
   can be cancelled; a file is offered only after the encoder finishes; missing
-  media blocks export with a reason. Free plan exports carry the watermark and
-  are capped at 1,000px on the longest side, like every Free export.
+  media blocks export with a reason. Free plan exports are capped at 1,000px
+  on the longest side, like every Free export, with no watermark.
 - **Saving:** films and saved styles are kept in this browser (IndexedDB,
   next to the library), as local drafts that aren't synced to your account.
   "Saved in this browser" appears only after the write succeeds; storage
@@ -816,9 +817,9 @@ curl -X POST https://your-deployment/api/v1/remove-background \
   raw body; `output=cutout|mask`, `format=png|jpeg`, `background=#RRGGBB`) and
   `GET /api/v1/me` (key, plan, limits, remaining requests). JSON errors with
   stable codes, CORS for any origin, rate-limit headers on every response.
-- **Plans apply on the server:** Free keys get cutouts scaled to 1,000px with a
-  watermark (drawn as vector shapes, so no fonts are needed on the server);
-  Pro keys get full resolution, no watermark, and masks. Unlike in-browser
+- **Plans apply on the server:** Free keys get cutouts scaled to 1,000px; Pro
+  keys get full resolution and masks. Neither adds a watermark
+  (`X-Isola-Watermark: false`, kept for existing clients). Unlike in-browser
   exports, these rules can't be bypassed.
 - **Limits:** 60 requests per key per hour by default, one inference at a time
   with a short queue, and the same upload limits as the app.
@@ -912,7 +913,7 @@ empty model folder (so the automatic download is exercised) and with
   failure; mobile toolbar and bottom sheet.
 - **Public API (`npm run test:api`): 30/30**: keys created in the Account page
   are shown once and never again; missing, unknown and deleted keys get 401;
-  Free keys return watermarked 1000px PNGs and can't request masks; Pro keys
+  Free keys return 1000px PNGs with no watermark and can't request masks; Pro keys
   return full-resolution cutouts with real alpha (raw body and multipart),
   greyscale masks, JPEG on white and PNG on a colour; transparent inputs stay
   transparent; the API's cutout matches the browser engine's export (mean alpha
@@ -995,8 +996,7 @@ empty model folder (so the automatic download is exercised) and with
   from the pixels; tags filter, search finds assets by colour, a selection
   goes into a new collection with a tag; a selection downloads as a ZIP of the
   untouched originals; "Make a cutout" removes the background and links the
-  cutout to its source, which downloads at 667×1000 with the watermark on
-  Free; an asset's colours become a brand preset. A project prepares the
+  cutout to its source, which downloads at 667×1000 on Free; an asset's colours become a brand preset. A project prepares the
   master and draws Square, Portrait and Wide; a version given its own padding
   is reported with the real difference ("−16%") and "Match to master" links it
   again; changes are named in version history; Undo and Ctrl+Shift+Z redo
@@ -1019,8 +1019,8 @@ empty model folder (so the automatic download is exercised) and with
   under `npm run dev`.
 - **Plans and payments (`npm run test:billing`): 32/32**, including the price
   and amount sent to checkout, the yearly toggle, free exports capped at
-  1,000px with a watermark, Batch Studio blocked on Free, upgrade through
-  checkout, Pro exports at full resolution without a watermark, refusing
+  1,000px with no watermark, Batch Studio blocked on Free, upgrade through
+  checkout, Pro exports at full resolution, refusing
   replayed, underpaid and other-account payments, rejecting forged webhooks,
   automatic renewals (no checkout metadata) extending Pro once, ignoring
   renewals for other plans or below the price, yearly checkout (₦140,000 on the
@@ -1139,17 +1139,22 @@ sandbox; the route's validation, rate limiting and error paths were tested).
   there). No LUTs, no beat detection, no bundled music, and blur needs canvas
   filters (not every Safari). The viewer plays video through `<video>`
   elements kept on the project clock; exports decode frames exactly.
-- **Model hosting:** the ~179–224 MB model files must be served by your host or a
-  CDN. The built-in `/api/models/` route streams them from the Node server
-  (downloading them once on first use), which needs a long-running Node host
-  (a VPS, Docker, Render, Railway, Fly.io…) with ~450 MB of disk. Serverless
-  functions with response-size or time limits (Vercel functions, for example)
-  can't stream a file that size, and every batch item then fails with "The
-  model couldn't be downloaded". On such platforms, put the `.onnx` files on a
+- **Model hosting:** the editor downloads the ~179–224 MB model in 4 MB
+  pieces (Range requests), four at a time, retrying a piece that drops instead
+  of starting over, then checks the whole file's SHA-256 and keeps it in the
+  browser. The built-in `/api/models/` route serves pieces from a local copy
+  on a long-running Node host (a VPS, Docker, Render, Railway, Fly.io…; it
+  downloads the file once on first use, ~450 MB of disk for both models). On a
+  serverless host (Vercel, Netlify), where a function can't keep or stream a
+  file that size, it fetches each piece from the mirror as it's asked for,
+  checks its position and size, and passes it on. Verified here with no local
+  copy: 43 pieces, checksum passed, first removal 14 s including the download.
+  Every new visitor's 170 MB then goes through your functions, which counts
+  against the host's bandwidth; for heavy traffic, put the `.onnx` files on a
   CDN or object storage that sends CORS and
-  `Cross-Origin-Resource-Policy: cross-origin`, and set
-  `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` to it (the sign-in requirement is then
-  enforced by the app UI only).
+  `Cross-Origin-Resource-Policy: cross-origin` and set
+  `NEXT_PUBLIC_ISOLA_MODEL_BASE_URL` to it (the account and free-tries checks
+  are then enforced by the app only).
 - **Large images on phones:** iOS Safari limits canvas size (~16.7 MP), so big
   exports may need a smaller output size there.
 - Terms of use are a starting template that should be reviewed.

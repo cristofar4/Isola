@@ -71,8 +71,8 @@ export default function ApiQuickstartPage() {
       <DocBody>
         <DocCallout title="Your plan applies to the API too.">
           <p>
-            Free keys return watermarked cutouts up to {planConfig.freeMaxExportSide.toLocaleString("en-US")}px on the longest
-            side. Pro keys return full resolution with no watermark, and masks. The server applies these rules, so they
+            Free keys return cutouts up to {planConfig.freeMaxExportSide.toLocaleString("en-US")}px on the longest side. Pro
+            keys return full resolution, and masks. No plan adds a watermark. The server applies these rules, so they
             hold for every request.
           </p>
         </DocCallout>

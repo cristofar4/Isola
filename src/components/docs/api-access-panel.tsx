@@ -73,7 +73,7 @@ export function ApiAccessPanel({ next = "/developers" }: { next?: string }) {
             : keys === 0
               ? "You don't have an API key yet."
               : `You have ${keys} API key${keys === 1 ? "" : "s"}.`}{" "}
-          {!plan.pro && `API results are watermarked up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px on Free.`}
+          {!plan.pro && `API results are up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px on Free.`}
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2">

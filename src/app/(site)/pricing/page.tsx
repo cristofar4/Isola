@@ -16,7 +16,7 @@ import { billingConfigured, renewsAutomatically } from "@/server/billing";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: `Free background removal with watermarked previews, or Pro for ${formatNaira(planConfig.proPriceNgn)} a month or ${formatNaira(planConfig.proYearlyPriceNgn)} a year.`,
+  description: `Free background removal with no watermark, or Pro for ${formatNaira(planConfig.proPriceNgn)} a month or ${formatNaira(planConfig.proYearlyPriceNgn)} a year.`,
 };
 
 const price = formatNaira(planConfig.proPriceNgn);
@@ -67,11 +67,11 @@ async function RenewalNote() {
 const faq = [
   {
     q: "Can I try ISOLA before upgrading?",
-    a: `Yes. Try a few images without an account, then create a free account to keep removing backgrounds and download previews up to ${cap}px with an ISOLA watermark. Upgrade when you need full resolution, no watermark or Batch Studio.`,
+    a: `Yes. Try a few images without an account, then create a free account to keep removing backgrounds and download images up to ${cap}px, with no watermark. Upgrade when you need full resolution or Batch Studio.`,
   },
   {
     q: "What counts as a processed image?",
-    a: "There's no per-image count on either plan. Free and Pro both remove backgrounds without a monthly image limit; the differences are the watermark, export size and Batch Studio.",
+    a: "There's no per-image count on either plan. Free and Pro both remove backgrounds without a monthly image limit; the differences are export size, Batch Studio and API masks. Neither plan adds a watermark.",
   },
   {
     q: "Can I change my plan?",
@@ -79,11 +79,11 @@ const faq = [
   },
   {
     q: "What do I get on Pro?",
-    a: "Every export at the full resolution of your photo (or the size you choose), with no watermark, plus Batch Studio. Monthly and yearly Pro are the same plan; yearly just costs less over twelve months.",
+    a: "Every export at the full resolution of your photo (or the size you choose), plus Batch Studio and API masks. Monthly and yearly Pro are the same plan; yearly just costs less over twelve months.",
   },
   {
     q: "Is there an API?",
-    a: `Yes. Create API keys on your Account page and send images from your own code. Free keys return watermarked cutouts up to ${cap}px; Pro keys return full resolution with no watermark, plus masks. See the developer docs for examples.`,
+    a: `Yes. Create API keys on your Account page and send images from your own code. Free keys return cutouts up to ${cap}px; Pro keys return full resolution, plus masks. Neither adds a watermark. See the developer docs for examples.`,
   },
   {
     q: "What happens to my uploaded images?",
@@ -95,10 +95,10 @@ const rows: Array<{ feature: string; free: boolean; pro: boolean; studio: boolea
   { feature: "Background removal", free: true, pro: true, studio: true },
   { feature: "Single image editor", free: true, pro: true, studio: true },
   { feature: "Full-resolution (HD) export", free: false, pro: true, studio: true },
-  { feature: "No watermark", free: false, pro: true, studio: true },
+  { feature: "No watermark", free: true, pro: true, studio: true },
   { feature: `Batch Studio (up to ${uploadLimits.maxBatchFiles} images)`, free: false, pro: true, studio: true },
   { feature: "Public API with your own keys", free: true, pro: true, studio: true },
-  { feature: "API at full resolution, no watermark, masks", free: false, pro: true, studio: true },
+  { feature: "API at full resolution, with masks", free: false, pro: true, studio: true },
   { feature: "Team workspace", free: false, pro: false, studio: "planned" },
 ];
 
@@ -140,9 +140,9 @@ export default function PricingPage() {
             <ul className="mt-6 grid gap-3">
               <Feature>Single image editing</Feature>
               <Feature>Background removal</Feature>
-              <Feature>Watermarked previews up to {cap}px</Feature>
+              <Feature>No watermark, downloads up to {cap}px</Feature>
             </ul>
-            <p className="mt-auto pt-6 text-xs text-muted">A free account is required to remove backgrounds.</p>
+            <p className="mt-auto pt-6 text-xs text-muted">Try 3 images without an account; then a free account keeps you going.</p>
           </PlanCard>
 
           <PlanCard label="Pro plan" highlight>
@@ -159,7 +159,6 @@ export default function PricingPage() {
             </div>
             <ul className="mt-6 grid gap-3">
               <Feature>Full-resolution HD exports, up to the photo&apos;s own size</Feature>
-              <Feature>No watermark</Feature>
               <Feature>Batch Studio, up to {uploadLimits.maxBatchFiles} images at a time</Feature>
               <Feature>Custom backgrounds and shadows</Feature>
               <Feature>API at full resolution, with masks</Feature>

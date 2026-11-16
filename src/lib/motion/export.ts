@@ -13,7 +13,6 @@
  */
 
 import { AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input, ALL_FORMATS, Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_MEDIUM, QUALITY_VERY_HIGH, WebMOutputFormat, canEncodeAudio, canEncodeVideo, type AudioCodec, type VideoCodec } from "mediabunny";
-import { drawWatermark } from "@/lib/editor/watermark";
 import { applyPolicySize, type ExportPolicy } from "@/lib/plan-policy";
 import { context2d, makeCanvas } from "@/lib/scene/backdrops";
 import type { Drawable } from "@/lib/scene/draw";
@@ -68,7 +67,7 @@ export interface ExportRequest {
   quality: ExportQuality;
   includeAudio: boolean;
   fileName: string;
-  /** The plan's rules: Free exports carry the watermark and are capped in size, like every other ISOLA export. */
+  /** The plan's rules: Free exports are capped in size, like every other ISOLA export. */
   policy: ExportPolicy;
 }
 
@@ -182,7 +181,6 @@ export async function exportFilm(req: ExportRequest, onProgress: (p: ExportProgr
         video: (id, time) => frameMap.get(`${id}@${time.toFixed(4)}`) ?? null,
         fonts,
       });
-      if (req.policy.watermark) drawWatermark(ctx, W, H);
       await videoSource.add(t, 1 / fps);
       if (i % fps === 0) await sendAudio(t + 1);
       onProgress({ phase: "rendering", done: (i + 1) / frames, frame: i + 1, frames });

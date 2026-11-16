@@ -96,7 +96,7 @@ export function TrialEndedDialog() {
               {[
                 "No image limit on the free plan",
                 "Still processed on this device: your images aren't uploaded",
-                `What you made stays here: refine and download it (free exports carry a small watermark, up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px)`,
+                `What you made stays here: refine and download it, with no watermark (free downloads are up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px)`,
               ].map((line) => (
                 <li key={line} className="flex gap-2.5">
                   <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />

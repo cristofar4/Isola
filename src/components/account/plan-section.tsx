@@ -29,7 +29,6 @@ function ProFeatures() {
   return (
     <ul className="grid gap-2">
       <Feature>Full-resolution HD exports</Feature>
-      <Feature>No watermark</Feature>
       <Feature>Batch Studio, up to {uploadLimits.maxBatchFiles} images at a time</Feature>
       <Feature>API at full resolution, with masks</Feature>
     </ul>
@@ -118,8 +117,8 @@ export function PlanSection({ user, billingAvailable }: { user: CurrentUser; bil
             <p className="mt-1 font-display text-[24px] font-bold text-ink">Free</p>
             <ul className="mt-4 grid gap-2">
               <Feature>Background removal on your device</Feature>
-              <Feature>Exports up to {cap}px, with an ISOLA watermark</Feature>
-              <Feature>API: watermarked cutouts up to {cap}px</Feature>
+              <Feature>Exports up to {cap}px, no watermark</Feature>
+              <Feature>API: cutouts up to {cap}px</Feature>
               <Feature on={false}>Batch Studio</Feature>
             </ul>
           </div>

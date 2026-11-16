@@ -76,11 +76,11 @@ describe("checkCollection", () => {
     expect(after.issues).toHaveLength(0);
   });
 
-  it("flags transparency, watermark and small sizes for Amazon", () => {
+  it("flags transparency and small sizes for Amazon (free exports carry no watermark)", () => {
     const transparent = entry("t", { background: { kind: "transparent" }, format: "png", padding: 4 }, { width: 800, height: 600, bounds: { x: 100, y: 100, w: 600, h: 400 } });
     const report = checkCollection([transparent], { target: "amazon", policy: FREE });
     const kinds = report.issues.map((i) => i.kind).sort();
-    expect(kinds).toEqual(["background", "size", "watermark"]);
+    expect(kinds).toEqual(["background", "size"]);
     const fixed = amazonSettings(transparent.settings, 800, 600);
     expect(fixed.canvas).toBe("custom");
     expect(canvasSize(fixed, 800, 600)).toEqual({ width: 1000, height: 1000 });

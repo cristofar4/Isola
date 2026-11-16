@@ -880,8 +880,8 @@ export function BatchStudio() {
             <div className="flex-1 text-[13px] leading-relaxed text-ink-3">
               <p className="font-semibold text-ink">Batch Studio is part of Pro</p>
               <p>
-                Your images stay here. Upgrade ({monthly}/month or {yearly}/year) and they start processing, at full resolution without a
-                watermark. Single images stay free in the editor.
+                Your images stay here. Upgrade ({monthly}/month or {yearly}/year) and they start processing, at full resolution. Single
+                images stay free in the editor.
               </p>
             </div>
             <ButtonLink href="/pricing?from=batch" size="sm">

@@ -79,8 +79,8 @@ export function ApiKeysSection({ pro }: { pro: boolean }) {
       title="API keys"
       description={
         pro
-          ? "Use the ISOLA API from your own code. Pro: full resolution, no watermark, masks included."
-          : `Use the ISOLA API from your own code. Free: watermarked cutouts up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px; Pro removes both limits.`
+          ? "Use the ISOLA API from your own code. Pro: full resolution, masks included."
+          : `Use the ISOLA API from your own code. Free: cutouts up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px; Pro: full resolution and masks.`
       }
       action={
         <Link href="/developers/api" className="inline-flex items-center gap-1 text-[14px] font-semibold text-blue-700 hover:underline">

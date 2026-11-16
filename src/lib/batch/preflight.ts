@@ -89,6 +89,6 @@ export function preflight(targets: PreflightItem[], opts: { unapplied: boolean; 
     });
     if (renamed) lines.push({ id: "names", tone: "info", text: `${plural(renamed, "file")} share a name and get -2, -3…` });
   }
-  if (!opts.pro) lines.push({ id: "plan", tone: "warn", text: `Free plan: ISOLA watermark, up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px`, action: "upgrade" });
+  if (!opts.pro) lines.push({ id: "plan", tone: "warn", text: `Free plan: up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px on the longest side`, action: "upgrade" });
   return lines;
 }

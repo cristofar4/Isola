@@ -105,9 +105,9 @@ describe("settings", () => {
 });
 
 describe("plan policy", () => {
-  it("caps free exports and adds the watermark; Pro is untouched", () => {
+  it("caps free exports (no watermark on any plan); Pro is untouched", () => {
     const free = exportPolicy(false);
-    expect(free.watermark).toBe(true);
+    expect(free.watermark).toBe(false);
     expect(applyPolicySize(1600, 1280, free)).toMatchObject({ width: 1000, height: 800, limited: true });
     expect(applyPolicySize(800, 600, free)).toMatchObject({ width: 800, height: 600, limited: false });
     const pro = exportPolicy(true);

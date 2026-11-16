@@ -140,39 +140,7 @@ export interface RenderOptions {
   policy: ExportPolicy;
 }
 
-const LETTERS: Array<{ w: number; d: string }> = [
-  { w: 40, d: "M20 12 V88" },
-  { w: 74, d: "M60 22 C52 10 14 10 16 32 C18 52 64 46 64 70 C64 92 22 94 12 78" },
-  { w: 84, d: "M42 10 C18 10 8 30 8 50 C8 70 18 90 42 90 C66 90 76 70 76 50 C76 30 66 10 42 10 Z" },
-  { w: 66, d: "M14 10 V90 H60" },
-  { w: 84, d: "M8 90 L42 10 L76 90 M20 62 H64" },
-];
-
-/**
- * Free-plan watermark: "ISOLA" drawn as vector strokes (no fonts needed on
- * the server), tiled diagonally like the browser watermark.
- */
-export function watermarkSvg(width: number, height: number): string {
-  const size = Math.max(14, Math.round(Math.min(width, height) * 0.07));
-  const scale = size / 100;
-  let x = 0;
-  const word = LETTERS.map((l) => {
-    const g = `<path transform="translate(${x} 0)" d="${l.d}"/>`;
-    x += l.w + 14;
-    return g;
-  }).join("");
-  const wordWidth = x * scale;
-  const stepX = Math.max(wordWidth + size * 1.6, size * 4.6);
-  const stepY = size * 2.8;
-  const strokes = (color: string, w: number) =>
-    `<g fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${word}</g>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-<defs><pattern id="w" width="${stepX}" height="${stepY}" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
-<g transform="translate(${(stepX - wordWidth) / 2} ${(stepY - size) / 2}) scale(${scale})">${strokes("rgba(32,41,45,0.32)", 20)}${strokes("rgba(255,255,255,0.5)", 11)}</g>
-</pattern></defs><rect width="100%" height="100%" fill="url(#w)"/></svg>`;
-}
-
-/** Compose the requested output and encode it, applying the plan policy (size limit, watermark). */
+/** Compose the requested output and encode it, applying the plan policy (size limit). */
 export async function renderOutput(input: DecodedInput, mask: Uint8Array, options: RenderOptions) {
   const { width, height } = input;
   let composed: Sharp;
@@ -186,12 +154,11 @@ export async function renderOutput(input: DecodedInput, mask: Uint8Array, option
     const fill = options.background ?? (options.format === "jpeg" ? "#ffffff" : null);
     if (fill) composed = composed.flatten({ background: fill });
   }
-  // Lossless intermediate, then one pipeline: resize (plan limit) → watermark → encode.
+  // Lossless intermediate, then one pipeline: resize (plan limit) → encode.
   const intermediate = await composed.png({ compressionLevel: 1 }).toBuffer();
   const out = applyPolicySize(width, height, options.policy);
   let image = sharp(intermediate);
   if (out.limited) image = image.resize(out.width, out.height, { fit: "fill", kernel: "lanczos3" });
-  if (options.policy.watermark) image = image.composite([{ input: Buffer.from(watermarkSvg(out.width, out.height)), top: 0, left: 0 }]);
   const body =
     options.format === "jpeg"
       ? await image.flatten({ background: options.background ?? "#ffffff" }).jpeg({ quality: 92, mozjpeg: true }).toBuffer()

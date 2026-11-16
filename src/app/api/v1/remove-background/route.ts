@@ -79,7 +79,7 @@ export async function POST(request: Request) {
     return apiError(400, "invalid_request", "Masks are returned as greyscale PNG; leave `format` and `background` unset.");
   }
   if (output === "mask" && !caller.pro) {
-    return apiError(403, "pro_required", "Masks are part of Pro. Free keys return watermarked cutouts up to 1,000px.");
+    return apiError(403, "pro_required", "Masks are part of Pro. Free keys return cutouts up to 1,000px.");
   }
 
   const rate = await consumeRate(caller);

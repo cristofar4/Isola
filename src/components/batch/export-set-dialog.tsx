@@ -105,7 +105,7 @@ export function ExportSetDialog({ open, onOpenChange }: { open: boolean; onOpenC
               : chosen.length === 0
                 ? "Choose at least one destination."
                 : `${targets.length} image${targets.length === 1 ? "" : "s"} × ${chosen.length} destination${chosen.length === 1 ? "" : "s"} = ${files} file${files === 1 ? "" : "s"}`}
-            {!pro && targets.length > 0 && ` · Free: up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px with a watermark`}
+            {!pro && targets.length > 0 && ` · Free: up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px`}
           </p>
           <Button
             disabled={targets.length === 0 || chosen.length === 0 || exporting !== null}

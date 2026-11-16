@@ -208,10 +208,9 @@ export default function ProcessingPage() {
         </table>
         <p>
           One module, <code>src/lib/plan-policy.ts</code>, decides what each plan exports, for the editor and Batch Studio
-          alike. Free exports carry an ISOLA watermark and are limited to{" "}
-          {planConfig.freeMaxExportSide.toLocaleString("en-US")}px on the longest side; Pro exports at full resolution with no
-          watermark. Pro status comes from the session and only the server changes it, after verifying a payment. The
-          watermark itself is drawn in the browser, because that&apos;s where images are processed.
+          alike. Free exports are limited to {planConfig.freeMaxExportSide.toLocaleString("en-US")}px on the longest side;
+          Pro exports at full resolution. No plan adds a watermark. Pro status comes from the session and only the server
+          changes it, after verifying a payment.
         </p>
 
         <DocFooter href="/developers/processing" />

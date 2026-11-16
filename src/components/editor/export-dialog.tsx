@@ -46,9 +46,9 @@ function ExportForm({ image }: { image: ProjectImage }) {
   const [state, setState] = useState<{ kind: "idle" } | { kind: "rendering" } | { kind: "done"; name: string; bytes: number } | { kind: "error"; message: string }>({ kind: "idle" });
   const ids = { w: useId(), h: useId() };
   const plan = usePlan();
-  // Free plan: watermarked, and scaled down to fit the preview size (see plan-policy.ts).
+  // Free plan: scaled down to fit the size limit (see plan-policy.ts). No plan adds a watermark.
   const policy = exportPolicy(plan.pro);
-  const limited = policy.watermark;
+  const limited = policy.maxSide !== null;
   const cap = policy.maxSide ?? planConfig.freeMaxExportSide;
   const out = applyPolicySize(size.width, size.height, policy);
 
@@ -83,7 +83,6 @@ function ExportForm({ image }: { image: ProjectImage }) {
         height: out.height,
         background,
         quality: quality / 100,
-        watermark: policy.watermark,
       });
       downloadBlob(blob, fileName);
       setState({ kind: "done", name: fileName, bytes: blob.size });
@@ -121,12 +120,12 @@ function ExportForm({ image }: { image: ProjectImage }) {
         <div className="mb-5 flex gap-3 rounded-[12px] border border-blue-100 bg-blue-50 px-3.5 py-3 text-[13px] leading-relaxed text-ink-3">
           <Sparkles className="mt-0.5 size-4 shrink-0 text-blue" aria-hidden="true" />
           <p>
-            <span className="font-semibold text-ink">Free plan:</span> exports include an ISOLA watermark and are limited to{" "}
+            <span className="font-semibold text-ink">Free plan:</span> exports have no watermark and are limited to{" "}
             {cap.toLocaleString("en-US")}px on the longest side.{" "}
             <Link href="/pricing" className="font-semibold text-blue-700 underline underline-offset-2">
               Upgrade to Pro for {formatNaira(planConfig.proPriceNgn)}/month
             </Link>{" "}
-            for full resolution without a watermark.
+            for full resolution.
           </p>
         </div>
       )}

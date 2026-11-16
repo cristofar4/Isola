@@ -152,7 +152,7 @@ export const useBatch = create<BatchState>((set) => ({
   setPro: (pro) => {
     if (useBatch.getState().pro === pro) return;
     set({ pro });
-    // Previews show the watermark exactly when downloads would carry one.
+    // Previews follow the same plan rules as downloads.
     void refreshPreviews(useBatch.getState().items.map((i) => i.id));
   },
   dismissReport: () => set({ report: null }),

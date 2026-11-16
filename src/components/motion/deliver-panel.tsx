@@ -117,7 +117,7 @@ export function DeliverPanel() {
       <p className="text-[12px] text-m-text-2" data-output-size>
         Output: {size.width} × {size.height} · {secs(D)} · {Math.round(D * film.fps)} frames
       </p>
-      {policy.watermark && <p className="rounded-[8px] bg-m-ink/[0.04] px-2.5 py-2 text-[11px] leading-snug text-m-text-2">Free plan: ISOLA watermark, up to 1,000px on the longest side (like every Free export). Pro exports full size without the watermark.</p>}
+      {policy.maxSide !== null && <p className="rounded-[8px] bg-m-ink/[0.04] px-2.5 py-2 text-[11px] leading-snug text-m-text-2">Free plan: up to {policy.maxSide.toLocaleString("en-US")}px on the longest side (like every Free export), no watermark. Pro exports full size.</p>}
       <Field label="Format" hint={options && !options.length ? undefined : encoding?.note ?? undefined}>
         {options === null ? (
           <p className="text-[12px] text-m-subtle">Checking what this browser can encode…</p>

@@ -108,7 +108,7 @@ json = await res.json();
 check("Unknown key → 401 invalid_api_key", res.status === 401 && json.error.code === "invalid_api_key");
 res = await call("/api/v1/me", { headers: { "X-Api-Key": freeKey } });
 json = await res.json();
-check("X-Api-Key works and /me describes the Free plan", res.status === 200 && json.plan.name === "free" && json.output.watermark === true && json.output.maxSide === 1000, JSON.stringify(json.output));
+check("X-Api-Key works and /me describes the Free plan", res.status === 200 && json.plan.name === "free" && json.output.watermark === false && json.output.maxSide === 1000, JSON.stringify(json.output));
 const limit = json.rateLimit.limit;
 
 /* 3. Free key: real cutout, plan rules -------------------------------------- */
@@ -117,8 +117,8 @@ let bytes = Buffer.from(await res.arrayBuffer());
 writeFileSync(join(OUT, "free-cutout.png"), bytes);
 let m = await measure(bytes, [[3, 3]]);
 check(
-  "Free key: PNG cutout scaled to 1000px with the watermark",
-  res.status === 200 && res.headers.get("content-type") === "image/png" && m.width === 1000 && m.height === 800 && res.headers.get("x-isola-watermark") === "true" && m.cornerMarked > 0.01,
+  "Free key: PNG cutout scaled to 1000px, with no watermark",
+  res.status === 200 && res.headers.get("content-type") === "image/png" && m.width === 1000 && m.height === 800 && res.headers.get("x-isola-watermark") === "false" && m.cornerMarked < 0.001,
   `${res.status} ${m.width}×${m.height}, ${(m.cornerMarked * 100).toFixed(1)}% of the corner marked`,
 );
 check("Rate-limit headers on every response", Number(res.headers.get("x-ratelimit-remaining")) === limit - 1 && res.headers.get("x-ratelimit-limit") === String(limit));

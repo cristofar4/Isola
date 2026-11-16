@@ -1,5 +1,5 @@
 /**
- * Plans and billing: free-plan watermark and size cap, Pro-only Batch Studio,
+ * Plans and billing: the free plan's size cap (no watermark on any plan), Pro-only Batch Studio,
  * upgrading through Paystack checkout, and the safety checks around payments.
  *
  *   SMTP_URL=smtp://127.0.0.1:2525 PAYSTACK_SECRET_KEY=sk_test_isola_e2e \
@@ -89,14 +89,14 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 900 
 await signInContext(context, BASE, account);
 const page = await context.newPage();
 
-// Free plan: watermark and preview size.
+// Free plan: size limit, and no watermark.
 await page.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
 await page.locator("input[type=file][multiple]").first().setInputFiles(FIXTURE);
 await waitReady(page);
 const free = await exportAndMeasure(page, "billing-free.png");
 check("Free export explains the plan limits", free.notice);
 check("Free exports are limited to the preview size", free.width === 1000 && free.height === 800, `${free.width}×${free.height}`);
-check("Free exports carry a watermark", free.backgroundMarked > 0.01, `${(free.backgroundMarked * 100).toFixed(1)}% of background marked`);
+check("Free exports have no watermark", free.backgroundMarked < 0.001, `${(free.backgroundMarked * 100).toFixed(2)}% of background marked`);
 
 // Free plan: Batch Studio is Pro only.
 await page.goto(`${BASE}/batch`, { waitUntil: "networkidle" });
@@ -118,7 +118,7 @@ const sentAmount = [...paystack.txs.values()].at(-1);
 check("Checkout charges ₦14,000 in kobo, in naira", sentAmount.amount === 1_400_000 && sentAmount.currency === "NGN", `${sentAmount.amount} ${sentAmount.currency}`);
 check("Checkout subscribes to the monthly Paystack plan", sentAmount.plan === MONTHLY_PLAN, String(sentAmount.plan));
 
-// Pro: no watermark, full resolution, batches work.
+// Pro: full resolution, batches work.
 // Coming back from checkout is a full page load, so the editor starts empty again.
 await page.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
 await page.locator("input[type=file][multiple]").first().setInputFiles(FIXTURE);

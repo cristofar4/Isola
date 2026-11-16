@@ -132,11 +132,11 @@ check("Footer links go to the new pages", (await footer.getByRole("link", { name
 await page.goto(`${BASE}/support`, { waitUntil: "networkidle" });
 check("Help centre lists its topics", (await page.getByRole("navigation", { name: "Help topics" }).getByRole("link").count()) === 8);
 await page.getByRole("searchbox", { name: "Search the help centre" }).fill("watermark");
-const answer = page.getByRole("link", { name: /How do I remove the watermark/ });
+const answer = page.getByRole("link", { name: /Do downloads have a watermark/ });
 await answer.waitFor();
 await answer.click();
 await page.waitForTimeout(400);
-check("Help search opens the matching answer", (await page.locator("details#watermark").getAttribute("open")) !== null && (await page.getByText("Upgrade to Pro on the").isVisible()));
+check("Help search opens the matching answer", (await page.locator("details#watermark").getAttribute("open")) !== null && (await page.getByText("doesn't add a watermark on any plan").isVisible()));
 await page.goto(`${BASE}/support#api-key`, { waitUntil: "networkidle" });
 await page.waitForTimeout(400);
 check("Linking to an answer opens it", (await page.locator("details#api-key").getAttribute("open")) !== null);

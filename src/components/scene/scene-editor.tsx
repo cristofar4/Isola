@@ -919,7 +919,7 @@ function Loaded({ initial }: { initial: Scene }) {
                     </button>
                   ))}
                 </div>
-                <p className="text-[12px] text-muted">Free plan: ISOLA watermark, up to 1,000px on the longest side. Pro: full size, no watermark.</p>
+                <p className="text-[12px] text-muted">Free plan: up to 1,000px on the longest side, no watermark. Pro: full size.</p>
                 <Button onClick={() => void runExport()} disabled={!exportFormats.length || exporting} icon={exporting ? <Spinner className="size-4" /> : <Download className="size-4" aria-hidden="true" />}>
                   {exportFormats.length > 1 ? `Download ${exportFormats.length} formats (ZIP)` : "Download scene"}
                 </Button>

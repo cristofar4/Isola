@@ -104,7 +104,6 @@ export type IssueKind =
   | "enlarged"
   | "scale"
   | "off-centre"
-  | "watermark"
   | "background"
   | "fill"
   | "size"
@@ -119,7 +118,6 @@ export const ISSUE_LABEL: Record<IssueKind, string> = {
   enlarged: "Enlarged",
   scale: "Scale mismatch",
   "off-centre": "Off-centre",
-  watermark: "Watermark",
   background: "Background",
   fill: "Product too small",
   size: "Too small",
@@ -355,16 +353,6 @@ export function checkCollection(entries: CheckEntry[], options: { target: Target
 
   /* Destination rules. */
   if (options.target === "amazon") {
-    if (options.policy.watermark && entries.length) {
-      push({
-        kind: "watermark",
-        itemId: null,
-        title: "Free exports carry a watermark",
-        detail: "Amazon doesn't allow watermarks on main images. Pro exports have none.",
-        severity: "warning",
-        fix: { kind: "upgrade", label: "See Pro" },
-      });
-    }
     const fixes: Array<{ id: string; settings: BatchSettings }> = [];
     for (const e of entries) {
       const g = outputGeometry(e, options.policy);
@@ -449,7 +437,7 @@ export function checkCollection(entries: CheckEntry[], options: { target: Target
 }
 
 /** Issues that come from the destination's rules (rather than consistency within the collection). */
-export const TARGET_KINDS: ReadonlySet<IssueKind> = new Set<IssueKind>(["watermark", "background", "fill", "size", "aspect", "transparency"]);
+export const TARGET_KINDS: ReadonlySet<IssueKind> = new Set<IssueKind>(["background", "fill", "size", "aspect", "transparency"]);
 
 /** Whether every image meets the chosen destination's rules, and how many other suggestions remain. */
 export function targetSummary(report: Report) {

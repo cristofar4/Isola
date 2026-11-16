@@ -1,7 +1,6 @@
 import { canvasToBlob, createCanvas, get2d } from "@/lib/image/decode";
 import { checkExportSize } from "@/lib/editor/export";
 import { blurInPlace } from "@/lib/editor/mask-ops";
-import { drawWatermark } from "@/lib/editor/watermark";
 import type { Rect } from "@/lib/editor/geometry";
 import { applyPolicySize, type ExportPolicy } from "@/lib/plan-policy";
 import { canvasSize, exportMime, placement, type BatchSettings } from "./settings";
@@ -103,7 +102,7 @@ function assertBackground(sources: BatchSources, settings: BatchSettings) {
 }
 
 /**
- * Full-resolution export. The plan policy (watermark, size limit) is applied
+ * Full-resolution export. The plan policy (size limit) is applied
  * here, so single downloads and ZIPs follow the same rules.
  */
 export async function renderBatchBlob(
@@ -124,7 +123,6 @@ export async function renderBatchBlob(
   }
   const ctx = get2d(canvas, { alpha: settings.format !== "jpeg" });
   drawBatch(ctx, sources, settings, out.width / size.width);
-  if (policy.watermark) drawWatermark(ctx, out.width, out.height);
   let blob: Blob;
   try {
     blob = await canvasToBlob(canvas, exportMime(settings), settings.format === "jpeg" ? 0.92 : undefined);
@@ -136,7 +134,7 @@ export async function renderBatchBlob(
 
 /**
  * Card preview, drawn by the same function as the export (from a smaller
- * cutout), including the watermark when the plan adds one.
+ * cutout).
  */
 export async function renderBatchPreview(sources: BatchSources, settings: BatchSettings, policy: ExportPolicy, maxSide = 520): Promise<Blob> {
   const size = canvasSize(settings, sources.width, sources.height);
@@ -146,6 +144,5 @@ export async function renderBatchPreview(sources: BatchSources, settings: BatchS
   const canvas = createCanvas(w, h);
   const ctx = get2d(canvas);
   drawBatch(ctx, sources, settings, k);
-  if (policy.watermark) drawWatermark(ctx, w, h);
   return canvasToBlob(canvas, "image/png");
 }

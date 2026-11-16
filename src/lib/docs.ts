@@ -39,7 +39,7 @@ export const DOC_PAGES: DocPage[] = [
     summary: "Create an API key and remove backgrounds from your own code.",
     icon: Rocket,
     sections: [
-      { id: "overview", title: "Overview", text: "Public API: server-side background removal with the Standard model. Free keys are watermarked up to 1000px; Pro keys are full resolution." },
+      { id: "overview", title: "Overview", text: "Public API: server-side background removal with the Standard model. Free keys return cutouts up to 1000px; Pro keys are full resolution." },
       { id: "get-key", title: "Create a key", text: "Create and copy an API key on the Account page. Only a hash is stored; it is shown once." },
       { id: "first-request", title: "Send an image", text: "curl, Node.js and Python examples posting multipart form data with an image field and Bearer authorization." },
       { id: "options", title: "Choose the output", text: "format png or jpeg, background colour, output cutout or mask, GET /api/v1/me to check a key." },
@@ -54,10 +54,10 @@ export const DOC_PAGES: DocPage[] = [
     sections: [
       { id: "authentication", title: "Authentication", text: "Authorization Bearer isola_sk_ API keys, X-Api-Key header, hashed storage, CORS, keep keys on your server." },
       { id: "remove-background", title: "POST /api/v1/remove-background", text: "Multipart image or raw body; output cutout or mask; format png or jpeg; background colour; response headers X-Isola-Width X-Isola-Plan X-RateLimit-Remaining." },
-      { id: "me", title: "GET /api/v1/me", text: "Check a key: plan, watermark, maxSide, remaining requests and upload limits." },
+      { id: "me", title: "GET /api/v1/me", text: "Check a key: plan, maxSide, masks, remaining requests and upload limits." },
       { id: "errors", title: "Errors", text: "invalid_request, missing_api_key, invalid_api_key, pro_required, payload_too_large, unsupported_media_type, image_too_large, image_too_small, decode_failed, rate_limited, internal_error, model_unavailable, server_busy." },
       { id: "rate-limits", title: "Rate limits", text: "Requests per key per hour, ISOLA_API_RATE_LIMIT_PER_HOUR, queue, Retry-After, server_busy." },
-      { id: "plans", title: "Plans", text: "Free keys: watermarked cutouts up to 1000px. Pro keys: full resolution, no watermark, masks." },
+      { id: "plans", title: "Plans", text: "Free keys: cutouts up to 1000px. Pro keys: full resolution and masks. No plan adds a watermark." },
     ],
   },
   {
@@ -72,7 +72,7 @@ export const DOC_PAGES: DocPage[] = [
       { id: "inference", title: "Inference", text: "ONNX Runtime Web in a module worker, WebGPU or multi-threaded WebAssembly, resize, normalise, bilinear upscale of the mask, real phases, cancellation." },
       { id: "compositing", title: "Editing and compositing", text: "Original, AI mask, editable mask, edge shift and feather, background, shadow, crop and output size. One compositor for preview and export; no checkerboard in files." },
       { id: "batch", title: "Batch Studio pipeline", text: "Queue with controlled concurrency, per-item states, masks reused when settings change, IndexedDB persistence, ZIP export." },
-      { id: "export", title: "Export and plans", text: "Transparent PNG, PNG with background, JPEG. Free plan watermark and 1000px limit from plan-policy.ts, Pro full resolution." },
+      { id: "export", title: "Export and plans", text: "Transparent PNG, PNG with background, JPEG. Free plan 1000px limit from plan-policy.ts (no watermark on any plan), Pro full resolution." },
     ],
   },
   {

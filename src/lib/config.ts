@@ -45,9 +45,9 @@ export const exportLimits = {
 } as const;
 
 /**
- * Plans. Free exports are watermarked and limited to `freeMaxExportSide` on the
- * longest side; Pro (monthly or yearly) exports at full resolution without a
- * watermark. The export rules themselves live in src/lib/plan-policy.ts.
+ * Plans. Free exports are limited to `freeMaxExportSide` on the
+ * longest side; Pro (monthly or yearly) exports at full resolution. No plan
+ * adds a watermark. The export rules themselves live in src/lib/plan-policy.ts.
  */
 export const planConfig = {
   freeMaxExportSide: positiveNumber(process.env.NEXT_PUBLIC_ISOLA_FREE_MAX_EXPORT_SIDE, 1000),

@@ -35,7 +35,7 @@ X-RateLimit-Reset: 1794256660
 const meBody = `{
   "key": { "name": "Shop backend", "preview": "isola_sk_Pw18…sYm7", "createdAt": "…", "lastUsedAt": "…", "requestCount": 12 },
   "plan": { "name": "free", "proUntil": null },
-  "output": { "watermark": true, "maxSide": ${planConfig.freeMaxExportSide}, "masks": false, "note": "…" },
+  "output": { "watermark": false, "maxSide": ${planConfig.freeMaxExportSide}, "masks": false, "note": "…" },
   "rateLimit": { "limit": ${RATE}, "remaining": ${RATE - 12}, "resetAt": "…" },
   "limits": { "maxFileBytes": ${uploadLimits.maxFileBytes}, "maxDimension": ${uploadLimits.maxDimension}, "minDimension": ${uploadLimits.minDimension}, "maxMegapixels": ${uploadLimits.maxMegapixels}, "formats": ["image/png", "image/jpeg", "image/webp"] },
   "model": { "id": "isnet-general-use", "name": "Standard", "license": "Apache-2.0" }
@@ -143,7 +143,8 @@ export default function ApiReferencePage() {
         <h3>Response</h3>
         <p>
           <code>200</code> with the image. The output keeps the input&apos;s dimensions on Pro (after EXIF rotation); on Free
-          it&apos;s scaled to fit {planConfig.freeMaxExportSide.toLocaleString("en-US")}px and watermarked.
+          it&apos;s scaled to fit {planConfig.freeMaxExportSide.toLocaleString("en-US")}px. No plan adds a watermark;{" "}
+          <code>X-Isola-Watermark</code> is always <code>false</code> and stays for existing clients.
         </p>
         <CodeBlock title="Response headers" code={response} lang="http" lineNumbers={false} />
 
@@ -211,7 +212,7 @@ export default function ApiReferencePage() {
           <tbody>
             <tr>
               <td>Cutouts</td>
-              <td>Up to {planConfig.freeMaxExportSide.toLocaleString("en-US")}px, watermarked</td>
+              <td>Up to {planConfig.freeMaxExportSide.toLocaleString("en-US")}px, no watermark</td>
               <td>Full resolution, no watermark</td>
             </tr>
             <tr>
