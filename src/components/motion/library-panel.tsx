@@ -525,9 +525,9 @@ function AudioTab() {
   const sounds = film.media.filter((m) => m.hasAudio);
   return (
     <div className="grid gap-2">
-      <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Music made by ISOLA</h3>
+      <h2 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Music made by ISOLA</h2>
       <MusicPicker />
-      <h3 className="mt-2 border-t border-m-line pt-3 text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Your sound</h3>
+      <h2 className="mt-2 border-t border-m-line pt-3 text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Your sound</h2>
       <input ref={input} type="file" multiple accept={MEDIA_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(e) => void importFiles(Array.from(e.target.files ?? []), setBusy).finally(() => (e.target.value = ""))} />
       <DarkButton icon={<Upload className="size-4" aria-hidden="true" />} onClick={() => input.current?.click()} disabled={!!busy}>
         Add sound
