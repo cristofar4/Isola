@@ -118,7 +118,7 @@ export function MobileMenu({
             </ul>
 
             <section aria-label={EDIT.title} className="mt-6">
-              <p className="eyebrow px-1 pb-2.5 text-subtle">{EDIT.title}</p>
+              <p className="eyebrow px-1 pb-2.5 text-muted">{EDIT.title}</p>
               <ul className="grid grid-cols-2 gap-2.5">
                 {EDIT.items.map((tool) => (
                   <li key={tool.href}>
@@ -138,7 +138,7 @@ export function MobileMenu({
             </section>
 
             <section aria-label="More" className="mt-6">
-              <p className="eyebrow px-1 pb-2.5 text-subtle">More</p>
+              <p className="eyebrow px-1 pb-2.5 text-muted">More</p>
               <ul className="overflow-hidden rounded-[14px] border border-line bg-surface">
                 {MORE.map((tool, i) => (
                   <li key={tool.href} className={cn(i > 0 && "border-t border-line")}>

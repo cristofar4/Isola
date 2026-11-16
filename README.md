@@ -940,7 +940,7 @@ empty model folder (so the automatic download is exercised) and with
   Enter opens the section), the live browser check, troubleshooting entries,
   all 20 error codes listed, feedback stored (and refused for unknown pages or
   other origins), footer links, and the mobile guide menu.
-- **Navigation (`npm run test:nav`): 37/37**: every Tools menu link points
+- **Navigation (`npm run test:nav`): 40/40**: every Tools menu link points
   where it says, hover/click/Escape/keyboard behaviour, no axe violations with
   the menu open, the editor hints and preselected tools (restore brush after
   processing, crop tool when an image is already open), the catalogue preset
@@ -1055,7 +1055,7 @@ empty model folder (so the automatic download is exercised) and with
   (H.264, 1920×1080, 30 fps, Opus sound, the film's length) and a frame from
   the file matches the preview (mean difference 6 of 255); the film reloads;
   it's listed and in Downloads; no sideways scrolling on phones.
-- **Redesigns:** navigation (37/37) adds the site header's search (finds
+- **Redesigns:** navigation (40/40) adds the phone menu (fills the screen, search, main pages, tools without repeats, Sign in and Create account in reach without scrolling, focus back on the menu button when it closes) and the site header's search (finds
   tools, pages and docs; Enter opens; ⌘K anywhere; a button on phones);
   batch (56/56) adds the workflow steps, filters, saved preset, size
   matching, preflight, undo and original files in the ZIP; studio (41/41) adds
@@ -1074,14 +1074,14 @@ empty model folder (so the automatic download is exercised) and with
   (like Vercel): 4 MB pieces match the original bytes, an out-of-range request
   gets 416, nothing is written to the server's disk, the checksum passes and
   a guest's first removal takes 14 s including the download.
-- **Accessibility:** axe-core reports 0 violations on 66 pages and states
+- **Accessibility:** axe-core reports 0 violations on 67 pages and states
   (including all seven developer docs pages, /tools, the studio dashboard, its
   ⌘K palette and phone menu, the brand preset editor, the asset library empty
   and with details and a selection, a project board with its Review and
   History tabs, the new-project sheet, Trash and Downloads, Batch Studio in
   the studio, Scene Studio's list, editor tabs and style picker, every Motion
   Studio inspector tab, Motion mode and library tab in light and dark, the
-  brand preset editor's tabs, the site search, and the guest screens: tries
+  brand preset editor's tabs, the site search, the landing page's phone menu, and the guest screens: tries
   used on the landing page, "Want to make more?", an image waiting for an
   account and sign-up after free tries),
   including the editor with an image, the export dialog, the account page, the
