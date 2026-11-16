@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { AlertTriangle, Info, Lock, RotateCcw, X } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { signInHref } from "@/lib/session-gate";
@@ -75,9 +74,9 @@ export function CanvasStatus({ image }: { image: ProjectImage }) {
           {missing && (
             <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
               Background removal needs a segmentation model that this deployment doesn&apos;t serve yet.{" "}
-              <Link href="/developers/processing#models" className="font-medium text-blue-700 underline underline-offset-2">
-                How to install it
-              </Link>
+              <a href="/developers/processing#models" target="_blank" rel="noopener" className="font-medium text-blue-700 underline underline-offset-2">
+                How to install it<span className="sr-only"> (opens in a new tab)</span>
+              </a>
             </p>
           )}
           {error?.detail && (

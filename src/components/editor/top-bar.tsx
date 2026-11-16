@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { DropdownMenu } from "radix-ui";
-import { ArrowLeft, ChevronDown, Columns2, Download, Images, Redo2, SlidersHorizontal, Undo2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, Columns2, Download, Images, Redo2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import { LogoMark } from "@/components/ui/logo";
@@ -11,17 +11,41 @@ import type { ProjectImage } from "@/lib/project/store";
 import { useEditorUI } from "./editor-ui-store";
 import { EngineChip } from "./engine-chip";
 import { GuestTriesChip } from "./trial-prompt";
+import { useStudioBack } from "@/components/studio/studio-place";
 
 const isMac = () => typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
+/** In the studio: back to the page you came from (or the image's project or batch), one tap away. */
+function BackToStudio({ image }: { image: ProjectImage | null }) {
+  const place = useStudioBack();
+  const target = image?.batchItemId
+    ? { href: "/studio/batch", label: "Batch Studio", title: "Your edits to this image are kept in Batch Studio" }
+    : image?.libraryProjectId
+      ? { href: `/studio/projects/${image.libraryProjectId}`, label: "Project", title: "Back to this image's project" }
+      : { ...place, title: `Back to ${place.label === "Home" ? "your studio" : place.label}` };
+  return (
+    <Link
+      href={target.href}
+      title={target.title}
+      data-editor-back
+      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[10px] border border-line bg-surface pl-2 pr-3 text-[13px] font-semibold text-ink shadow-[0_1px_2px_rgb(32_41_45/0.05)] transition-colors hover:border-line-strong hover:bg-paper"
+    >
+      <ArrowLeft className="size-4" aria-hidden="true" />
+      <span className="sr-only">Back to </span>
+      <span className="max-w-[9rem] truncate">{target.label === "Home" ? "Studio" : target.label}</span>
+    </Link>
+  );
+}
+
 export function TopBar({
   image,
+  embedded = false,
   onOpenImages,
-  onOpenAdjust,
 }: {
   image: ProjectImage | null;
+  /** Inside the studio frame: a Back button instead of the ISOLA logo. */
+  embedded?: boolean;
   onOpenImages: () => void;
-  onOpenAdjust: () => void;
 }) {
   const projectName = useEditorUI((s) => s.projectName);
   const setProjectName = useEditorUI((s) => s.setProjectName);
@@ -35,13 +59,19 @@ export function TopBar({
 
   return (
     <header className="flex h-14 min-w-0 shrink-0 items-center gap-1 overflow-hidden border-b border-line bg-surface px-2 sm:gap-2 sm:px-3">
-      <h1 className="sr-only">ISOLA editor</h1>
-      <Link href="/" aria-label="ISOLA home" className="flex items-center gap-2 rounded-md px-1">
-        <LogoMark className="size-6" />
-        <span className="hidden font-display text-[17px] font-extrabold tracking-[0.06em] sm:inline">ISOLA</span>
-      </Link>
-      <span className="mx-1 hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
-      {image?.batchItemId && (
+      <h1 className="sr-only">{embedded ? "Image editor" : "ISOLA editor"}</h1>
+      {embedded ? (
+        <BackToStudio image={image} />
+      ) : (
+        <>
+          <Link href="/" aria-label="ISOLA home" className="flex items-center gap-2 rounded-md px-1">
+            <LogoMark className="size-6" />
+            <span className="hidden font-display text-[17px] font-extrabold tracking-[0.06em] sm:inline">ISOLA</span>
+          </Link>
+          <span className="mx-1 hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
+        </>
+      )}
+      {!embedded && image?.batchItemId && (
         <Link
           href="/studio/batch"
           title="Your edits to this image are kept in Batch Studio"
@@ -128,14 +158,8 @@ export function TopBar({
         <div className="hidden xl:block">
           <EngineChip />
         </div>
-        <IconButton label="Images" icon={<Images className="size-[18px]" />} className="lg:hidden" onClick={onOpenImages} />
-        <IconButton
-          label="Adjustments"
-          icon={<SlidersHorizontal className="size-[18px]" />}
-          className="lg:hidden"
-          disabled={!image}
-          onClick={onOpenAdjust}
-        />
+        {/* On phones, Images, Backdrop and Adjust live in the tool bar under the picture once there's an image. */}
+        {!image && <IconButton label="Images" icon={<Images className="size-[18px]" />} className="lg:hidden" onClick={onOpenImages} />}
         <Button
           size="sm"
           className="h-9"

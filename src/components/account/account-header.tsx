@@ -1,21 +1,11 @@
 import { BadgeCheck, CircleAlert, Layers, Wand2 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import type { CurrentUser } from "@/server/auth";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/cn";
-import { initialsOf } from "@/lib/initials";
 
-export function Avatar({ name, email, className }: { name: string; email: string; className?: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "inline-flex shrink-0 select-none items-center justify-center rounded-full bg-gradient-to-br from-blue to-blue-700 font-display font-bold text-white shadow-[var(--shadow-blue)] ring-4 ring-surface",
-        className,
-      )}
-    >
-      {initialsOf(name, email)}
-    </span>
-  );
+export function Avatar({ name, email, image, className }: { name: string; email: string; image?: string | null; className?: string }) {
+  return <UserAvatar name={name} email={email} image={image} className={cn("shadow-[var(--shadow-blue)] ring-4 ring-surface", className)} />;
 }
 
 export function PlanBadge({ pro }: { pro: boolean }) {
@@ -34,7 +24,7 @@ export function AccountHeader({ user }: { user: CurrentUser }) {
   return (
     <header className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
       <div className="flex min-w-0 items-center gap-4 sm:gap-5">
-        <Avatar name={user.name} email={user.email} className="size-16 text-[22px] sm:size-[72px] sm:text-[24px]" />
+        <Avatar name={user.name} email={user.email} image={user.image} className="size-16 text-[22px] sm:size-[72px] sm:text-[24px]" />
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="truncate font-display text-[28px] font-bold leading-tight tracking-[-0.025em] text-ink sm:text-[34px]">
@@ -57,7 +47,7 @@ export function AccountHeader({ user }: { user: CurrentUser }) {
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <ButtonLink href="/editor" icon={<Wand2 className="size-4" aria-hidden="true" />}>
+        <ButtonLink href="/studio/editor" icon={<Wand2 className="size-4" aria-hidden="true" />}>
           Open the editor
         </ButtonLink>
         <ButtonLink href="/studio/batch" variant="secondary" icon={<Layers className="size-4" aria-hidden="true" />}>

@@ -122,7 +122,7 @@ function ExportForm({ image }: { image: ProjectImage }) {
           <p>
             <span className="font-semibold text-ink">Free plan:</span> exports have no watermark and are limited to{" "}
             {cap.toLocaleString("en-US")}px on the longest side.{" "}
-            <Link href="/pricing" className="font-semibold text-blue-700 underline underline-offset-2">
+            <Link href={plan.signedIn ? "/studio/plans?from=editor" : "/pricing"} className="font-semibold text-blue-700 underline underline-offset-2">
               Upgrade to Pro for {formatNaira(planConfig.proPriceNgn)}/month
             </Link>{" "}
             for full resolution.

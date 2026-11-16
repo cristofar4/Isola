@@ -114,7 +114,32 @@ async function decodeInto(id: string): Promise<boolean> {
 
 /** Start every image that was waiting for the visitor to sign in. */
 export function resumeAfterSignIn() {
-  for (const image of store().images) if (image.status === "needs-auth") void processImage(image.id);
+  for (const image of store().images) {
+    if (image.status !== "needs-auth") continue;
+    // Queued straight away, so a second call (sign-in and the studio editor opening together) can't start it twice.
+    store().patchImage(image.id, { status: "queued" });
+    void processImage(image.id);
+  }
+}
+
+/**
+ * Get the background-removal engine ready before an image arrives: the model
+ * downloads (or loads from this browser's cache) and starts up while the
+ * visitor is still choosing a photo. Only for visitors who may remove
+ * backgrounds (signed in, or a guest with tries left), and only once.
+ */
+export async function warmEngine(): Promise<void> {
+  const engineId = store().engineId;
+  if (engineId.startsWith("server")) return;
+  if (!(await isSignedIn())) {
+    await loadTrial();
+    const t = useTrial.getState();
+    if (!t.enabled || t.remaining <= 0) return;
+  }
+  const engine = getEngine(engineId);
+  const state = engine.getState().kind;
+  if (state !== "idle" && state !== "error") return;
+  await engine.load().catch(() => undefined); // A failure shows when an image needs the engine.
 }
 
 /**

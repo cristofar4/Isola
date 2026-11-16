@@ -83,7 +83,7 @@ function MasterCard({ project, selected, onSelect, compare }: { project: Project
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content align="end" sideOffset={6} className="z-50 min-w-[220px] rounded-xl border border-line bg-surface p-1.5 shadow-[var(--shadow-float)]">
-              <DropdownMenu.Item disabled={project.status !== "ready"} className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[14px] outline-none data-[disabled]:opacity-45 data-[highlighted]:bg-paper" onSelect={() => void openProjectInEditor(project.id).then((ok) => ok && router.push("/editor"))}>
+              <DropdownMenu.Item disabled={project.status !== "ready"} className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[14px] outline-none data-[disabled]:opacity-45 data-[highlighted]:bg-paper" onSelect={() => void openProjectInEditor(project.id).then((ok) => ok && router.push("/studio/editor"))}>
                 <Wand2 className="size-4 text-muted" aria-hidden="true" /> Refine in editor
               </DropdownMenu.Item>
               <DropdownMenu.Item disabled={project.status !== "ready"} className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-[14px] outline-none data-[disabled]:opacity-45 data-[highlighted]:bg-paper" onSelect={() => void exportVersion(project.id, null)}>
@@ -436,7 +436,7 @@ function Review({ project, issues }: { project: Project; issues: ProjectIssue[] 
                     else if (fix.kind === "padding") {
                       const v = project.versions.find((x) => x.id === fix.versionId);
                       if (v) void setOverrides(project.id, v.id, { ...v.overrides, padding: fix.padding }, `${destinationById(v.destination)?.label}: padding ${fix.padding}%`);
-                    } else void openProjectInEditor(project.id).then((ok) => ok && router.push("/editor"));
+                    } else void openProjectInEditor(project.id).then((ok) => ok && router.push("/studio/editor"));
                   }}
                 >
                   {i.fix.label}
@@ -622,7 +622,7 @@ export function ProjectBoard({ id }: { id: string }) {
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
-          <Button variant="ghost" icon={<Wand2 className="size-4" aria-hidden="true" />} disabled={project.status !== "ready"} onClick={() => void openProjectInEditor(project.id).then((ok) => ok && router.push("/editor"))}>
+          <Button variant="ghost" icon={<Wand2 className="size-4" aria-hidden="true" />} disabled={project.status !== "ready"} onClick={() => void openProjectInEditor(project.id).then((ok) => ok && router.push("/studio/editor"))}>
             Refine edges
           </Button>
           <DropdownMenu.Root modal={false}>

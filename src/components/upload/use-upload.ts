@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { authClient } from "@/lib/auth-client";
 import { ACCEPT_ATTRIBUTE } from "@/lib/config";
-import { importFiles } from "@/lib/project/actions";
+import { importFiles, warmEngine } from "@/lib/project/actions";
 import type { Sample } from "@/lib/samples";
 import { loadTrial, useTrial } from "@/lib/trial";
 
@@ -23,14 +23,20 @@ export interface UploadIssue {
  * account instead of picking a file, and come back to the editor afterwards.
  * Inside the editor, uploads always work and wait there for an account.
  */
-export function useUpload({ navigateTo = "/editor", requireAccount = false }: { navigateTo?: string | null; requireAccount?: boolean } = {}) {
+export function useUpload({ navigateTo: requested = "/editor", requireAccount = false }: { navigateTo?: string | null; requireAccount?: boolean } = {}) {
   const router = useRouter();
   const { data: session, isPending } = authClient.useSession();
+  // Signed in, the editor is the one inside your studio.
+  const navigateTo = requested === "/editor" && session ? "/studio/editor" : requested;
   const trial = useTrial();
   const signedOut = requireAccount && !isPending && !session;
   useEffect(() => {
     if (signedOut) void loadTrial();
   }, [signedOut]);
+  // Have the editor's code ready before the photo is chosen, so opening it is instant.
+  useEffect(() => {
+    if (navigateTo && !isPending) router.prefetch(navigateTo);
+  }, [navigateTo, isPending, router]);
   // While the session or trial loads, behave as before: the editor checks again before removing anything.
   const trialKnown = trial.status === "ready" || trial.status === "unavailable";
   const noTrial = trialKnown && !trial.enabled;
@@ -57,6 +63,7 @@ export function useUpload({ navigateTo = "/editor", requireAccount = false }: { 
       }
       setIssues([]);
       setState("checking");
+      void warmEngine();
       const report = await importFiles(files, { sample: options.sample });
       setIssues(report.rejected.map((r) => ({ name: r.name, message: r.error.message })));
       if (report.accepted.length > 0 && navigateTo) {
@@ -79,6 +86,8 @@ export function useUpload({ navigateTo = "/editor", requireAccount = false }: { 
       }
       setIssues([]);
       setState("checking");
+      // The model starts getting ready while the example photo downloads.
+      void warmEngine();
       try {
         const response = await fetch(sample.src);
         if (!response.ok) throw new Error(String(response.status));
@@ -93,8 +102,13 @@ export function useUpload({ navigateTo = "/editor", requireAccount = false }: { 
   );
 
   const openPicker = useCallback(() => {
-    if (mustSignIn) signInFirst();
-    else inputRef.current?.click();
+    if (mustSignIn) {
+      signInFirst();
+      return;
+    }
+    inputRef.current?.click();
+    // Choosing a photo takes a few seconds: use them to get the engine ready.
+    void warmEngine();
   }, [mustSignIn, signInFirst]);
 
   const onInputChange = useCallback(

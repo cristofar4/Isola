@@ -25,14 +25,15 @@ const STATIC: Command[] = [
   { id: "new-scene", group: "Actions", label: "New scene", hint: "Scene Studio", href: "/studio/scenes", keywords: "backdrop plinth shadow composition product photo set" },
   { id: "new-film", group: "Actions", label: "Animate a scene", hint: "Motion Studio", href: "/studio/motion", keywords: "video film motion animation export mp4 webm" },
   { id: "upload-assets", group: "Actions", label: "Upload assets", hint: "Asset library", href: "/studio/assets", keywords: "library logos backgrounds originals cutouts" },
-  { id: "remove", group: "Actions", label: "Remove a background", hint: "Editor", href: "/editor", keywords: "cutout upload image single" },
+  { id: "remove", group: "Actions", label: "Remove a background", hint: "Editor", href: "/studio/editor", keywords: "cutout upload image single" },
   { id: "batch", group: "Actions", label: "Start a batch", hint: "Batch Studio", href: "/studio/batch", keywords: "many bulk collection upload" },
   { id: "check", group: "Actions", label: "Check consistency", hint: "Batch Studio", href: "/studio/batch?check=consistency", keywords: "quality review amazon instagram marketplace" },
   { id: "export-set", group: "Actions", label: "Create an export set", hint: "Batch Studio", href: "/studio/batch?export=set", keywords: "sizes destinations square portrait story wide zip" },
   { id: "preset-new", group: "Actions", label: "New brand preset", hint: "Brand presets", href: "/studio/presets?new=1", keywords: "colours colors brand kit style" },
-  { id: "restore", group: "Actions", label: "Restore & erase", hint: "Editor", href: "/editor?tool=restore", keywords: "brush refine edges" },
-  { id: "background", group: "Actions", label: "Change background", hint: "Editor", href: "/editor?panel=background", keywords: "colour scene backdrop" },
-  { id: "crop", group: "Actions", label: "Resize & crop", hint: "Editor", href: "/editor?tool=crop", keywords: "size canvas" },
+  { id: "restore", group: "Actions", label: "Restore & erase", hint: "Editor", href: "/studio/editor?tool=restore", keywords: "brush refine edges" },
+  { id: "background", group: "Actions", label: "Change background", hint: "Editor", href: "/studio/editor?panel=background", keywords: "colour scene backdrop" },
+  { id: "crop", group: "Actions", label: "Resize & crop", hint: "Editor", href: "/studio/editor?tool=crop", keywords: "size canvas" },
+  { id: "get-pro", group: "Actions", label: "Get Pro", hint: "Plans", href: "/studio/plans", keywords: "upgrade pro plan subscription monthly yearly pay" },
   { id: "home", group: "Go to", label: "Studio home", href: "/studio", keywords: "dashboard overview" },
   { id: "projects", group: "Go to", label: "Projects", href: "/studio/projects", keywords: "folders starred" },
   { id: "scenes", group: "Go to", label: "Scene Studio", href: "/studio/scenes", keywords: "scenes backdrops" },
@@ -41,11 +42,11 @@ const STATIC: Command[] = [
   { id: "presets", group: "Go to", label: "Brand presets", href: "/studio/presets", keywords: "colours style" },
   { id: "downloads", group: "Go to", label: "Downloads", href: "/studio/downloads", keywords: "exports history again" },
   { id: "trash", group: "Go to", label: "Trash", href: "/studio/trash", keywords: "restore deleted" },
-  { id: "account", group: "Go to", label: "Account", href: "/account", keywords: "profile settings password devices" },
-  { id: "plan", group: "Go to", label: "Plan & billing", href: "/account#plan", keywords: "pro upgrade subscription" },
-  { id: "keys", group: "Go to", label: "API keys", href: "/account#api-keys", keywords: "developer token" },
-  { id: "pricing", group: "Go to", label: "Pricing", href: "/pricing", keywords: "pro free plans" },
-  { id: "help", group: "Go to", label: "Help centre", href: "/support", keywords: "support questions faq" },
+  { id: "account", group: "Go to", label: "Settings", href: "/studio/settings", keywords: "account profile photo password devices" },
+  { id: "plan", group: "Go to", label: "Plan & billing", href: "/studio/settings#plan", keywords: "pro upgrade subscription" },
+  { id: "keys", group: "Go to", label: "API keys", href: "/studio/settings#api-keys", keywords: "developer token" },
+  { id: "pricing", group: "Go to", label: "Plans", href: "/studio/plans", keywords: "pricing pro free plans" },
+  { id: "help", group: "Go to", label: "Help", href: "/studio/help", keywords: "support questions faq centre" },
 ];
 
 const DOCS: Command[] = DOC_PAGES.map((p) => ({ id: `doc-${p.href}`, group: "Developer docs", label: p.title, hint: "Docs", href: p.href, keywords: `${p.summary} ${p.sections.map((s) => s.title).join(" ")}` }));
@@ -149,7 +150,9 @@ export function CommandPalette({ open, onOpenChange, scope = "studio" }: { open:
   function go(command: Command | undefined) {
     if (!command) return;
     onOpenChange(false);
-    router.push(command.href);
+    // From the studio, the developer docs open beside it rather than replacing it.
+    if (!site && command.href.startsWith("/developers")) window.open(command.href, "_blank", "noopener");
+    else router.push(command.href);
   }
 
   return (

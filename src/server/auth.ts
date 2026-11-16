@@ -8,6 +8,8 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { betterAuth, type BetterAuthOptions, type BetterAuthPlugin } from "better-auth";
+import { APIError } from "better-auth/api";
+import { AVATAR_MAX_CHARS, isAcceptableAvatar } from "@/lib/avatar";
 import { getMigrations } from "better-auth/db/migration";
 import { nextCookies } from "better-auth/next-js";
 import { Pool } from "pg";
@@ -337,6 +339,21 @@ function createOptions(): BetterAuthOptions {
       },
       additionalFields: planFields,
     },
+    databaseHooks: {
+      user: {
+        update: {
+          // A profile photo set from Settings must be a small JPEG, PNG or WebP (resized in the browser), or a sign-in provider's https photo.
+          before: async (data) => {
+            if (!("image" in data) || data.image === null || data.image === undefined || data.image === "") return;
+            if (!isAcceptableAvatar(data.image)) {
+              throw new APIError("BAD_REQUEST", {
+                message: `Choose a JPEG, PNG or WebP photo (stored at most ${Math.round(AVATAR_MAX_CHARS / 1024)} KB after resizing).`,
+              });
+            }
+          },
+        },
+      },
+    },
     session: {
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,
@@ -395,6 +412,8 @@ export interface CurrentUser {
   id: string;
   name: string;
   email: string;
+  /** Profile picture: a small photo uploaded in Settings (data URL) or one from Google/GitHub sign-in. */
+  image: string | null;
   emailVerified: boolean;
   createdAt: string;
   /** Linked sign-in methods, e.g. ["credential", "google"]. */
@@ -426,6 +445,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,
+    image: session.user.image ?? null,
     emailVerified: session.user.emailVerified,
     createdAt: new Date(session.user.createdAt).toISOString(),
     providers: accounts.map((a) => a.providerId),

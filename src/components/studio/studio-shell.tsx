@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Dialog, DropdownMenu } from "radix-ui";
 import {
+  ArrowUpRight,
   Box,
   Clapperboard,
   BookOpen,
@@ -23,17 +24,19 @@ import {
   Search,
   Settings,
   Share,
+  Sparkles,
   Wand2,
   X,
 } from "lucide-react";
 import { Suspense, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { LogoMark } from "@/components/ui/logo";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/cn";
-import { initialsOf } from "@/lib/initials";
 import { usePlan } from "@/lib/plan";
 import { CommandPalette } from "./command-palette";
 import { NameDialogHost } from "./name-dialog";
+import { rememberStudioPlace, studioPageName, useEditorOpen } from "./studio-place";
 
 const WORKSPACE = [
   { href: "/studio", label: "Home", icon: House, match: (p: string) => p === "/studio" },
@@ -42,7 +45,7 @@ const WORKSPACE = [
 ];
 
 const CREATE = [
-  { href: "/editor", label: "Image editor", icon: ImageIcon },
+  { href: "/studio/editor", label: "Image editor", icon: ImageIcon, match: (p: string) => p.startsWith("/studio/editor") },
   { href: "/studio/batch", label: "Batch Studio", icon: Layers, match: (p: string) => p.startsWith("/studio/batch") },
   { href: "/studio/scenes", label: "Scene Studio", icon: Box, match: (p: string) => p.startsWith("/studio/scenes") },
   { href: "/studio/motion", label: "Motion Studio", icon: Clapperboard, match: (p: string) => p.startsWith("/studio/motion") },
@@ -56,163 +59,222 @@ const ORGANISE = [
   { href: "/studio/trash", label: "Trash", icon: Trash2, match: (p: string) => p.startsWith("/studio/trash") },
 ];
 
-const FOOTER = [
-  { href: "/developers", label: "Developers", icon: BookOpen },
-  { href: "/support", label: "Help", icon: CircleHelp },
-  { href: "/account", label: "Settings", icon: Settings },
+type NavItem = { href: string; label: string; icon: typeof House; match?: (p: string) => boolean; external?: boolean };
+
+const FOOTER: NavItem[] = [
+  { href: "/studio/help", label: "Help", icon: CircleHelp, match: (p: string) => p.startsWith("/studio/help") },
+  { href: "/studio/settings", label: "Settings", icon: Settings, match: (p: string) => p.startsWith("/studio/settings") },
+  // The developer docs are their own site: they open beside the studio, never in place of it.
+  { href: "/developers", label: "Developers", icon: BookOpen, external: true },
 ];
 
-const PAGES: Array<[string, string]> = [
-  ["/studio/batch", "Batch Studio"],
-  ["/studio/scenes/", "Scene"],
-  ["/studio/scenes", "Scene Studio"],
-  ["/studio/motion/", "Film"],
-  ["/studio/motion", "Motion Studio"],
-  ["/studio/projects/", "Project"],
-  ["/studio/projects", "Projects"],
-  ["/studio/assets", "Asset library"],
-  ["/studio/presets", "Brand presets"],
-  ["/studio/downloads", "Downloads"],
-  ["/studio/trash", "Trash"],
-];
-
-type NavItem = { href: string; label: string; icon: typeof House; match?: (p: string) => boolean };
-
-/* The desktop sidebar can be folded to an icon rail with the menu button; the choice is remembered in this browser. */
-const COLLAPSED_KEY = "isola-sidebar-collapsed";
+/*
+ * The desktop sidebar can be folded to an icon rail with the menu button; the
+ * choice is remembered in this browser. The image editor has its own choice
+ * (folded unless you open it), so its canvas gets the room.
+ */
 const collapsedListeners = new Set<() => void>();
-function readCollapsed() {
+const collapsedKey = (editor: boolean) => (editor ? "isola-sidebar-collapsed-editor" : "isola-sidebar-collapsed");
+function readCollapsed(editor: boolean) {
   try {
-    return localStorage.getItem(COLLAPSED_KEY) === "1";
+    const value = localStorage.getItem(collapsedKey(editor));
+    return editor ? value !== "0" : value === "1";
   } catch {
-    return false;
+    return editor;
   }
 }
-function writeCollapsed(value: boolean) {
+function writeCollapsed(editor: boolean, value: boolean) {
   try {
-    localStorage.setItem(COLLAPSED_KEY, value ? "1" : "0");
+    localStorage.setItem(collapsedKey(editor), value ? "1" : "0");
   } catch {
     /* private mode: the choice lasts for this page only */
   }
   collapsedListeners.forEach((l) => l());
 }
-function useSidebarCollapsed() {
+function useSidebarCollapsed(editor: boolean) {
   return useSyncExternalStore(
     (onChange) => {
       collapsedListeners.add(onChange);
       return () => collapsedListeners.delete(onChange);
     },
-    readCollapsed,
+    () => readCollapsed(editor),
     () => false,
   );
 }
 
 function NavLink({ item, pathname, onNavigate, compact }: { item: NavItem; pathname: string; onNavigate?: () => void; compact?: boolean }) {
   const active = item.match ? item.match(pathname) : false;
-  return (
-    <Link
-      href={item.href}
-      onClick={onNavigate}
-      aria-current={active ? "page" : undefined}
-      title={compact ? item.label : undefined}
-      className={cn(
-        "flex items-center gap-3 rounded-[10px] py-2 text-[15px] font-medium transition-colors",
-        compact ? "justify-center px-0" : "px-3",
-        active ? "bg-blue text-white shadow-[var(--shadow-blue)]" : "text-white/75 hover:bg-white/8 hover:text-white",
-      )}
-    >
+  const className = cn(
+    "flex items-center gap-3 rounded-[10px] py-2 text-[15px] font-medium transition-colors",
+    compact ? "justify-center px-0" : "px-3",
+    active ? "bg-blue text-white shadow-[var(--shadow-blue)]" : "text-white/75 hover:bg-white/8 hover:text-white",
+  );
+  const content = (
+    <>
       <item.icon className="size-[19px] shrink-0" strokeWidth={1.8} aria-hidden="true" />
-      <span className={cn(compact && "sr-only")}>{item.label}</span>
+      <span className={cn("min-w-0 flex-1 truncate", compact && "sr-only")}>{item.label}</span>
+      {item.external && (
+        <>
+          {!compact && <ArrowUpRight className="size-4 shrink-0 text-white/50" aria-hidden="true" />}
+          <span className="sr-only"> (opens in a new tab)</span>
+        </>
+      )}
+    </>
+  );
+  if (item.external) {
+    return (
+      <a href={item.href} target="_blank" rel="noopener" onClick={onNavigate} title={compact ? `${item.label} (opens in a new tab)` : undefined} className={className}>
+        {content}
+      </a>
+    );
+  }
+  return (
+    <Link href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined} title={compact ? item.label : undefined} className={className}>
+      {content}
     </Link>
   );
 }
 
-function Sidebar({ pathname, onNavigate, compact = false, onSearch }: { pathname: string; onNavigate?: () => void; compact?: boolean; onSearch?: () => void }) {
+/**
+ * The bottom of the menu, always in view: Get Pro (on Free, like the upgrade
+ * row at the bottom of a chat app's menu) and you, with your profile picture
+ * beside your name and a Pro badge once you've upgraded.
+ */
+function AccountFooter({ pathname, onNavigate, compact }: { pathname: string; onNavigate?: () => void; compact: boolean }) {
   const { data } = authClient.useSession();
   const plan = usePlan();
   const name = data?.user.name ?? "";
   const email = data?.user.email ?? "";
+  const image = (data?.user as { image?: string | null } | undefined)?.image ?? null;
+  const onPlans = pathname.startsWith("/studio/plans");
+  const showGetPro = !plan.isPending && plan.signedIn && !plan.pro;
   return (
-    <div className={cn("flex h-full flex-col gap-6 overflow-y-auto py-5 [scrollbar-width:thin]", compact ? "px-3" : "px-4")}>
-      <Link href="/studio" onClick={onNavigate} aria-label="ISOLA Studio home" className={cn("flex items-center gap-2.5 rounded-md", compact ? "justify-center" : "px-2")}>
-        <LogoMark className="size-8" />
-        <span className={cn("leading-none", compact && "sr-only")}>
-          <span className="block font-display text-[21px] font-extrabold tracking-[0.06em] text-white">ISOLA</span>
-          <span className="mt-1 block text-[10px] font-semibold tracking-[0.24em] text-white/70">CREATIVE STUDIO</span>
+    <div
+      className={cn("grid shrink-0 grid-cols-[minmax(0,1fr)] gap-1 border-t border-white/10 pb-[max(0.875rem,env(safe-area-inset-bottom))] pt-3", compact ? "px-3" : "px-3.5")}
+      data-studio-account
+    >
+      {showGetPro && (
+        <Link
+          href="/studio/plans"
+          onClick={onNavigate}
+          aria-current={onPlans ? "page" : undefined}
+          title={compact ? "Get Pro" : undefined}
+          data-get-pro
+          className={cn("flex items-center gap-3 rounded-[12px] py-2 transition-colors", compact ? "justify-center px-0" : "px-2", onPlans ? "bg-white/12" : "hover:bg-white/8")}
+        >
+          <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-gradient-to-br from-[#7b95ff] to-blue text-white shadow-[0_6px_18px_-6px_rgb(70_110_255/0.8)]">
+            <Sparkles className="size-[18px]" aria-hidden="true" />
+          </span>
+          <span className={cn("min-w-0 flex-1", compact && "sr-only")}>
+            <span className="block text-[14px] font-semibold text-white">Get Pro</span>
+            <span className="block truncate text-[12px] text-white/65">Full resolution, Batch Studio and more</span>
+          </span>
+        </Link>
+      )}
+      <Link
+        href="/studio/settings"
+        onClick={onNavigate}
+        title={compact ? [name || email || "Your account", plan.pro ? "Pro" : null].filter(Boolean).join(" · ") : undefined}
+        className={cn("flex items-center gap-3 rounded-[12px] py-2 transition-colors hover:bg-white/8", compact ? "justify-center px-0" : "px-2")}
+        data-studio-me
+      >
+        <UserAvatar
+          name={name}
+          email={email}
+          image={image}
+          className={cn("size-10 text-[14px]", plan.pro && "ring-2 ring-[#9fb4ff] ring-offset-2 ring-offset-[#111b2b]")}
+        />
+        <span className={cn("min-w-0 flex-1", compact && "sr-only")}>
+          {plan.pro && (
+            <span className="mb-0.5 block w-fit rounded-full bg-gradient-to-r from-[#9fb4ff] to-white px-1.5 py-px text-[10px] font-extrabold uppercase leading-[1.4] tracking-[0.14em] text-[#111b2b]" data-pro-badge>
+              Pro
+            </span>
+          )}
+          <span className="block truncate text-[14px] font-semibold leading-tight text-white">{name || email || "Your account"}</span>
+          {!plan.pro && <span className="block truncate text-[12px] text-white/65">{plan.isPending ? " " : "Free plan"}</span>}
+          <span className="sr-only">: settings</span>
         </span>
+        {!compact && <Settings className="size-4 shrink-0 text-white/45" aria-hidden="true" />}
       </Link>
+    </div>
+  );
+}
 
-      <div className={cn("flex items-center gap-3 rounded-[12px] border border-white/10 bg-white/5 px-3 py-2.5", compact && "hidden")}>
-        <span className="flex-1 truncate text-[14px] font-semibold text-white">Personal studio</span>
-        <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em]", plan.pro ? "bg-white text-ink" : "bg-white/10 text-white/80")}>
-          {plan.isPending ? "…" : plan.pro ? "Pro" : "Free"}
-        </span>
+function Sidebar({ pathname, onNavigate, compact = false, onSearch }: { pathname: string; onNavigate?: () => void; compact?: boolean; onSearch?: () => void }) {
+  const plan = usePlan();
+  return (
+    <div className="flex h-full flex-col">
+      <div className={cn("flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain pb-4 pt-5 [scrollbar-width:thin]", compact ? "px-3" : "px-4")}>
+        <Link href="/studio" onClick={onNavigate} aria-label="ISOLA Studio home" className={cn("flex items-center gap-2.5 rounded-md", compact ? "justify-center" : "px-2")}>
+          <LogoMark className="size-8" />
+          <span className={cn("leading-none", compact && "sr-only")}>
+            <span className="block font-display text-[21px] font-extrabold tracking-[0.06em] text-white">ISOLA</span>
+            <span className="mt-1 block text-[10px] font-semibold tracking-[0.24em] text-white/70">CREATIVE STUDIO</span>
+          </span>
+        </Link>
+
+        <div className={cn("flex items-center gap-3 rounded-[12px] border border-white/10 bg-white/5 px-3 py-2.5", compact && "hidden")}>
+          <span className="flex-1 truncate text-[14px] font-semibold text-white">Personal studio</span>
+          <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em]", plan.pro ? "bg-white text-ink" : "bg-white/10 text-white/80")}>
+            {plan.isPending ? "…" : plan.pro ? "Pro" : "Free"}
+          </span>
+        </div>
+
+        {onSearch && (
+          <button
+            type="button"
+            onClick={() => {
+              onNavigate?.();
+              onSearch();
+            }}
+            aria-label="Search the studio"
+            title={compact ? "Search (⌘K)" : undefined}
+            data-sidebar-search
+            className={cn(
+              "flex h-10 shrink-0 items-center gap-2.5 rounded-[10px] border border-white/10 bg-white/5 text-[14px] text-white/75 hover:bg-white/10 hover:text-white",
+              compact ? "justify-center px-0" : "px-3",
+            )}
+          >
+            <Search className="size-[18px] shrink-0" aria-hidden="true" />
+            {!compact && (
+              <>
+                <span className="min-w-0 flex-1 truncate text-left">Search</span>
+                <kbd className="shrink-0 rounded-md border border-white/15 px-1.5 text-[11px] font-semibold text-white/70">⌘K</kbd>
+              </>
+            )}
+          </button>
+        )}
+
+        <nav aria-label="Studio" className="grid gap-5">
+          {(
+            [
+              ["Workspace", WORKSPACE],
+              ["Create", CREATE],
+              ["Organise", ORGANISE],
+            ] as const
+          ).map(([title, items]) => (
+            <div key={title} className={cn(compact && "border-t border-white/10 pt-3 first:border-t-0 first:pt-0")}>
+              <p className={cn("px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white/70", compact && "sr-only")}>{title}</p>
+              <ul className={cn("grid gap-0.5", !compact && "mt-2")}>
+                {items.map((item) => (
+                  <li key={item.href}>
+                    <NavLink item={item} pathname={pathname} onNavigate={onNavigate} compact={compact} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <ul className="grid gap-0.5 border-t border-white/10 pt-4">
+            {FOOTER.map((item) => (
+              <li key={item.href}>
+                <NavLink item={item} pathname={pathname} onNavigate={onNavigate} compact={compact} />
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
 
-      {onSearch && (
-        <button
-          type="button"
-          onClick={() => {
-            onNavigate?.();
-            onSearch();
-          }}
-          aria-label="Search the studio"
-          title={compact ? "Search (⌘K)" : undefined}
-          data-sidebar-search
-          className={cn("flex h-10 items-center gap-2.5 rounded-[10px] border border-white/10 bg-white/5 text-[14px] text-white/75 hover:bg-white/10 hover:text-white", compact ? "justify-center px-0" : "px-3")}
-        >
-          <Search className="size-[18px] shrink-0" aria-hidden="true" />
-          {!compact && (
-            <>
-              <span className="min-w-0 flex-1 truncate text-left">Search</span>
-              <kbd className="shrink-0 rounded-md border border-white/15 px-1.5 text-[11px] font-semibold text-white/70">⌘K</kbd>
-            </>
-          )}
-        </button>
-      )}
-
-      <nav aria-label="Studio" className="grid gap-5">
-        {(
-          [
-            ["Workspace", WORKSPACE],
-            ["Create", CREATE],
-            ["Organise", ORGANISE],
-          ] as const
-        ).map(([title, items]) => (
-          <div key={title} className={cn(compact && "border-t border-white/10 pt-3 first:border-t-0 first:pt-0")}>
-            <p className={cn("px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-white/70", compact && "sr-only")}>{title}</p>
-            <ul className={cn("grid gap-0.5", !compact && "mt-2")}>
-              {items.map((item) => (
-                <li key={item.href}>
-                  <NavLink item={item} pathname={pathname} onNavigate={onNavigate} compact={compact} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-        <ul className="grid gap-0.5 border-t border-white/10 pt-4">
-          {FOOTER.map((item) => (
-            <li key={item.href}>
-              <NavLink item={item} pathname={pathname} onNavigate={onNavigate} compact={compact} />
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <Link
-        href="/account"
-        onClick={onNavigate}
-        title={compact ? name || email || "Your account" : undefined}
-        className={cn("mt-auto flex items-center gap-3 rounded-[12px] border-t border-white/10 pt-4 hover:opacity-90", compact ? "justify-center" : "px-2")}
-      >
-        <span aria-hidden="true" className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue to-blue-700 text-[14px] font-bold text-white">
-          {email ? initialsOf(name, email) : ""}
-        </span>
-        <span className={cn("min-w-0", compact && "sr-only")}>
-          <span className="block truncate text-[14px] font-semibold text-white">{name || email || "Your account"}</span>
-          <span className="block truncate text-[12px] text-white/70">{email}</span>
-        </span>
-      </Link>
+      <AccountFooter pathname={pathname} onNavigate={onNavigate} compact={compact} />
     </div>
   );
 }
@@ -247,7 +309,7 @@ function CreateMenu() {
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild className={item}>
-            <Link href="/editor">
+            <Link href="/studio/editor">
               <Wand2 className="size-4 text-blue" aria-hidden="true" /> Remove a background
             </Link>
           </DropdownMenu.Item>
@@ -286,15 +348,22 @@ function PlacedSidebar({ onNavigate, compact, onSearch }: { onNavigate?: () => v
 }
 
 function PageName() {
+  return <>{studioPageName(usePathname())}</>;
+}
+
+/** Notes the studio page you're on, so the image editor's Back button can return to it. */
+function RememberPlace() {
   const pathname = usePathname();
-  return <>{PAGES.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? "Home"}</>;
+  useEffect(() => rememberStudioPlace(pathname), [pathname]);
+  return null;
 }
 
 /** The studio's frame: a dark sidebar, a top bar with search (⌘K) and Create, and the page. */
 export function StudioShell({ children }: { children: ReactNode }) {
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
-  const collapsed = useSidebarCollapsed();
+  const editor = useEditorOpen();
+  const collapsed = useSidebarCollapsed(editor);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -331,7 +400,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
           </button>
           <button
             type="button"
-            onClick={() => writeCollapsed(!collapsed)}
+            onClick={() => writeCollapsed(editor, !collapsed)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!collapsed}
             aria-controls="studio-sidebar"
@@ -389,6 +458,9 @@ export function StudioShell({ children }: { children: ReactNode }) {
         </Dialog.Portal>
       </Dialog.Root>
 
+      <Suspense fallback={null}>
+        <RememberPlace />
+      </Suspense>
       <CommandPalette open={palette} onOpenChange={setPalette} />
       <NameDialogHost />
     </div>

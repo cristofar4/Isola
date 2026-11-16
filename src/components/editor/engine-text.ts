@@ -4,9 +4,10 @@ import type { EngineState, JobPhase } from "@/lib/processing/types";
 /** Plain-language description of what the engine is really doing. */
 export function phaseText(phase: JobPhase | null, engine: EngineState, location: "device" | "server"): string {
   if (engine.kind === "downloading" && phase?.kind !== "inferring") {
+    // Only the first time on a device: afterwards the engine starts from this browser's copy.
     return engine.total
-      ? `Setting up background removal · ${formatBytes(engine.loaded)} of ${formatBytes(engine.total)}`
-      : `Setting up background removal · ${formatBytes(engine.loaded)}`;
+      ? `Setting up background removal, first time only · ${formatBytes(engine.loaded)} of ${formatBytes(engine.total)}`
+      : `Setting up background removal, first time only · ${formatBytes(engine.loaded)}`;
   }
   if (engine.kind === "initialising") return "Starting the engine…";
   switch (phase?.kind) {

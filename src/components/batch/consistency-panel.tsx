@@ -115,7 +115,7 @@ export function ConsistencyPanel({ open, onOpenChange }: { open: boolean; onOpen
       setBusy(null);
       if (ok) {
         onOpenChange(false);
-        router.push("/editor");
+        router.push("/studio/editor");
       } else setStatus("That image can't be opened in the editor right now.");
       return;
     }
@@ -130,7 +130,7 @@ export function ConsistencyPanel({ open, onOpenChange }: { open: boolean; onOpen
   function fixButton(fix: Fix, id: string, primary = false) {
     if (fix.kind === "upgrade") {
       return (
-        <Link key={id} href="/pricing?from=batch" className="inline-flex h-8 items-center rounded-[9px] border border-blue/40 px-3 text-[13px] font-semibold text-blue-700 hover:bg-blue-50">
+        <Link key={id} href="/studio/plans?from=batch" className="inline-flex h-8 items-center rounded-[9px] border border-blue/40 px-3 text-[13px] font-semibold text-blue-700 hover:bg-blue-50">
           {fix.label}
         </Link>
       );

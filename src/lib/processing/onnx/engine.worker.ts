@@ -143,6 +143,28 @@ async function readInto(response: Response, buffer: Uint8Array, offset: number, 
   return got;
 }
 
+/** Where a downloaded piece waits in Cache Storage until the whole model has arrived. */
+function pieceKey(url: string, offset: number) {
+  const key = new URL(url);
+  key.searchParams.set("isola-piece", String(offset));
+  return key.href;
+}
+
+/**
+ * Keep a downloaded piece, so an interrupted download (a dropped connection,
+ * a closed tab, a reload) carries on from where it stopped instead of
+ * starting again. Best effort: without space, pieces simply aren't kept.
+ */
+function keepPiece(cache: Cache | null, url: string, buffer: Uint8Array, offset: number, length: number) {
+  if (!cache) return;
+  void cache.put(pieceKey(url, offset), new Response(buffer.slice(offset, offset + length) as unknown as BodyInit)).catch(() => undefined);
+}
+
+async function dropPieces(cache: Cache | null, url: string, starts: number[]) {
+  if (!cache) return;
+  await Promise.all(starts.map((at) => cache.delete(pieceKey(url, at)).catch(() => false)));
+}
+
 /** One piece, retried a few times on a flaky connection before giving up. */
 async function piece(url: string, model: ModelSpec, buffer: Uint8Array, offset: number, length: number, progress: (delta: number) => void) {
   let lastError: unknown = null;
@@ -195,25 +217,56 @@ async function fetchModel(url: string, model: ModelSpec): Promise<Uint8Array> {
     }
   };
 
-  // The first piece also tells us whether the server sends pieces (Range) or only the whole file.
-  const first = await request(url, model, `bytes=0-${Math.min(PIECE, total) - 1}`);
-  if (first.status === 206) {
-    await readInto(first, buffer, 0, Math.min(PIECE, total), progress);
-    const starts: number[] = [];
-    for (let at = PIECE; at < total; at += PIECE) starts.push(at);
+  const starts: number[] = [];
+  for (let at = 0; at < total; at += PIECE) starts.push(at);
+  const sizeOf = (at: number) => Math.min(PIECE, total - at);
+
+  // Pieces kept from an earlier download that didn't finish.
+  const kept = new Set<number>();
+  if (cache) {
+    for (const at of starts) {
+      try {
+        const hit = await cache.match(pieceKey(url, at));
+        if (!hit) continue;
+        const bytes = new Uint8Array(await hit.arrayBuffer());
+        if (bytes.byteLength !== sizeOf(at)) continue;
+        buffer.set(bytes, at);
+        kept.add(at);
+        progress(bytes.byteLength);
+      } catch {
+        /* unreadable piece: download it again */
+      }
+    }
+  }
+
+  const downloadRest = async (todo: number[]) => {
     let next = 0;
     const lane = async () => {
-      while (next < starts.length) {
-        const at = starts[next++];
-        await piece(url, model, buffer, at, Math.min(PIECE, total - at), progress);
+      while (next < todo.length) {
+        const at = todo[next++];
+        await piece(url, model, buffer, at, sizeOf(at), progress);
+        keepPiece(cache, url, buffer, at, sizeOf(at));
       }
     };
-    await Promise.all(Array.from({ length: Math.min(LANES, starts.length) }, lane));
+    await Promise.all(Array.from({ length: Math.min(LANES, todo.length) }, lane));
+  };
+
+  if (kept.size > 0) {
+    // Pieces were kept, so this server sends pieces: fetch only what's missing.
+    await downloadRest(starts.filter((at) => !kept.has(at)));
   } else {
-    // A server or CDN without Range support: the whole file in one response.
-    const got = await readInto(first, buffer, 0, total, progress, true);
-    if (got !== total) {
-      throw new WorkerFailure("model-integrity", "The downloaded model doesn't match the expected file.", `Expected ${total} bytes, received ${got}.`);
+    // The first piece also tells us whether the server sends pieces (Range) or only the whole file.
+    const first = await request(url, model, `bytes=0-${sizeOf(0) - 1}`);
+    if (first.status === 206) {
+      await readInto(first, buffer, 0, sizeOf(0), progress);
+      keepPiece(cache, url, buffer, 0, sizeOf(0));
+      await downloadRest(starts.slice(1));
+    } else {
+      // A server or CDN without Range support: the whole file in one response.
+      const got = await readInto(first, buffer, 0, total, progress, true);
+      if (got !== total) {
+        throw new WorkerFailure("model-integrity", "The downloaded model doesn't match the expected file.", `Expected ${total} bytes, received ${got}.`);
+      }
     }
   }
   post({ type: "download-progress", loaded, total });
@@ -221,13 +274,17 @@ async function fetchModel(url: string, model: ModelSpec): Promise<Uint8Array> {
   post({ type: "initialising" });
   const digest = await sha256Hex(buffer);
   if (digest !== model.sha256) {
+    // A bad piece can't be told apart from good ones, so start clean next time.
+    await dropPieces(cache, url, starts);
     throw new WorkerFailure("model-integrity", "The downloaded model failed its integrity check.", `SHA-256 ${digest}`);
   }
   if (cache) {
     try {
       await cache.put(url, new Response(buffer as unknown as BodyInit, { headers: { "content-type": "application/octet-stream" } }));
+      // The whole model is kept now; the pieces aren't needed any more.
+      await dropPieces(cache, url, starts);
     } catch {
-      // Quota exceeded: the model still works for this session.
+      // Quota exceeded: the model still works for this session (and the kept pieces still save the next download).
     }
   }
   return buffer;

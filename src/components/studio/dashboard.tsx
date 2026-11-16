@@ -50,10 +50,10 @@ export interface StudioUser {
 const card = "rounded-[18px] border border-line bg-surface shadow-[var(--shadow-card)]";
 
 const TOOLS: Array<{ href: string; label: string; icon: LucideIcon }> = [
-  { href: "/editor", label: "Remove background", icon: Scissors },
-  { href: "/editor?tool=restore", label: "Edit an image", icon: Wand2 },
+  { href: "/studio/editor", label: "Remove background", icon: Scissors },
+  { href: "/studio/editor?tool=restore", label: "Edit an image", icon: Wand2 },
   { href: "/studio/batch", label: "Start a batch", icon: Layers },
-  { href: "/editor?panel=background", label: "Change background", icon: Images },
+  { href: "/studio/editor?panel=background", label: "Change background", icon: Images },
   { href: "/studio/batch?preset=default", label: "Apply brand preset", icon: Palette },
   { href: "/studio/batch?export=set", label: "Create export set", icon: Share },
 ];

@@ -587,7 +587,7 @@ export function ExportPreflight({ onAction }: { onAction: (action: PreflightActi
             <span className="min-w-0 flex-1 leading-snug">{l.text}</span>
             {l.action &&
               (l.action === "upgrade" ? (
-                <Link href="/pricing?from=batch" className="shrink-0 rounded-[8px] border border-warn/40 px-2.5 py-1 text-[12px] font-semibold text-warn hover:bg-warn-50">
+                <Link href="/studio/plans?from=batch" className="shrink-0 rounded-[8px] border border-warn/40 px-2.5 py-1 text-[12px] font-semibold text-warn hover:bg-warn-50">
                   {ACTION[l.action]}
                 </Link>
               ) : (

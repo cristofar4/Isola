@@ -8,6 +8,8 @@ import { cn } from "@/lib/cn";
 import { importFiles, redo, resumeAfterSignIn, undo } from "@/lib/project/actions";
 import { useOnSignIn } from "@/lib/session-gate";
 import { useActiveImage, useProject } from "@/lib/project/store";
+import { setEditorOpen } from "@/components/studio/studio-place";
+import { useWarmEngine } from "./warm-engine";
 import { EditorCanvas } from "./editor-canvas";
 import { ApplyEditorIntent, EditorIntentFromUrl } from "./editor-intent";
 import { useEditorUI } from "./editor-ui-store";
@@ -16,6 +18,7 @@ import { ExportDialog } from "./export-dialog";
 import { Filmstrip } from "./filmstrip";
 import { ImagesPanel } from "./images-panel";
 import { PropertiesPanel } from "./properties-panel";
+import { PhoneToolbar } from "./phone-toolbar";
 import { ToolRail } from "./tool-rail";
 import { TopBar } from "./top-bar";
 import { TrialEndedDialog } from "./trial-prompt";
@@ -26,14 +29,29 @@ function isTyping(target: EventTarget | null) {
   return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
 }
 
-export function EditorShell() {
+/**
+ * The image editor. On its own at /editor (for guests trying ISOLA), or
+ * `embedded` in the studio frame at /studio/editor, where the studio's
+ * header sits above it and the sidebar folds to an icon rail to give the
+ * canvas room.
+ */
+export function EditorShell({ embedded = false }: { embedded?: boolean }) {
   const images = useProject((s) => s.images);
   const image = useActiveImage();
   const [imagesOpen, setImagesOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   // Images added while signed out start processing as soon as the visitor signs in.
-  useOnSignIn(resumeAfterSignIn);
+  const { signedIn } = useOnSignIn(resumeAfterSignIn);
+  // Get the engine ready while the visitor picks a photo, so removal starts the moment one lands.
+  useWarmEngine(embedded || signedIn);
+  useEffect(() => {
+    if (!embedded) return;
+    setEditorOpen(true);
+    // In the studio you're signed in: anything that was waiting for an account starts now.
+    resumeAfterSignIn();
+    return () => setEditorOpen(false);
+  }, [embedded]);
   const drop = useFileDrop(async (files) => {
     const report = await importFiles(files);
     setNotice(report.rejected.length ? report.rejected.map((r) => `${r.name}: ${r.error.message}`).join(" ") : null);
@@ -104,14 +122,20 @@ export function EditorShell() {
   }, []);
 
   const hasImages = images.length > 0;
+  // In the studio, the frame's <main> already holds the page.
+  const Main = embedded ? "section" : "main";
 
   return (
-    <div className="flex h-dvh w-full max-w-[100vw] flex-col overflow-hidden bg-paper text-ink" {...drop.bind}>
+    <div
+      className={cn("flex w-full max-w-[100vw] flex-col overflow-hidden bg-paper text-ink", embedded ? "h-[calc(100dvh-4rem)]" : "h-dvh")}
+      data-editor={embedded ? "studio" : "standalone"}
+      {...drop.bind}
+    >
       <Suspense fallback={null}>
         <EditorIntentFromUrl />
       </Suspense>
       <ApplyEditorIntent />
-      <TopBar image={image} onOpenImages={() => setImagesOpen(true)} onOpenAdjust={() => setAdjustOpen(true)} />
+      <TopBar image={image} embedded={embedded} onOpenImages={() => setImagesOpen(true)} />
       <div className="flex min-h-0 flex-1">
         {hasImages && (
           <>
@@ -123,7 +147,7 @@ export function EditorShell() {
             </aside>
           </>
         )}
-        <main id="main" className="relative flex min-w-0 flex-1 flex-col">
+        <Main id={embedded ? "editor-canvas" : "main"} aria-label={embedded ? "Canvas" : undefined} className="relative flex min-w-0 flex-1 flex-col">
           <div className="relative min-h-0 flex-1 bg-[radial-gradient(circle_at_50%_40%,#eef0eb,#e6e9e3)]">
             {image ? <EditorCanvas key={image.id} image={image} /> : <EmptyState />}
             {drop.dragging && (
@@ -144,11 +168,22 @@ export function EditorShell() {
           </div>
           {hasImages && <Filmstrip className={cn(images.length < 2 && "hidden lg:block")} />}
           {hasImages && (
-            <div className="flex items-center justify-center border-t border-line bg-surface px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">
-              <ToolRail orientation="horizontal" disabled={image?.status !== "ready"} />
+            <div className="border-t border-line bg-surface px-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] pt-1 lg:hidden">
+              <PhoneToolbar
+                disabled={image?.status !== "ready"}
+                noImage={!image}
+                imageCount={images.length}
+                onImages={() => setImagesOpen(true)}
+                onAdjust={() => setAdjustOpen(true)}
+                onBackground={() => {
+                  // The Background section scrolls itself into view and lights up.
+                  useEditorUI.getState().setIntent("background");
+                  setAdjustOpen(true);
+                }}
+              />
             </div>
           )}
-        </main>
+        </Main>
         {image && (
           <aside aria-label="Properties" className="hidden w-[300px] shrink-0 border-l border-line bg-surface lg:block">
             <PropertiesPanel image={image} />

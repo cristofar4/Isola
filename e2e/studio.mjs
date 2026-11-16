@@ -87,7 +87,63 @@ const navText = (await sidebar.innerText()).replace(/\s+/g, " ");
 check("The sidebar has the studio's sections and tools", ["Home", "Image editor", "Batch Studio", "Brand presets", "Export sets", "Quality review", "Projects", "Asset library", "Scene Studio", "Motion Studio", "Downloads", "Trash", "Help", "Settings"].every((t) => navText.includes(t)), navText);
 const tools = page.getByRole("region", { name: "Quick start tools" });
 const toolHrefs = await tools.getByRole("link").evaluateAll((a) => a.map((x) => x.getAttribute("href")));
-check("Quick start tools open the real tools", JSON.stringify(toolHrefs.slice(0, 4)) === JSON.stringify(["/editor", "/editor?tool=restore", "/studio/batch", "/editor?panel=background"]) && toolHrefs[5] === "/studio/batch?export=set", toolHrefs.join(" "));
+check(
+  "Quick start tools open the real tools, inside the studio",
+  JSON.stringify(toolHrefs.slice(0, 4)) === JSON.stringify(["/studio/editor", "/studio/editor?tool=restore", "/studio/batch", "/studio/editor?panel=background"]) && toolHrefs[5] === "/studio/batch?export=set",
+  toolHrefs.join(" "),
+);
+
+// The menu's footer: Get Pro (Free accounts) and you, with your picture beside your name.
+{
+  const account = page.locator("aside [data-studio-account]");
+  const getPro = account.locator("[data-get-pro]");
+  check("The studio menu ends with Get Pro and your profile picture beside your name", (await getPro.isVisible()) && (await getPro.getAttribute("href")) === "/studio/plans" && (await account.locator("[data-studio-me]").innerText()).includes("Ada Lovelace") && (await account.locator("[data-avatar]").count()) === 1 && (await account.locator("[data-pro-badge]").count()) === 0);
+  const devLink = sidebar.getByRole("link", { name: /^Developers/ });
+  check("Developers opens in a new tab, beside the studio", (await devLink.getAttribute("target")) === "_blank");
+  check("Help and Settings stay in the studio", (await sidebar.getByRole("link", { name: "Help" }).getAttribute("href")) === "/studio/help" && (await sidebar.getByRole("link", { name: "Settings" }).getAttribute("href")) === "/studio/settings");
+}
+
+// Nothing inside the studio leads back to the public site: every same-site link stays under /studio (the docs open in a new tab).
+{
+  const leaks = [];
+  for (const path of ["/studio", "/studio/projects", "/studio/assets", "/studio/presets", "/studio/scenes", "/studio/motion", "/studio/batch", "/studio/downloads", "/studio/trash", "/studio/editor", "/studio/plans", "/studio/settings", "/studio/help"]) {
+    await page.goto(`${BASE}${path}`, { waitUntil: "networkidle" });
+    const found = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("a[href]"))
+        .filter((a) => a.target !== "_blank")
+        .map((a) => new URL(a.getAttribute("href"), location.href))
+        .filter((u) => u.origin === location.origin && !u.pathname.startsWith("/studio") && !u.pathname.startsWith("/api/"))
+        .map((u) => u.pathname + u.search),
+    );
+    for (const href of found) leaks.push(`${path} → ${href}`);
+  }
+  check("No studio page links back to the public site", leaks.length === 0, leaks.slice(0, 8).join(", "));
+}
+
+// Get Pro opens the plans inside the studio.
+await page.goto(`${BASE}/studio`, { waitUntil: "networkidle" });
+await page.locator("aside [data-get-pro]").click();
+await page.waitForURL(`${BASE}/studio/plans`);
+await page.getByRole("heading", { level: 1, name: "Get Pro" }).waitFor();
+check(
+  "Get Pro shows the plans in the studio frame, Free marked as yours",
+  (await page.getByRole("article", { name: "Free plan" }).getByText("Your plan").isVisible()) &&
+    (await page.getByRole("article", { name: "Pro plan" }).getByRole("button", { name: "Get Pro" }).isEnabled()) &&
+    (await page.getByRole("navigation", { name: "Studio" }).isVisible()),
+);
+
+// Signed in, /editor is the editor inside the studio, with a way back right there.
+await page.goto(`${BASE}/studio/projects`, { waitUntil: "networkidle" });
+await page.goto(`${BASE}/editor?tool=crop`, { waitUntil: "networkidle" });
+await page.waitForURL(`${BASE}/studio/editor?tool=crop`);
+await page.locator('[data-editor="studio"]').waitFor();
+const back = page.locator("[data-editor-back]");
+check("Signed in, /editor opens the studio's editor, with Back to where you were", (await back.getAttribute("href")) === "/studio/projects" && (await back.innerText()).includes("Projects"), await back.innerText());
+check("The editor sits inside the studio frame, its sidebar folded to icons", (await page.locator("#studio-sidebar").isVisible()) && (await page.getByRole("button", { name: "Expand sidebar" }).isVisible()));
+await back.click();
+await page.waitForURL(`${BASE}/studio/projects`);
+check("Back returns to the studio page you came from", true);
+await page.goto(`${BASE}/studio`, { waitUntil: "networkidle" });
 check("An empty studio says so instead of showing made-up work", (await page.getByText("Nothing in production yet.").isVisible()) && (await page.locator("[data-consistency-card]").getByText("Example", { exact: true }).isVisible()));
 
 // Brand preset from the dashboard card.

@@ -558,7 +558,7 @@ function UrlActions({ onPreset, onCheck, onExportSet }: { onPreset: (p: LoadedPr
       router.replace(qs ? `${here}?${qs}` : here, { scroll: false });
     };
     if (open) {
-      void openInEditor(open).then((ok) => (ok ? router.push("/editor") : strip()));
+      void openInEditor(open).then((ok) => (ok ? router.push("/studio/editor") : strip()));
       return;
     }
     if (check === "consistency") onCheck();
@@ -744,13 +744,13 @@ export function BatchStudio() {
 
   function startSelected() {
     if (!signedIn) return router.push(signInHref("/batch"));
-    if (needsPro) return router.push("/pricing?from=batch");
+    if (needsPro) return router.push("/studio/plans?from=batch");
     processItems(eligible.map((i) => i.id));
   }
 
   function startSelectedOrAll() {
     if (!signedIn) return router.push(signInHref("/batch"));
-    if (needsPro) return router.push("/pricing?from=batch");
+    if (needsPro) return router.push("/studio/plans?from=batch");
   }
 
   function openExportSettings() {
@@ -884,7 +884,7 @@ export function BatchStudio() {
                 images stay free in the editor.
               </p>
             </div>
-            <ButtonLink href="/pricing?from=batch" size="sm">
+            <ButtonLink href="/studio/plans?from=batch" size="sm">
               Upgrade to Pro
             </ButtonLink>
           </div>

@@ -44,8 +44,10 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function PlanSection({ user, billingAvailable }: { user: CurrentUser; billingAvailable: boolean }) {
+export function PlanSection({ user, billingAvailable, place = "site" }: { user: CurrentUser; billingAvailable: boolean; place?: "site" | "studio" }) {
   const params = useSearchParams();
+  // Payments started here come back here: the studio's Settings, or the site's Account page.
+  const home = place === "studio" ? "/studio/settings" : "/account";
   const upgraded = params.get("upgraded") === "1";
   const manage = params.get("manage");
   const { plan } = user;
@@ -80,13 +82,13 @@ export function PlanSection({ user, billingAvailable }: { user: CurrentUser; bil
             </FooterHint>
             {plan.hasSubscription ? (
               <a
-                href="/api/billing/manage"
+                href={place === "studio" ? "/api/billing/manage?from=studio" : "/api/billing/manage"}
                 className="inline-flex h-10 items-center rounded-[10px] border border-line bg-surface px-4 text-sm font-semibold text-ink transition-colors hover:border-line-strong hover:bg-paper"
               >
                 Manage subscription
               </a>
             ) : (
-              !plan.renews && <UpgradeButton available={billingAvailable} size="md" className="w-auto" returnTo="/account" interval={plan.interval ?? "monthly"} />
+              !plan.renews && <UpgradeButton available={billingAvailable} size="md" className="w-auto" returnTo={home} interval={plan.interval ?? "monthly"} />
             )}
           </>
         }
@@ -132,8 +134,8 @@ export function PlanSection({ user, billingAvailable }: { user: CurrentUser; bil
               <ProFeatures />
             </div>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <UpgradeButton available={billingAvailable} size="md" returnTo="/account" interval="monthly" label={`Monthly · ${formatNaira(planConfig.proPriceNgn)}`} />
-              <UpgradeButton available={billingAvailable} size="md" returnTo="/account" interval="yearly" label={`Yearly · ${formatNaira(planConfig.proYearlyPriceNgn)}`} />
+              <UpgradeButton available={billingAvailable} size="md" returnTo={home} interval="monthly" label={`Monthly · ${formatNaira(planConfig.proPriceNgn)}`} />
+              <UpgradeButton available={billingAvailable} size="md" returnTo={home} interval="yearly" label={`Yearly · ${formatNaira(planConfig.proYearlyPriceNgn)}`} />
             </div>
           </div>
         </div>

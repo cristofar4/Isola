@@ -24,7 +24,7 @@ function PrivacyNote({ className }: { className?: string }) {
 }
 
 /** The account page below the header: overview, section links and every setting. */
-export function AccountView({ user, billingAvailable }: { user: CurrentUser; billingAvailable: boolean }) {
+export function AccountView({ user, billingAvailable, place = "site" }: { user: CurrentUser; billingAvailable: boolean; place?: "site" | "studio" }) {
   const loadKeys = useAccountData((s) => s.loadKeys);
   const loadDevices = useAccountData((s) => s.loadDevices);
   useEffect(() => {
@@ -41,7 +41,7 @@ export function AccountView({ user, billingAvailable }: { user: CurrentUser; bil
       </aside>
       <div className="grid min-w-0 gap-6">
         <AccountOverview user={user} />
-        <PlanSection user={user} billingAvailable={billingAvailable} />
+        <PlanSection user={user} billingAvailable={billingAvailable} place={place} />
         <ApiKeysSection pro={user.plan.pro} />
         <ProfileSection user={user} />
         <SecuritySection user={user} />

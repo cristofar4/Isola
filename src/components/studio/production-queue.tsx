@@ -104,7 +104,7 @@ export function ProductionQueue({ snapshot, pro }: { snapshot: BatchSnapshot | n
               ) : (
                 <span>
                   Batch Studio is part of Pro: these images wait in this browser.{" "}
-                  <Link href="/pricing?from=batch" className="font-semibold text-blue-700 hover:underline">
+                  <Link href="/studio/plans?from=batch" className="font-semibold text-blue-700 hover:underline">
                     Upgrade
                   </Link>
                 </span>

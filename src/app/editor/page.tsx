@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { EditorShell } from "@/components/editor/editor-shell";
+import { ToStudioWhenSignedIn } from "@/components/editor/to-studio";
 
 export const metadata: Metadata = {
   title: "Editor",
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function EditorPage() {
-  return <EditorShell />;
+  return (
+    <>
+      <EditorShell />
+      <ToStudioWhenSignedIn />
+    </>
+  );
 }

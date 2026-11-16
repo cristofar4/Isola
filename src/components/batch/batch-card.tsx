@@ -79,7 +79,7 @@ function useRefine(item: BatchItem) {
     async refine() {
       setOpening(true);
       try {
-        if (await openInEditor(item.id)) router.push("/editor");
+        if (await openInEditor(item.id)) router.push("/studio/editor");
       } finally {
         setOpening(false);
       }
@@ -229,7 +229,7 @@ function ItemActions({ item, compact }: { item: BatchItem; compact?: boolean }) 
       );
     case "needs-pro":
       return (
-        <Link href="/pricing?from=batch" className={cn(actionBase, "w-full border border-blue/40 text-blue-700 hover:bg-blue-50")}>
+        <Link href="/studio/plans?from=batch" className={cn(actionBase, "w-full border border-blue/40 text-blue-700 hover:bg-blue-50")}>
           <Sparkles className="size-4" aria-hidden="true" /> Upgrade to process
         </Link>
       );

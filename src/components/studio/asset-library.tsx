@@ -535,7 +535,7 @@ function Details({ asset, onClose, onSelect }: { asset: Asset; onClose?: () => v
               const file = await assetFile(asset.id);
               if (!file) throw new Error("This file is no longer stored in this browser.");
               await importFiles([file]);
-              router.push("/editor");
+              router.push("/studio/editor");
             })
           }
         >

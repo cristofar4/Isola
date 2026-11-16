@@ -37,7 +37,12 @@ function planCodeFor(interval: BillingInterval) {
 }
 
 /** Pages a payer may be sent back to after checkout. */
-const RETURN_PATHS = new Set(["/account", "/batch", "/editor", "/pricing"]);
+const RETURN_PATHS = new Set(["/account", "/batch", "/editor", "/pricing", "/studio/plans", "/studio/settings", "/studio/batch", "/studio/editor"]);
+
+/** Where a failed or abandoned payment lands: back in the studio when it started there. */
+export function paymentProblemPath(returnTo: string | null | undefined) {
+  return returnTo?.startsWith("/studio") ? "/studio/plans" : "/pricing";
+}
 export function safeReturnPath(value: unknown): string | null {
   return typeof value === "string" && RETURN_PATHS.has(value) ? value : null;
 }
@@ -117,7 +122,8 @@ export async function startCheckout({
       amount: INTERVALS[interval].priceNgn * 100,
       currency: "NGN",
       reference,
-      callback_url: `${origin}/billing/callback`,
+      // A checkout started in the studio comes back through the studio's callback, so even a failed payment returns there.
+      callback_url: returnTo?.startsWith("/studio") ? `${origin}/billing/callback/studio` : `${origin}/billing/callback`,
       metadata: { userId, product: PRODUCT, interval, ...(returnTo ? { returnTo } : {}) },
       ...(planCode ? { plan: planCode } : {}),
     }),

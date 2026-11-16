@@ -12,8 +12,12 @@ import { cn } from "@/lib/cn";
 /** Pages that may ask checkout to bring the payer back to them. */
 function checkoutReturn(fallback?: string): string | undefined {
   if (typeof window === "undefined") return fallback;
+  // Paying from inside the studio returns you to the studio, never to the public site.
+  const studio = window.location.pathname.startsWith("/studio");
   const from = new URLSearchParams(window.location.search).get("from");
-  return from === "batch" ? "/batch" : from === "editor" ? "/editor" : fallback;
+  if (from === "batch") return studio ? "/studio/batch" : "/batch";
+  if (from === "editor") return studio ? "/studio/editor" : "/editor";
+  return fallback;
 }
 
 /**
@@ -53,7 +57,7 @@ export function UpgradeButton({
   }
   if (plan.pro && plan.renews) {
     return (
-      <ButtonLink href="/account" size={size} variant="outline-blue" className={cn("w-full", className)}>
+      <ButtonLink href={returnTo.startsWith("/studio") ? "/studio/settings#plan" : "/account"} size={size} variant="outline-blue" className={cn("w-full", className)}>
         You&apos;re on Pro
       </ButtonLink>
     );

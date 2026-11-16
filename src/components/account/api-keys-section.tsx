@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { AlertDialog } from "radix-ui";
 import { ArrowUpRight, Check, Copy, KeyRound, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
@@ -83,9 +82,11 @@ export function ApiKeysSection({ pro }: { pro: boolean }) {
           : `Use the ISOLA API from your own code. Free: cutouts up to ${planConfig.freeMaxExportSide.toLocaleString("en-US")}px; Pro: full resolution and masks.`
       }
       action={
-        <Link href="/developers/api" className="inline-flex items-center gap-1 text-[14px] font-semibold text-blue-700 hover:underline">
+        // The docs are their own site: they open in a new tab, so your settings stay where they are.
+        <a href="/developers/api" target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-[14px] font-semibold text-blue-700 hover:underline">
           API docs <ArrowUpRight className="size-4" aria-hidden="true" />
-        </Link>
+          <span className="sr-only">(opens in a new tab)</span>
+        </a>
       }
     >
       <div className="grid gap-5">
