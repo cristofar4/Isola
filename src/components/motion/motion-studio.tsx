@@ -95,7 +95,9 @@ function defaultLayout(): Layout {
   const w = window.innerWidth;
   return {
     ...DEFAULT_LAYOUT,
-    bottom: Math.round(Math.min(DEFAULT_LAYOUT.bottom, Math.max(150, h * 0.22))),
+    bottom: Math.round(Math.min(DEFAULT_LAYOUT.bottom, Math.max(150, h * 0.2))),
+    // Below about 1000px tall the storyboard starts folded to one line; the timeline still shows every shot.
+    storyOpen: h >= 1000,
     left: w < 1500 ? 264 : DEFAULT_LAYOUT.left,
     right: w < 1500 ? 296 : DEFAULT_LAYOUT.right,
   };
@@ -117,8 +119,10 @@ interface Layout {
   leftOpen: boolean;
   rightOpen: boolean;
   bottomOpen: boolean;
+  /** The shot storyboard under the preview (folded to its heading when false). */
+  storyOpen: boolean;
 }
-const DEFAULT_LAYOUT: Layout = { left: 300, right: 328, bottom: 260, leftOpen: true, rightOpen: true, bottomOpen: true };
+const DEFAULT_LAYOUT: Layout = { left: 300, right: 328, bottom: 260, leftOpen: true, rightOpen: true, bottomOpen: true, storyOpen: true };
 /** Smallest and largest size of each panel, in pixels. */
 const PANEL_LIMITS = { left: [240, 520], right: [280, 520], bottom: [140, 560] } as const;
 
@@ -538,9 +542,11 @@ function Editor() {
               <div className="min-h-0 flex-1">
                 <Viewer />
               </div>
-              <div className="shrink-0 border-t border-m-line bg-m-chrome">
-                <Storyboard />
-              </div>
+              {!focus && (
+                <div className="shrink-0 border-t border-m-line bg-m-chrome">
+                  <Storyboard open={layout.storyOpen} onToggle={() => setLayout((l) => ({ ...l, storyOpen: !l.storyOpen }))} />
+                </div>
+              )}
             </div>
             {show.right && (
               <>

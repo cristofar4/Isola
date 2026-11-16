@@ -1,7 +1,7 @@
 "use client";
 
 import { DropdownMenu } from "radix-ui";
-import { ChevronLeft, ChevronRight, Copy, Ellipsis, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Copy, Ellipsis, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { askName } from "@/components/studio/name-dialog";
 import { cn } from "@/lib/cn";
@@ -34,7 +34,11 @@ function ShotThumb({ film, at, label }: { film: Film; at: number; label: string 
 }
 
 /** The film's shots in order. The same data as the timeline: reordering here moves the shots' clips there. */
-export function Storyboard() {
+/**
+ * The shots in order. `open` / `onToggle` let the editor fold it to its
+ * heading on short windows; the timeline still shows every shot.
+ */
+export function Storyboard({ open = true, onToggle }: { open?: boolean; onToggle?: () => void } = {}) {
   const film = useEditor((s) => s.film)!;
   const selectedShot = useEditor((s) => s.selection.shotId);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
@@ -43,11 +47,23 @@ export function Storyboard() {
 
   return (
     <section aria-label="Shot storyboard" className="flex min-h-0 flex-col">
-      <div className="flex items-center gap-2 px-3 pb-1.5 pt-2">
+      <div className={cn("flex items-center gap-2 px-3", open ? "pb-1.5 pt-2" : "py-1.5")}>
         <h2 className="text-[12px] font-bold uppercase tracking-[0.14em] text-m-text-2">Shot storyboard</h2>
         <span className="text-[12px] text-m-subtle">({film.shots.length} shot{film.shots.length === 1 ? "" : "s"})</span>
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+            className="ml-auto inline-flex h-7 items-center gap-1 rounded-[8px] px-2 text-[12px] font-semibold text-m-text-2 hover:bg-m-ink/[0.07] hover:text-m-text"
+            data-storyboard-toggle
+          >
+            {open ? "Hide shots" : "Show shots"}
+            <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} aria-hidden="true" />
+          </button>
+        )}
       </div>
-      <ol className="flex min-h-0 gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:thin]">
+      {open && <ol className="flex min-h-0 gap-2 overflow-x-auto px-3 pb-2 [scrollbar-width:thin]">
         {film.shots.map((s, i) => {
           const active = selectedShot === s.id;
           return (
@@ -122,7 +138,7 @@ export function Storyboard() {
             </span>
           </button>
         </li>
-      </ol>
+      </ol>}
     </section>
   );
 }

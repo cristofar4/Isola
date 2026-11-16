@@ -142,6 +142,13 @@ await page.waitForURL("**/studio/motion/**", { timeout: 30_000 });
 const filmUrl = page.url();
 await page.locator("[data-viewer]").waitFor({ timeout: 30_000 });
 await page.waitForTimeout(1200);
+// On a window under 1000px tall the storyboard starts folded to one line (more room for the preview); open it.
+{
+  const toggle = page.locator("[data-storyboard-toggle]");
+  check("On a laptop-height window the shot storyboard starts folded, one click from open", (await toggle.getAttribute("aria-expanded")) === "false");
+  await toggle.click();
+  await page.locator("[data-shot]").first().waitFor();
+}
 
 /* 2. Motion Studio ----------------------------------------------------------- */
 const sidebar = page.getByRole("complementary", { name: "Studio sidebar" });

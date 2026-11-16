@@ -30,6 +30,9 @@ const BASE = process.env.BASE_URL || "http://localhost:3000";
 const OUT = join(process.cwd(), "e2e", "output", "regressions");
 mkdirSync(OUT, { recursive: true });
 const BIG_PHOTO = process.env.BIG_PHOTO || null; // a 12 MP JPEG for the phone measurement (optional)
+/** Run only some parts, e.g. ONLY=phone or ONLY=A,B (default: all). */
+const ONLY = process.env.ONLY ? process.env.ONLY.split(",").map((x) => x.trim()) : null;
+const wanted = (name) => !ONLY || ONLY.some((o) => name.split("/").includes(o) || name === o);
 
 let failures = 0;
 let total = 0;
@@ -49,6 +52,7 @@ async function download(page, click, name) {
 }
 /** Run one part; if it breaks (e.g. a control is stuck disabled), record that and carry on with the next part. */
 async function part(name, fn) {
+  if (!wanted(name)) return;
   try {
     await fn();
   } catch (error) {
@@ -212,7 +216,7 @@ await part("G", async () => {
 });
 
 /* Phone: main-thread blocking while a large photo is placed --------------------- */
-if (BIG_PHOTO) {
+if (BIG_PHOTO && wanted("phone")) {
   const phone = await browser.newContext({ ...devices["Pixel 7"] });
   await signInContext(phone, BASE, account);
   const m = await phone.newPage();

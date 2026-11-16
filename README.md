@@ -759,8 +759,10 @@ Keyframe times are relative to their clip.
   the preview" (which brings them back as they were); sizes are remembered.
   While you edit a film, the studio's sidebar folds to icons (Expand brings it
   back). On a first visit, short or narrow windows start with a slimmer
-  timeline and side panels: at 1363 × 936 the square preview is about 370px
-  instead of 200px. The viewer has Fit, 50–200% and fullscreen.
+  timeline and side panels, and below about 1000px tall the shot storyboard
+  starts folded to one line ("Show shots"; the timeline still shows every
+  shot): at 1363 × 936 the square preview is 387px instead of 200px. The
+  viewer has Fit, 50–200% and fullscreen.
 - **Export:** each resolution choice says what the file will really be on
   Free (e.g. "1080p → 1000 × 1000 on Free"), and the panel shows "Your file"
   next to what was asked for. A finished render says it's ready to download
