@@ -162,7 +162,9 @@ function SaveStatus({ save, onRetry }: { save: SaveState; onRetry: () => void })
     );
   return (
     <span className="inline-flex items-center gap-1.5 text-[13px] text-success" aria-live="polite" data-save-state="saved">
-      <Check className="size-4" aria-hidden="true" /> Saved in this browser
+      <Check className="size-4" aria-hidden="true" />
+      <span className="hidden whitespace-nowrap 2xl:inline">Saved in this browser</span>
+      <span className="whitespace-nowrap 2xl:hidden" title="Saved in this browser">Saved</span>
     </span>
   );
 }
@@ -526,14 +528,15 @@ function Loaded({ initial }: { initial: Scene }) {
     liveBase.current ??= scene;
     preview(next);
   };
-  const toolBtn = (active: boolean) => cn("inline-flex h-9 items-center gap-2 rounded-[10px] px-3 text-[14px] font-medium", active ? "bg-blue-50 text-blue-700 ring-1 ring-blue/20" : "text-ink-3 hover:bg-ink/5 hover:text-ink");
+  const toolBtn = (active: boolean) => cn("inline-flex h-9 shrink-0 items-center gap-2 rounded-[10px] px-2.5 text-[14px] font-medium sm:px-3", active ? "bg-blue-50 text-blue-700 ring-1 ring-blue/20" : "text-ink-3 hover:bg-ink/5 hover:text-ink");
   const layersTopFirst = [...scene.layers].reverse();
 
   return (
     <div className={cn("flex min-h-[calc(100dvh-4rem)] flex-col", creativeFontClasses)}>
       <h1 className="sr-only">Scene Studio: {scene.name}</h1>
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-3 py-2 sm:px-4">
+      {/* Phones: name, save and undo; then tools and zoom; then Export and Animate. Wide screens: one row. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-line bg-surface px-3 py-2 sm:px-4">
         <label className="sr-only" htmlFor="scene-name">
           Scene name
         </label>
@@ -544,52 +547,56 @@ function Loaded({ initial }: { initial: Scene }) {
           maxLength={80}
           onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== scene.name && apply((s) => ({ ...s, name: e.target.value.trim() }))}
           onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-          className="h-9 w-[200px] min-w-0 rounded-[9px] border border-transparent px-2 text-[16px] font-semibold text-ink hover:border-line focus:border-blue focus:outline-none"
+          className="order-1 h-9 min-w-0 flex-1 rounded-[9px] border border-transparent px-2 text-[16px] font-semibold text-ink hover:border-line focus:border-blue focus:outline-none lg:w-[180px] lg:flex-none"
         />
-        <span className="hidden h-6 w-px bg-line sm:block" aria-hidden="true" />
-        <div role="group" aria-label="Tools" className="flex items-center gap-1">
-          <button type="button" className={toolBtn(mode === "move" && tab === "layer")} onClick={() => { setMode("move"); setTab("layer"); }} title="Select and move layers in the scene">
-            <MousePointer2 className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Select</span>
+        <span className="order-2 hidden h-6 w-px bg-line lg:block" aria-hidden="true" />
+        <div className="order-2 flex shrink-0 items-center gap-1.5 lg:order-5 lg:ml-auto lg:gap-2">
+          <SaveStatus save={doc.save} onRetry={() => void doc.retry()} />
+          <Button variant="secondary" size="sm" onClick={undo} disabled={!doc.past.length} aria-label="Undo" title="Undo (Ctrl+Z)" icon={<Undo2 className="size-4" aria-hidden="true" />} />
+          <Button variant="secondary" size="sm" onClick={redo} disabled={!doc.future.length} aria-label="Redo" title="Redo (Ctrl+Shift+Z)" icon={<Redo2 className="size-4" aria-hidden="true" />} />
+        </div>
+        <div className="order-3 flex w-full items-center justify-between gap-1 lg:contents">
+        <div role="group" aria-label="Tools" className="flex items-center gap-0.5 sm:gap-1 lg:order-3">
+          <button type="button" className={toolBtn(mode === "move" && tab === "layer")} onClick={() => { setMode("move"); setTab("layer"); }} aria-label="Select" title="Select and move layers in the scene">
+            <MousePointer2 className="size-4" aria-hidden="true" /> <span className="hidden 2xl:inline">Select</span>
           </button>
-          <button type="button" className={toolBtn(tab === "scene")} onClick={() => setTab("scene")} title="Background, key light and the layers list">
-            <Layers className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Layers</span>
+          <button type="button" className={toolBtn(tab === "scene")} onClick={() => setTab("scene")} aria-label="Layers" title="Background, key light and the layers list">
+            <Layers className="size-4" aria-hidden="true" /> <span className="hidden 2xl:inline">Layers</span>
           </button>
           <button
             type="button"
             className={toolBtn(false)}
-            title="Key light: the direction every shadow is cast from"
+            aria-label="Lighting" title="Key light: the direction every shadow is cast from"
             onClick={() => {
               setTab("scene");
               requestAnimationFrame(() => document.getElementById("key-light")?.focus());
             }}
           >
-            <Sun className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Lighting</span>
+            <Sun className="size-4" aria-hidden="true" /> <span className="hidden 2xl:inline">Lighting</span>
           </button>
-          <button type="button" className={toolBtn(compare)} aria-pressed={compare} onClick={() => setCompare((c) => !c)} title="Show the products without the set">
-            <SplitSquareHorizontal className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Compare</span>
+          <button type="button" className={toolBtn(compare)} aria-pressed={compare} onClick={() => setCompare((c) => !c)} aria-label="Compare" title="Show the products without the set">
+            <SplitSquareHorizontal className="size-4" aria-hidden="true" /> <span className="hidden 2xl:inline">Compare</span>
           </button>
-          <button type="button" className={toolBtn(false)} title={identity ? `Adds a title in your brand's heading typeface (${FONT_LABEL[identity.typography.heading.font]})` : undefined} onClick={() => apply((s) => ({ ...s, layers: [...s.layers, textLayer({ color: brand[1]?.hex ?? "#20292D", ...(identity ? { font: identity.typography.heading.font, weight: identity.typography.heading.weight } : {}) })] }))}>
-            <Type className="size-4" aria-hidden="true" /> <span className="hidden md:inline">Text</span>
+          <button type="button" className={toolBtn(false)} aria-label="Text" title={identity ? `Adds a title in your brand's heading typeface (${FONT_LABEL[identity.typography.heading.font]})` : undefined} onClick={() => apply((s) => ({ ...s, layers: [...s.layers, textLayer({ color: brand[1]?.hex ?? "#20292D", ...(identity ? { font: identity.typography.heading.font, weight: identity.typography.heading.weight } : {}) })] }))}>
+            <Type className="size-4" aria-hidden="true" /> <span className="hidden 2xl:inline">Text</span>
           </button>
         </div>
-        <div role="group" aria-label="Zoom" className="flex items-center gap-1">
+        <div role="group" aria-label="Zoom" className="flex items-center gap-0.5 sm:gap-1 lg:order-4">
           <button type="button" className={toolBtn(zoom === 1)} aria-pressed={zoom === 1} onClick={() => setZoom(1)}>
             Fit
           </button>
           <button type="button" className={toolBtn(false)} aria-label="Zoom out" disabled={zoom <= 0.5} onClick={() => setZoom((z) => Math.max(0.5, Math.round((z - 0.25) * 100) / 100))}>
             <Minus className="size-4" aria-hidden="true" />
           </button>
-          <span className="w-12 text-center text-[13px] tabular-nums text-ink-3" aria-live="polite" data-zoom>
+          <span className="w-11 text-center text-[13px] tabular-nums text-ink-3" aria-live="polite" data-zoom>
             {Math.round(zoom * 100)}%
           </span>
           <button type="button" className={toolBtn(false)} aria-label="Zoom in" disabled={zoom >= 3} onClick={() => setZoom((z) => Math.min(3, Math.round((z + 0.25) * 100) / 100))}>
             <Plus className="size-4" aria-hidden="true" />
           </button>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <SaveStatus save={doc.save} onRetry={() => void doc.retry()} />
-          <Button variant="secondary" size="sm" onClick={undo} disabled={!doc.past.length} aria-label="Undo" title="Undo (Ctrl+Z)" icon={<Undo2 className="size-4" aria-hidden="true" />} />
-          <Button variant="secondary" size="sm" onClick={redo} disabled={!doc.future.length} aria-label="Redo" title="Redo (Ctrl+Shift+Z)" icon={<Redo2 className="size-4" aria-hidden="true" />} />
+        </div>
+        <div className="order-4 grid w-full grid-cols-2 gap-2 lg:order-6 lg:flex lg:w-auto">
           <Button variant="secondary" size="sm" onClick={() => setTab("export")} icon={<Download className="size-4" aria-hidden="true" />}>
             Export scene
           </Button>
@@ -620,7 +627,9 @@ function Loaded({ initial }: { initial: Scene }) {
         </aside>
 
         <div className="flex min-h-[420px] min-w-0 flex-col bg-paper-2/60">
-          <div className="relative min-h-[360px] flex-1">
+          {/* Phones: the drag-mode bar sits under the picture so it never covers the scene; larger screens: it floats over it. */}
+          <div className="relative flex min-h-[360px] flex-1 flex-col">
+            <div className="relative min-h-[300px] flex-1">
             <SceneCanvas scene={scene} format={scene.format} selectedId={selectedId} mode={mode} snap={snap} compare={compare} zoom={zoom} onSelect={setSelectedId} onPreview={preview} onCommit={(next, base) => commit(next, base)} />
             {hasShadows && (
               <button type="button" onClick={() => { setTab("scene"); requestAnimationFrame(() => document.getElementById("key-light")?.focus()); }} className="absolute right-4 top-4 inline-flex items-center gap-2 rounded-full border border-line bg-white/95 py-1 pl-2.5 pr-3 text-[13px] font-medium text-ink shadow-sm hover:border-line-strong" data-key-light={Math.round(light)}>
@@ -631,8 +640,9 @@ function Loaded({ initial }: { initial: Scene }) {
                 </svg>
               </button>
             )}
-            <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center px-3">
-              <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-1 rounded-[14px] border border-line bg-white/95 p-1 shadow-[var(--shadow-card)]">
+            </div>
+            <div className="flex justify-center border-t border-line/70 bg-surface px-2 py-2 sm:pointer-events-none sm:absolute sm:inset-x-0 sm:bottom-3 sm:border-0 sm:bg-transparent sm:px-3 sm:py-0">
+              <div className="flex w-full flex-wrap items-center justify-center gap-1 sm:pointer-events-auto sm:w-auto sm:rounded-[14px] sm:border sm:border-line sm:bg-white/95 sm:p-1 sm:shadow-[var(--shadow-card)]">
                 <div role="group" aria-label="Drag mode" className="flex items-center gap-0.5">
                   <button type="button" className={toolBtn(mode === "move")} aria-pressed={mode === "move"} onClick={() => setMode("move")}>
                     <Move className="size-4" aria-hidden="true" /> Move

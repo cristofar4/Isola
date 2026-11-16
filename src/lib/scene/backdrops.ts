@@ -324,6 +324,151 @@ function folds(ctx: Ctx, W: number, H: number) {
   ctx.restore();
 }
 
+/** Soft shadows of leafy branches falling across a wall from the upper left (seeded, so always the same). */
+function leafShadows(ctx: Ctx, W: number, H: number, seed: number, alpha: number) {
+  const S = Math.min(W, H);
+  const rand = mulberry32(seed);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, W, H);
+  ctx.clip();
+  for (let b = 0; b < 3; b++) {
+    const x0 = W * (-0.05 + b * 0.22 + rand() * 0.06);
+    const y0 = -H * 0.05;
+    const angle = (34 + rand() * 18) * (Math.PI / 180);
+    const length = S * (0.75 + rand() * 0.35);
+    const leaves = 7 + Math.floor(rand() * 4);
+    softFill(ctx, `rgba(92,70,44,${alpha})`, S * (0.012 + b * 0.006), (c) => {
+      // The stem.
+      const sx = Math.cos(angle);
+      const sy = Math.sin(angle);
+      const stemW = S * 0.004;
+      c.moveTo(x0, y0);
+      c.lineTo(x0 + sx * length, y0 + sy * length);
+      c.lineTo(x0 + sx * length + stemW, y0 + sy * length);
+      c.lineTo(x0 + stemW, y0);
+      c.closePath();
+      // Leaves in pairs along it, pointing outwards and down the stem.
+      for (let i = 1; i <= leaves; i++) {
+        const t = i / (leaves + 1);
+        const px = x0 + sx * length * t;
+        const py = y0 + sy * length * t;
+        const size = S * (0.07 + rand() * 0.035) * (1 - t * 0.35);
+        for (const side of [-1, 1]) {
+          const rot = angle + side * (0.85 + rand() * 0.25);
+          const cx = px + Math.cos(rot) * size * 0.9;
+          const cy = py + Math.sin(rot) * size * 0.9;
+          c.moveTo(cx + Math.cos(rot) * size, cy + Math.sin(rot) * size);
+          c.ellipse(cx, cy, size, size * 0.32, rot, 0, Math.PI * 2);
+        }
+      }
+    });
+  }
+  ctx.restore();
+}
+
+/** A spotlight: a bright pool on the floor and a soft cone on the wall. */
+function spotlight(ctx: Ctx, W: number, H: number, horizon: number, strength: number) {
+  const S = Math.min(W, H);
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  softFill(ctx, `rgba(255,236,210,${strength * 0.35})`, S * 0.08, (c) => {
+    c.moveTo(W * 0.44, -H * 0.05);
+    c.lineTo(W * 0.56, -H * 0.05);
+    c.lineTo(W * 0.78, H * horizon);
+    c.lineTo(W * 0.22, H * horizon);
+    c.closePath();
+  });
+  ctx.fillStyle = radial(ctx, W / 2, H * (horizon + 0.06), S * 0.42, [
+    [0, `rgba(255,232,200,${strength})`],
+    [0.5, `rgba(255,232,200,${strength * 0.35})`],
+    [1, "rgba(255,232,200,0)"],
+  ]);
+  ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+/** A recessed arch in the wall, lit from the left. */
+function archNiche(ctx: Ctx, W: number, H: number, horizon: number, colours: { inner: [string, string]; rim: string }) {
+  const S = Math.min(W, H);
+  const cx = W / 2;
+  const aw = Math.min(W * 0.36, S * 0.34);
+  const top = H * horizon - Math.min(H * 0.62, S * 0.78);
+  const bottom = H * horizon;
+  const path = (c: Ctx) => {
+    c.moveTo(cx - aw, bottom);
+    c.lineTo(cx - aw, top + aw);
+    c.arc(cx, top + aw, aw, Math.PI, 0);
+    c.lineTo(cx + aw, bottom);
+    c.closePath();
+  };
+  ctx.save();
+  ctx.beginPath();
+  path(ctx);
+  ctx.fillStyle = linear(ctx, cx - aw, 0, cx + aw, 0, [
+    [0, colours.inner[0]],
+    [1, colours.inner[1]],
+  ]);
+  ctx.fill();
+  ctx.clip();
+  // Shade inside the right edge and under the curve, so the niche reads as recessed.
+  softFill(ctx, "rgba(60,30,15,0.28)", S * 0.04, (c) => c.rect(cx + aw * 0.86, top, aw, bottom - top));
+  softFill(ctx, "rgba(60,30,15,0.18)", S * 0.05, (c) => c.ellipse(cx, top + aw * 0.4, aw * 1.1, aw * 0.5, 0, Math.PI, 0));
+  ctx.restore();
+  ctx.strokeStyle = colours.rim;
+  ctx.lineWidth = Math.max(1, S * 0.004);
+  ctx.beginPath();
+  path(ctx);
+  ctx.stroke();
+}
+
+/** Stacked rectangular blocks (a podium of steps) with their tops at `tops` (fractions of H), widest at the bottom. */
+function steps(ctx: Ctx, W: number, H: number, tops: number[], fill: { top: string; front: [string, string] }) {
+  const S = Math.min(W, H);
+  const cx = W / 2;
+  const bottom = H;
+  const depth = S * 0.045;
+  softFill(ctx, "rgba(50,40,30,0.28)", S * 0.045, (c) => c.rect(cx - S * 0.46, bottom - S * 0.02, S * 0.92, S * 0.04));
+  const stone = texture("stone");
+  tops.forEach((t, i) => {
+    const hw = S * (0.44 - i * 0.11);
+    const ty = H * t;
+    const fy = ty + depth;
+    const by = i === 0 ? bottom : H * tops[i - 1];
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx - hw * 0.95, ty - depth * 0.35);
+    ctx.lineTo(cx + hw * 0.95, ty - depth * 0.35);
+    ctx.lineTo(cx + hw, fy);
+    ctx.lineTo(cx - hw, fy);
+    ctx.closePath();
+    ctx.fillStyle = fill.top;
+    ctx.fill();
+    ctx.clip();
+    overlayTexture(ctx, stone, cx - hw, ty - depth, hw * 2, depth * 2, "multiply", 0.35, Math.max(1, S / 512));
+    ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(cx - hw, fy, hw * 2, by - fy);
+    ctx.fillStyle = linear(ctx, 0, fy, 0, by, [
+      [0, fill.front[0]],
+      [1, fill.front[1]],
+    ]);
+    ctx.fill();
+    ctx.clip();
+    overlayTexture(ctx, stone, cx - hw, fy, hw * 2, by - fy, "multiply", 0.4, Math.max(1, S / 420));
+    // Each step casts a soft shadow onto the one below.
+    if (i > 0) softFill(ctx, "rgba(60,45,30,0.22)", S * 0.02, (c) => c.rect(cx - hw * 1.1, by - S * 0.01, hw * 2.2, S * 0.02));
+    ctx.restore();
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
+    ctx.lineWidth = Math.max(1, S * 0.002);
+    ctx.beginPath();
+    ctx.moveTo(cx - hw, fy);
+    ctx.lineTo(cx + hw, fy);
+    ctx.stroke();
+  });
+}
+
 /** Draws backdrop `id` filling a W × H frame. */
 export function drawBackdrop(ctx: Ctx, id: BackdropId, W: number, H: number) {
   const S = Math.min(W, H);
@@ -382,6 +527,61 @@ export function drawBackdrop(ctx: Ctx, id: BackdropId, W: number, H: number) {
       slab(ctx, W, H, 0.67, { top: "#F4F3F0", front: ["#E9E7E3", "#D3D0CA"] }, texture("marble", 512), "multiply", 0.55);
       overlayTexture(ctx, texture("grain"), 0, 0, W, H, "soft-light", 0.1, Math.max(1, S / 700));
       vignette(ctx, W, H, 0.12);
+      break;
+    }
+    case "botanical": {
+      wallAndFloor(ctx, W, H, 0.78, ["#F2E7D8", "#E9DCCB"], ["#E4D5C0", "#D5C3AA"]);
+      keyLight(ctx, W, H, 0.2, 0.15, 0.6);
+      leafShadows(ctx, W, H, 41, 0.2);
+      plinth(ctx, W, H, 0.72, { top: "#F7F0E6", rim: "#E8DCCB", side: ["#EEE4D6", "#E0D3C1", "#CDBDA6"] });
+      overlayTexture(ctx, texture("grain"), 0, 0, W, H, "soft-light", 0.16, Math.max(1, S / 700));
+      vignette(ctx, W, H, 0.12);
+      break;
+    }
+    case "terracotta-arch": {
+      wallAndFloor(ctx, W, H, 0.8, ["#C98B6B", "#BA7A5B"], ["#C99A7E", "#B5856A"]);
+      archNiche(ctx, W, H, 0.8, { inner: ["#DDA88A", "#C58566"], rim: "rgba(255,230,210,0.35)" });
+      keyLight(ctx, W, H, 0.25, 0.2, 0.45);
+      plinth(ctx, W, H, 0.74, { top: "#E9C9B4", rim: "#D7AE95", side: ["#DDB197", "#CB997D", "#B27E62"] });
+      overlayTexture(ctx, texture("stone"), 0, 0, W, H, "soft-light", 0.25, Math.max(1, S / 600));
+      overlayTexture(ctx, texture("grain"), 0, 0, W, H, "soft-light", 0.14, Math.max(1, S / 700));
+      vignette(ctx, W, H, 0.2);
+      break;
+    }
+    case "noir-spot": {
+      wallAndFloor(ctx, W, H, 0.82, ["#1A1B1F", "#25262B"], ["#2A2B30", "#141518"]);
+      spotlight(ctx, W, H, 0.82, 0.55);
+      plinth(ctx, W, H, 0.76, { top: "#3A3B42", rim: "#2B2C31", side: ["#1E1F23", "#34353C", "#121316"] });
+      overlayTexture(ctx, texture("grain"), 0, 0, W, H, "soft-light", 0.2, Math.max(1, S / 700));
+      vignette(ctx, W, H, 0.35);
+      break;
+    }
+    case "sunset-glow": {
+      ctx.fillStyle = linear(ctx, 0, 0, W, H, [
+        [0, "#F8D3BE"],
+        [0.5, "#F0C2C6"],
+        [1, "#CFC2E8"],
+      ]);
+      ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.fillStyle = radial(ctx, W * 0.72, H * 0.28, S * 0.55, [
+        [0, "rgba(255,240,220,0.75)"],
+        [1, "rgba(255,240,220,0)"],
+      ]);
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+      // A soft horizon where the sweep curves into the floor.
+      softFill(ctx, "rgba(150,90,110,0.10)", S * 0.06, (c) => c.rect(-W * 0.1, H * 0.8, W * 1.2, H * 0.3));
+      overlayTexture(ctx, texture("grain"), 0, 0, W, H, "soft-light", 0.14, Math.max(1, S / 700));
+      break;
+    }
+    case "stone-steps": {
+      wallAndFloor(ctx, W, H, 0.84, ["#E4DACB", "#D7CAB6"], ["#D3C4AD", "#C2B196"]);
+      keyLight(ctx, W, H, 0.75, 0.15, 0.5);
+      steps(ctx, W, H, [0.78, 0.7, 0.62], { top: "#EAE0D1", front: ["#DACBB5", "#C3B194"] });
+      overlayTexture(ctx, texture("grain"), 0, 0, W, H, "soft-light", 0.15, Math.max(1, S / 700));
+      vignette(ctx, W, H, 0.15);
       break;
     }
   }

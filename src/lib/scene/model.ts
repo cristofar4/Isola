@@ -24,7 +24,7 @@ export const SCENE_FORMATS: Record<SceneFormatId, { label: string; ratio: string
 };
 export const FORMAT_ORDER: SceneFormatId[] = ["square", "portrait", "wide", "story"];
 
-export type BackdropId = "ivory-plinth" | "sage-wall" | "warm-stone" | "pale-blue" | "linen" | "marble";
+export type BackdropId = "ivory-plinth" | "sage-wall" | "warm-stone" | "pale-blue" | "linen" | "marble" | "botanical" | "terracotta-arch" | "noir-spot" | "sunset-glow" | "stone-steps";
 
 export interface BackdropInfo {
   id: BackdropId;
@@ -45,6 +45,11 @@ export const BACKDROPS: BackdropInfo[] = [
   { id: "pale-blue", name: "Pale blue seamless", category: "Studio", surfaceY: 0.8, wall: "#D3E0EC", keywords: "sky sweep clean cool minimal" },
   { id: "linen", name: "Sunlight on linen", category: "Interior", surfaceY: 0.8, wall: "#EFE6D7", keywords: "fabric cloth sheet soft morning" },
   { id: "marble", name: "Marble slab", category: "Interior", surfaceY: 0.67, wall: "#E7E5E1", keywords: "white grey stone veins luxury" },
+  { id: "botanical", name: "Botanical shadow", category: "Natural", surfaceY: 0.72, wall: "#EFE3D2", keywords: "leaves plant palm shadow sunlight pedestal skincare" },
+  { id: "terracotta-arch", name: "Terracotta arch", category: "Interior", surfaceY: 0.74, wall: "#C98B6B", keywords: "clay arch niche mediterranean warm plinth orange" },
+  { id: "noir-spot", name: "Noir spotlight", category: "Studio", surfaceY: 0.76, wall: "#24252A", keywords: "dark black luxury dramatic spotlight perfume jewellery" },
+  { id: "sunset-glow", name: "Sunset glow", category: "Studio", surfaceY: 0.8, wall: "#F3C7B4", keywords: "gradient peach lilac pink social soft colour" },
+  { id: "stone-steps", name: "Stone steps", category: "Natural", surfaceY: 0.62, wall: "#DED2C1", keywords: "travertine blocks podium stacked beige architecture" },
 ];
 
 export function backdropInfo(id: BackdropId | null | undefined) {

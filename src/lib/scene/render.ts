@@ -66,7 +66,9 @@ export function keyLight(scene: Pick<Scene, "layers">): number {
   const shadow = scene.layers.find((l) => l.kind === "shadow" && l.visible);
   if (shadow && shadow.kind === "shadow") return shadow.direction;
   const backdrop = scene.layers.find((l) => l.kind === "backdrop");
-  return backdrop?.kind === "backdrop" && backdropInfo(backdrop.backdrop)?.id === "warm-stone" ? -40 : 40;
+  // Backdrops lit from the right throw shadows to the left.
+  const id = backdrop?.kind === "backdrop" ? backdropInfo(backdrop.backdrop)?.id : null;
+  return id === "warm-stone" || id === "stone-steps" ? -40 : 40;
 }
 
 export interface RenderSceneOptions {
