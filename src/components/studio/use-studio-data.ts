@@ -124,6 +124,11 @@ export function useSnapshotReport(snapshot: BatchSnapshot | null, pro: boolean):
 
 export interface StorageInfo {
   usage: number | null;
+  /** What the browser says this site may use. */
+  quota: number | null;
+  /** Where the bytes are, when the browser says (Chromium does): files and projects vs the downloaded AI model. */
+  files: number | null;
+  model: number | null;
   persisted: boolean | null;
   canPersist: boolean;
 }
@@ -132,12 +137,20 @@ async function readStorage(): Promise<StorageInfo | null> {
   const storage = typeof navigator !== "undefined" ? navigator.storage : undefined;
   if (!storage?.estimate) return null;
   const [estimate, persisted] = await Promise.all([storage.estimate().catch(() => null), storage.persisted?.().catch(() => null) ?? null]);
-  return { usage: estimate?.usage ?? null, persisted, canPersist: typeof storage.persist === "function" };
+  const details = (estimate as (StorageEstimate & { usageDetails?: Record<string, number> }) | null)?.usageDetails;
+  return {
+    usage: estimate?.usage ?? null,
+    quota: estimate?.quota ?? null,
+    files: details ? (details.indexedDB ?? 0) : null,
+    model: details ? (details.caches ?? 0) : null,
+    persisted,
+    canPersist: typeof storage.persist === "function",
+  };
 }
 
 /** How much this browser holds for ISOLA, and whether it's protected from automatic clean-up. */
 export function useStorageInfo(): [StorageInfo, () => Promise<void>] {
-  const [info, setInfo] = useState<StorageInfo>({ usage: null, persisted: null, canPersist: false });
+  const [info, setInfo] = useState<StorageInfo>({ usage: null, quota: null, files: null, model: null, persisted: null, canPersist: false });
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;

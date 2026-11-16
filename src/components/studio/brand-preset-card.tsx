@@ -1,32 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Check, Tag } from "lucide-react";
+import { ArrowRight, Check, Pencil, Tag } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { BRAND_CANVASES, BRAND_CANVAS_LABEL, STARTER_PRESET, type BrandColor, type BrandLayout, type BrandPreset } from "@/lib/brand-presets";
 import { cn } from "@/lib/cn";
+import { PresetLookPreview } from "./preset-preview";
 import { defaultPreset, usePresets } from "./use-presets";
 
 const PADDINGS = [0, 4, 6, 8, 10, 12, 15, 20, 25];
 
 export function Swatches({ colors, background }: { colors: BrandColor[]; background?: BrandLayout["background"] }) {
   return (
-    <ul className="grid grid-cols-3 gap-2.5" aria-label="Brand colours">
-      {colors.slice(0, 3).map((c, i) => {
+    <ul className="flex flex-wrap gap-x-3 gap-y-2" aria-label="Brand colours">
+      {colors.map((c, i) => {
         const isBg = background?.kind === "brand" && background.index === i;
         return (
-          <li key={`${c.hex}-${i}`} className="min-w-0">
+          <li key={`${c.hex}-${i}`} className="flex min-w-0 items-center gap-2" title={`${c.name} ${c.hex}${isBg ? " (background)" : ""}`}>
             <span
-              className={cn("block aspect-[4/3] rounded-[10px] border border-ink/10", isBg && "ring-2 ring-blue ring-offset-2")}
+              className={cn("size-7 shrink-0 rounded-full border border-ink/10 shadow-[inset_0_0_0_1px_rgb(255_255_255/0.4)]", isBg && "ring-2 ring-blue ring-offset-2")}
               style={{ background: c.hex }}
               aria-hidden="true"
             />
-            <span className="mt-1.5 block truncate text-[13px] font-semibold text-ink">{c.name}</span>
-            <span className="block font-mono text-[11px] uppercase text-muted">
-              {c.hex}
-              {isBg && <span className="sr-only"> (background)</span>}
+            <span className="min-w-0">
+              <span className="block max-w-[96px] truncate text-[13px] font-semibold leading-tight text-ink">{c.name}</span>
+              <span className="block font-mono text-[11px] uppercase leading-tight text-muted">
+                {c.hex}
+                {isBg && <span className="sr-only"> (background)</span>}
+              </span>
             </span>
           </li>
         );
@@ -37,8 +40,8 @@ export function Swatches({ colors, background }: { colors: BrandColor[]; backgro
 
 function Row({ label, children, id }: { label: string; children: React.ReactNode; id: string }) {
   return (
-    <div className="grid grid-cols-[88px_minmax(0,1fr)] items-center gap-3">
-      <label htmlFor={id} className="text-[14px] text-ink-3">
+    <div className="grid min-w-0 gap-1">
+      <label htmlFor={id} className="text-[12px] font-medium text-muted">
         {label}
       </label>
       {children}
@@ -47,7 +50,7 @@ function Row({ label, children, id }: { label: string; children: React.ReactNode
 }
 
 const selectClass =
-  "h-10 w-full rounded-[10px] border border-line bg-surface px-3 text-[14px] text-ink hover:border-line-strong focus:border-blue focus:outline-none focus:ring-3 focus:ring-blue/15 disabled:opacity-60";
+  "h-10 w-full min-w-0 rounded-[10px] border border-line bg-surface px-2.5 text-[14px] text-ink hover:border-line-strong focus:border-blue focus:outline-none focus:ring-3 focus:ring-blue/15 disabled:opacity-60";
 
 /** The default brand preset, editable in place and saved to the account. */
 export function BrandPresetCard() {
@@ -82,12 +85,17 @@ export function BrandPresetCard() {
 
   return (
     <section aria-labelledby="preset-title" className="rounded-[18px] border border-line bg-surface p-5 shadow-[var(--shadow-card)]" data-brand-preset-card>
-      <div className="flex items-center gap-2.5">
-        <Tag className="size-5 text-ink" aria-hidden="true" />
-        <h2 id="preset-title" className="font-display text-[20px] font-bold tracking-[-0.01em] text-ink">
-          Brand preset
-        </h2>
-        {preset && <span className="ml-auto truncate text-[13px] font-medium text-muted">{preset.name}</span>}
+      <div className="flex items-center gap-3">
+        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-blue-50 text-blue">
+          <Tag className="size-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id="preset-title" className="font-display text-[20px] font-bold leading-tight tracking-[-0.01em] text-ink">
+            Brand preset
+          </h2>
+          <p className="truncate text-[13px] text-muted">{preset ? preset.name : "One look for every product photo"}</p>
+        </div>
+        {preset?.isDefault && <span className="shrink-0 rounded-full bg-success-50 px-2.5 py-1 text-[12px] font-semibold text-success">Default</span>}
       </div>
 
       {!presets && !error && (
@@ -106,8 +114,12 @@ export function BrandPresetCard() {
 
       {presets && !preset && (
         <div className="mt-4 grid gap-4">
-          <div className="rounded-[14px] border border-line p-3">
-            <Swatches colors={STARTER_PRESET.colors} background={STARTER_PRESET.layout.background} />
+          <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-4 rounded-[14px] border border-dashed border-line-strong p-3">
+            <PresetLookPreview draft={STARTER_PRESET} size={240} caption={false} />
+            <div className="grid gap-2">
+              <span className="w-fit rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-blue-700">Starter</span>
+              <Swatches colors={STARTER_PRESET.colors} background={STARTER_PRESET.layout.background} />
+            </div>
           </div>
           <p className="text-[13px] leading-relaxed text-ink-3">
             Save your colours and one look for every product photo: canvas, padding and shadow. It&apos;s stored on your account, so it&apos;s
@@ -121,10 +133,17 @@ export function BrandPresetCard() {
 
       {preset && (
         <div className="mt-4 grid gap-4">
-          <div className="rounded-[14px] border border-line p-3">
-            <Swatches colors={preset.colors} background={preset.layout.background} />
+          <div className="grid grid-cols-[112px_minmax(0,1fr)] items-center gap-4 rounded-[14px] bg-paper p-3 sm:grid-cols-[128px_minmax(0,1fr)]">
+            <PresetLookPreview draft={preset} size={256} caption={false} className={cn(busy && "opacity-70")} />
+            <div className="grid min-w-0 gap-2.5">
+              <Swatches colors={preset.colors} background={preset.layout.background} />
+              <p className="text-[12px] leading-snug text-muted">
+                {BRAND_CANVAS_LABEL[preset.layout.canvas]}
+                {preset.layout.canvas !== "framing" ? ` · ${preset.layout.padding}% padding` : ""} · {preset.layout.shadow ? "soft shadow" : "no shadow"} · {preset.layout.format.toUpperCase()}
+              </p>
+            </div>
           </div>
-          <div className="grid gap-2.5">
+          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2.5">
             <Row label="Canvas" id={ids.canvas}>
               <select
                 id={ids.canvas}
@@ -164,11 +183,14 @@ export function BrandPresetCard() {
               </select>
             </Row>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Link href="/studio/presets" className="text-[13px] font-semibold text-ink-3 hover:text-ink hover:underline">
-              Edit colours and more
+          <div className="grid grid-cols-2 gap-2.5">
+            <Link href="/studio/presets" className="inline-flex h-11 items-center justify-center gap-1.5 rounded-[10px] border border-line bg-surface px-3 text-[14px] font-semibold text-ink hover:bg-paper">
+              <Pencil className="size-4" aria-hidden="true" /> Edit identity
             </Link>
-            <Link href={`/studio/batch?preset=${encodeURIComponent(preset.id)}`} className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-blue-700 hover:underline">
+            <Link
+              href={`/studio/batch?preset=${encodeURIComponent(preset.id)}`}
+              className="inline-flex h-11 items-center justify-center gap-1.5 rounded-[10px] bg-blue px-3 text-[14px] font-semibold text-white shadow-[var(--shadow-blue)] hover:bg-blue-600"
+            >
               Apply preset <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
           </div>

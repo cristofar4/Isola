@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   CircleCheck,
+  Cpu,
   Download,
   FolderOpen,
   HardDrive,
@@ -17,13 +18,15 @@ import {
   Scissors,
   Share,
   ShieldCheck,
-  Upload,
+
+  UserRound,
   Wand2,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
 import { ISSUE_LABEL, TARGETS, flaggedCount, targetSummary, type Issue } from "@/lib/consistency";
 import { DEFAULT_DESTINATIONS, destinationById, destinationSettings } from "@/lib/export-sets";
@@ -331,10 +334,23 @@ function ContinueCreating({ snapshot, exports }: { snapshot: BatchSnapshot | nul
 }
 
 const EXAMPLE = [
-  { src: "/showcase/batch/sneaker-cutout.webp", kind: "scale" as const, alt: "Sneaker cutout" },
-  { src: "/showcase/batch/serum-cutout.webp", kind: "fragments" as const, alt: "Serum bottle cutout" },
-  { src: "/showcase/batch/handbag-cutout.webp", kind: "cut-off" as const, alt: "Handbag cutout" },
+  { src: "/showcase/batch/sneaker-cutout.webp", kind: "scale" as const, alt: "Sneaker cutout", note: "Much smaller than the rest of the set" },
+  { src: "/showcase/batch/serum-cutout.webp", kind: "fragments" as const, alt: "Serum bottle cutout", note: "Leftover specks of the old background" },
+  { src: "/showcase/batch/handbag-cutout.webp", kind: "cut-off" as const, alt: "Handbag cutout", note: "Touches the edge of the photo" },
 ];
+
+/** One suggestion: a full-width row on phones, a tile on larger screens. */
+function IssueTile({ picture, label, note, tone = "info", kind }: { picture: React.ReactNode; label: string; note: string; tone?: "warning" | "info"; kind?: string }) {
+  return (
+    <li className="flex min-w-0 items-center gap-3 rounded-[14px] border border-line p-2.5 sm:block sm:border-0 sm:p-0" data-issue-kind={kind}>
+      <span className="checkerboard-sm relative block size-24 shrink-0 overflow-hidden rounded-[12px] border border-line sm:aspect-[4/3] sm:size-auto sm:w-full">{picture}</span>
+      <span className="grid min-w-0 gap-1 sm:mt-2">
+        <span className={cn("w-fit rounded-[8px] border bg-surface px-2 py-0.5 text-[12px] font-semibold", tone === "warning" ? "border-warn/40 text-warn" : "border-blue/30 text-blue-700")}>{label}</span>
+        <span className="line-clamp-2 text-[13px] leading-snug text-ink-3">{note}</span>
+      </span>
+    </li>
+  );
+}
 
 function ConsistencyCard({ snapshot, pro }: { snapshot: BatchSnapshot | null; pro: boolean }) {
   const report = useSnapshotReport(snapshot, pro);
@@ -381,34 +397,27 @@ function ConsistencyCard({ snapshot, pro }: { snapshot: BatchSnapshot | null; pr
       </p>
 
       <div className="mt-5 flex flex-col gap-4 lg:flex-row lg:items-center">
-        <ul className="grid flex-1 grid-cols-3 gap-3" aria-label={example ? "Example suggestions" : "Images with suggestions"}>
+        <ul className="grid flex-1 grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-3" aria-label={example ? "Example suggestions" : "Images with suggestions"}>
           {example
             ? EXAMPLE.map((e) => (
-                <li key={e.src} className="relative">
-                  <span className="checkerboard-sm relative block aspect-[4/3] overflow-hidden rounded-[12px] border border-line">
-                    <Image src={e.src} alt={e.alt} fill sizes="200px" className="object-contain p-3" />
-                  </span>
-                  <span className="absolute bottom-2 left-2 rounded-[8px] border border-blue/30 bg-surface px-2 py-0.5 text-[11px] font-semibold text-blue-700 shadow-sm">
-                    {ISSUE_LABEL[e.kind]}
-                  </span>
-                </li>
+                <IssueTile key={e.src} label={ISSUE_LABEL[e.kind]} note={e.note} picture={<Image src={e.src} alt={e.alt} fill sizes="(min-width: 640px) 200px, 96px" className="object-contain p-2.5" />} />
               ))
             : shown.length === 0 && report
               ? (
-                  <li className="col-span-3 flex items-center gap-2 rounded-[12px] bg-success-50 px-4 py-4 text-[14px] font-medium text-success">
+                  <li className="flex items-center gap-2 rounded-[12px] bg-success-50 px-4 py-4 text-[14px] font-medium text-success sm:col-span-3">
                     <CircleCheck className="size-5" aria-hidden="true" /> Nothing to fix right now.
                   </li>
                 )
               : shown.map((issue, i) => (
-                  <li key={issue.key} className="relative" data-issue-kind={issue.kind}>
-                    <span className="checkerboard-sm relative block aspect-[4/3] overflow-hidden rounded-[12px] border border-line">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- local object URL */}
-                      {previews[i] && <img src={previews[i]!} alt={byId.get(issue.itemId!)?.name ?? ""} className="absolute inset-0 size-full object-contain" />}
-                    </span>
-                    <span className={cn("absolute bottom-2 left-2 rounded-[8px] border bg-surface px-2 py-0.5 text-[11px] font-semibold shadow-sm", issue.severity === "warning" ? "border-warn/40 text-warn" : "border-blue/30 text-blue-700")}>
-                      {ISSUE_LABEL[issue.kind]}
-                    </span>
-                  </li>
+                  <IssueTile
+                    key={issue.key}
+                    kind={issue.kind}
+                    tone={issue.severity === "warning" ? "warning" : "info"}
+                    label={ISSUE_LABEL[issue.kind]}
+                    note={issue.title}
+                    /* eslint-disable-next-line @next/next/no-img-element -- local object URL */
+                    picture={previews[i] ? <img src={previews[i]!} alt={byId.get(issue.itemId!)?.name ?? ""} className="absolute inset-0 size-full object-contain" /> : null}
+                  />
                 ))}
         </ul>
         <div className="flex shrink-0 flex-col gap-2 lg:w-[210px] lg:border-l lg:border-line lg:pl-5">
@@ -439,9 +448,12 @@ function DestinationsCard({ snapshot, pro }: { snapshot: BatchSnapshot | null; p
   );
   return (
     <section aria-labelledby="destinations-title" className={cn("p-5 sm:p-6", card)} data-destinations-card>
-      <h2 id="destinations-title" className="font-display text-[22px] font-bold tracking-[-0.02em] text-ink">
-        One collection. Every destination.
-      </h2>
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 id="destinations-title" className="font-display text-[22px] font-bold tracking-[-0.02em] text-ink">
+          One collection. Every destination.
+        </h2>
+        {!first && <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-blue-700">Example</span>}
+      </div>
       <p className="mt-1 text-[15px] text-ink-3">
         {first ? `Every finished image, sized for each place you'll use it, in one ZIP. Shown with ${first.name}.` : "Export every image as Square, Portrait, Story, Wide and marketplace sizes at once."}
       </p>
@@ -449,17 +461,17 @@ function DestinationsCard({ snapshot, pro }: { snapshot: BatchSnapshot | null; p
         <ul className="grid grid-cols-3 gap-3 sm:gap-4">
           {destinations.map((d, i) => (
             <li key={d.id} className="flex min-w-0 flex-col gap-2.5 2xl:flex-row 2xl:items-center">
-              <span className="flex aspect-square w-full max-w-[120px] shrink-0 items-center justify-center rounded-[12px] bg-paper 2xl:size-[96px]">
+              <span className="flex aspect-square w-full shrink-0 items-center justify-center rounded-[12px] bg-paper sm:max-w-[140px] 2xl:size-[96px]">
                 <span
-                  className="checkerboard-sm relative overflow-hidden rounded-[6px] border border-line"
-                  style={{ width: d.width >= d.height ? "80%" : `${Math.round((80 * d.width) / d.height)}%`, aspectRatio: `${d.width} / ${d.height}` }}
+                  className={cn("relative overflow-hidden rounded-[6px] border border-line shadow-[0_1px_2px_rgb(32_41_45/0.06)]", first ? "checkerboard-sm" : "bg-surface")}
+                  style={{ width: d.width >= d.height ? "84%" : `${Math.round((84 * d.width) / d.height)}%`, aspectRatio: `${d.width} / ${d.height}` }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- local object URL */}
-                  {previews[i] && <img src={previews[i]!} alt={`${first?.name ?? ""} as ${d.label}`} className="absolute inset-0 size-full object-contain" />}
+                  {first ? previews[i] && <img src={previews[i]!} alt={`${first.name} as ${d.label}`} className="absolute inset-0 size-full object-contain" /> : <Image src="/showcase/batch/sneaker-cutout.webp" alt="" fill sizes="140px" className="object-contain p-[12%]" />}
                 </span>
               </span>
               <span className="min-w-0">
-                <span className="block whitespace-nowrap text-[15px] font-semibold text-ink">{d.label}</span>
+                <span className="block truncate text-[14px] font-semibold text-ink sm:text-[15px]">{d.label}</span>
                 <span className={cn("mt-1 inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-semibold", ready.length ? "bg-success-50 text-success" : "bg-paper-2 text-muted")}>
                   {ready.length ? <CircleCheck className="size-3.5" aria-hidden="true" /> : null}
                   {ready.length ? `${ready.length} ready` : "Nothing yet"}
@@ -484,29 +496,75 @@ function DestinationsCard({ snapshot, pro }: { snapshot: BatchSnapshot | null; p
 
 function StorageCard() {
   const [info, persist] = useStorageInfo();
+  const total = info.usage ?? 0;
+  const parts = info.files !== null && info.model !== null && total > 0 ? [
+    { label: "Your files and projects", bytes: info.files, className: "bg-blue" },
+    { label: "Background removal model", bytes: info.model, className: "bg-sky-500" },
+  ] : null;
+  const share = info.quota ? Math.min(100, (total / info.quota) * 100) : null;
   return (
-    <section aria-labelledby="storage-title" className={cn("p-5", card)}>
-      <div className="flex items-center gap-2.5">
-        <ShieldCheck className="size-5 text-success" aria-hidden="true" />
-        <h2 id="storage-title" className="font-display text-[18px] font-bold text-ink">
-          Private by design
-        </h2>
+    <section aria-labelledby="storage-title" className={cn("p-5", card)} data-storage-card>
+      <div className="flex items-center gap-3">
+        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-success-50 text-success">
+          <ShieldCheck className="size-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id="storage-title" className="font-display text-[20px] font-bold leading-tight text-ink">
+            Private by design
+          </h2>
+          <p className="text-[13px] text-muted">Your images never leave this device</p>
+        </div>
       </div>
-      <p className="mt-2 text-[13px] leading-relaxed text-ink-3">
-        Your library, projects, batch and recent exports stay in this browser; images are processed on this device. Your account keeps only settings like brand
-        presets.
-      </p>
-      <p className="mt-3 flex items-center gap-2 text-[13px] text-ink">
-        <HardDrive className="size-4 text-muted" aria-hidden="true" />
-        {info.usage === null ? "Storage use isn't available in this browser." : `This browser holds ${bytesText(info.usage)} for ISOLA: your library, projects, batch, recent exports and any downloaded models.`}
-      </p>
+      <ul className="mt-4 grid gap-2.5 text-[13px] text-ink-3">
+        {[
+          { icon: Cpu, text: "Backgrounds are removed on this device, in your browser." },
+          { icon: HardDrive, text: "Your library, projects, batch and exports are kept in this browser." },
+          { icon: UserRound, text: "Your account keeps only settings, like brand presets." },
+        ].map((f) => (
+          <li key={f.text} className="flex gap-2.5">
+            <f.icon className="mt-0.5 size-4 shrink-0 text-muted" aria-hidden="true" />
+            {f.text}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 rounded-[14px] bg-paper p-3.5">
+        {info.usage === null ? (
+          <p className="text-[13px] text-muted">This browser doesn&apos;t say how much it stores.</p>
+        ) : (
+          <>
+            <p className="flex items-baseline justify-between gap-2">
+              <span className="text-[13px] font-semibold text-ink">In this browser</span>
+              <span className="text-[13px] tabular-nums text-ink-3" data-storage-usage>
+                {bytesText(total)}
+                {info.quota ? <span className="text-muted"> of {bytesText(info.quota)}</span> : null}
+              </span>
+            </p>
+            <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-line" role="img" aria-label={parts ? parts.map((p) => `${p.label}: ${bytesText(p.bytes)}`).join(", ") : `${bytesText(total)} used`}>
+              {parts
+                ? parts.map((p) => <span key={p.label} className={p.className} style={{ width: `${Math.max(p.bytes > 0 ? 1.5 : 0, (p.bytes / Math.max(1, info.quota ?? total)) * 100)}%` }} />)
+                : <span className="bg-blue" style={{ width: `${Math.max(1.5, share ?? 100)}%` }} />}
+            </div>
+            {parts && (
+              <ul className="mt-2.5 grid gap-1 text-[12px] text-ink-3">
+                {parts.map((p) => (
+                  <li key={p.label} className="flex items-center gap-2">
+                    <span className={cn("size-2 rounded-full", p.className)} aria-hidden="true" />
+                    <span className="flex-1">{p.label}</span>
+                    <span className="tabular-nums text-muted">{bytesText(p.bytes)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </div>
       {info.canPersist &&
         (info.persisted ? (
-          <p className="mt-2 flex items-center gap-2 text-[13px] font-medium text-success">
+          <p className="mt-3 flex items-center gap-2 text-[13px] font-medium text-success">
             <CircleCheck className="size-4" aria-hidden="true" /> Protected from automatic clean-up
           </p>
         ) : (
-          <Button size="sm" variant="secondary" className="mt-3" onClick={() => void persist()}>
+          <Button size="sm" variant="secondary" className="mt-3 w-full" onClick={() => void persist()} icon={<ShieldCheck className="size-4" aria-hidden="true" />}>
             Keep my files when space runs low
           </Button>
         ))}
@@ -515,44 +573,68 @@ function StorageCard() {
 }
 
 function RecentExportsBar({ exports }: { exports: ExportRecord[] | null }) {
-  const latest = exports?.[0] ?? null;
-  const [thumb] = useBlobUrls([latest?.thumb ?? null]);
+  const latest = (exports ?? []).slice(0, 3);
+  const thumbs = useBlobUrls(latest.map((r) => r.thumb ?? null));
   const again = useDownloadAgain();
   return (
-    <section aria-labelledby="exports-title" className={cn("flex flex-col gap-3 px-5 py-4 md:flex-row md:items-center md:gap-6", card)} data-recent-exports>
-      <h2 id="exports-title" className="flex shrink-0 items-center gap-2 text-[17px] font-bold text-ink">
-        <Upload className="size-5 rotate-180" aria-hidden="true" /> Recent exports
-      </h2>
-      {latest ? (
-        <>
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <span className="checkerboard-sm size-12 shrink-0 overflow-hidden rounded-[10px] border border-line">
-              {/* eslint-disable-next-line @next/next/no-img-element -- local object URL */}
-              {thumb && <img src={thumb} alt="" className="size-full object-cover" />}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-semibold text-ink">
-                {latest.title} <span className="font-normal text-muted">· {exportKind(latest)}</span>
-              </p>
-              <p className="truncate text-[13px] text-muted">
-                {latest.fileName} · {bytesText(latest.bytes)} · {whenText(latest.createdAt)}
-              </p>
-            </div>
-          </div>
-          {latest.blob ? (
-            <Button variant="secondary" onClick={() => void again.run(latest)} disabled={again.busy !== null} icon={<Download className="size-4" aria-hidden="true" />}>
-              Download again
-            </Button>
-          ) : (
-            <p className="text-[13px] text-muted">Details only: the file was too large to keep.</p>
-          )}
-        </>
+    <section aria-labelledby="exports-title" className={cn("p-5", card)} data-recent-exports>
+      <div className="flex items-center gap-3">
+        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-[12px] bg-blue-50 text-blue">
+          <Download className="size-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id="exports-title" className="font-display text-[20px] font-bold leading-tight text-ink">
+            Recent exports
+          </h2>
+          <p className="text-[13px] text-muted">Saved in this browser only</p>
+        </div>
+        {latest.length > 0 && (
+          <Link href="/studio/downloads" className="shrink-0 text-[14px] font-semibold text-blue-700 hover:underline">
+            See all
+          </Link>
+        )}
+      </div>
+      {latest.length ? (
+        <ul className="mt-4 grid gap-2 md:grid-cols-3">
+          {latest.map((r, i) => (
+            <li key={r.id} className="flex min-w-0 items-center gap-3 rounded-[14px] border border-line p-2.5" data-export-row={r.fileName}>
+              <span className="checkerboard-sm size-14 shrink-0 overflow-hidden rounded-[10px] border border-line">
+                {/* eslint-disable-next-line @next/next/no-img-element -- local object URL */}
+                {thumbs[i] && <img src={thumbs[i]!} alt="" className="size-full object-cover" />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-semibold text-ink">{r.title}</p>
+                <p className="truncate text-[12px] text-muted">
+                  {exportKind(r)} · {bytesText(r.bytes)} · {whenText(r.createdAt)}
+                </p>
+              </div>
+              {r.blob ? (
+                <button
+                  type="button"
+                  onClick={() => void again.run(r)}
+                  disabled={again.busy !== null}
+                  aria-label={`Download again: ${r.fileName}`}
+                  title="Download again"
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-[10px] border border-line text-ink hover:bg-paper disabled:opacity-50"
+                >
+                  {again.busy === r.id ? <Spinner className="size-4" /> : <Download className="size-4" aria-hidden="true" />}
+                </button>
+              ) : (
+                <span className="shrink-0 text-[11px] text-muted" title="The file was too large to keep; only its details are saved.">
+                  Details only
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
       ) : (
-        <p className="flex-1 text-[14px] text-muted">{exports === null ? "Loading…" : "Your downloads will appear here, kept in this browser so you can take them again."}</p>
+        <div className="mt-4 flex items-center gap-3 rounded-[14px] border border-dashed border-line-strong px-4 py-4">
+          <Download className="size-5 shrink-0 text-muted" aria-hidden="true" />
+          <p className="text-[14px] text-muted">{exports === null ? "Loading…" : "Your downloads will appear here, kept in this browser so you can take them again."}</p>
+        </div>
       )}
-      <p className="shrink-0 text-[12px] text-muted">Saved in this browser only</p>
       {again.error && (
-        <p role="alert" className="text-[13px] text-danger md:basis-full">
+        <p role="alert" className="mt-3 text-[13px] text-danger">
           {again.error}
         </p>
       )}

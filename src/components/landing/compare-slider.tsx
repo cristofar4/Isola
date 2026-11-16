@@ -33,6 +33,27 @@ export function CompareSlider({
   const [position, setPosition] = useState(initial);
   const [dragging, setDragging] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
+  const originalLabel = useRef<HTMLSpanElement>(null);
+  const removedLabel = useRef<HTMLSpanElement>(null);
+  // Where each label ends, in % of the frame: a label fades out once the divider reaches it.
+  const [edges, setEdges] = useState<{ left: number; right: number } | null>(null);
+
+  useEffect(() => {
+    const el = frame.current;
+    if (!el) return;
+    const measure = () => {
+      const box = el.getBoundingClientRect();
+      const o = originalLabel.current?.getBoundingClientRect();
+      const r = removedLabel.current?.getBoundingClientRect();
+      if (!box.width || !o || !r) return;
+      setEdges({ left: ((o.right - box.left + 10) / box.width) * 100, right: ((r.left - box.left - 10) / box.width) * 100 });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const showOriginal = !edges || position > edges.left;
+  const showRemoved = !edges || position < edges.right;
 
   const setFromClientX = useCallback((clientX: number) => {
     const rect = frame.current?.getBoundingClientRect();
@@ -105,10 +126,26 @@ export function CompareSlider({
         <Image src={after} alt="" fill priority={priority} sizes={sizes} className="object-cover" style={{ objectPosition }} draggable={false} />
       </div>
 
-      <span className="pointer-events-none absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-[13px] font-semibold text-ink shadow-sm">
+      <span
+        ref={originalLabel}
+        data-label="original"
+        aria-hidden={!showOriginal}
+        className={cn(
+          "pointer-events-none absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-[13px] font-semibold text-ink shadow-sm transition-[opacity,transform] duration-200",
+          showOriginal ? "opacity-100" : "-translate-x-1 opacity-0",
+        )}
+      >
         Original
       </span>
-      <span className="pointer-events-none absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1 text-[13px] font-semibold text-ink shadow-sm">
+      <span
+        ref={removedLabel}
+        data-label="removed"
+        aria-hidden={!showRemoved}
+        className={cn(
+          "pointer-events-none absolute right-4 top-4 rounded-full bg-white/95 px-3 py-1 text-[13px] font-semibold text-ink shadow-sm transition-[opacity,transform] duration-200",
+          showRemoved ? "opacity-100" : "translate-x-1 opacity-0",
+        )}
+      >
         Removed
       </span>
       {caption && <div className="pointer-events-none absolute bottom-4 right-4 text-right">{caption}</div>}
@@ -131,7 +168,8 @@ export function CompareSlider({
           "absolute top-1/2 inline-flex size-11 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border-2 border-white bg-blue text-white shadow-[var(--shadow-blue)] transition-transform duration-150",
           dragging ? "scale-110" : "group-hover:scale-105",
         )}
-        style={{ left: `${position}%` }}
+        // The handle stays inside the frame at the ends; the line itself goes all the way.
+        style={{ left: `clamp(26px, ${position}%, calc(100% - 26px))` }}
       >
         <ChevronsLeftRight className="size-5" aria-hidden="true" />
       </div>

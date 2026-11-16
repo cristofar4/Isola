@@ -61,7 +61,7 @@ export function SiteHeader() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 border-b bg-paper/85 backdrop-blur-md transition-[box-shadow,border-color,background-color] duration-200 supports-[backdrop-filter]:bg-paper/75",
+        "sticky top-0 z-40 border-b bg-paper/85 backdrop-blur-md transition-[box-shadow,border-color,background-color] duration-200 supports-[backdrop-filter]:bg-paper/90",
         scrolled ? "border-line shadow-[0_6px_24px_-16px_rgba(32,41,45,0.35)]" : "border-line/60",
       )}
     >

@@ -7,7 +7,6 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { CheckboxField, FormAlert, TextField } from "@/components/auth/fields";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
-import { renderBatchPreview } from "@/lib/batch/render";
 import { MAX_PADDING } from "@/lib/batch/settings";
 import {
   BRAND_CANVASES,
@@ -35,62 +34,13 @@ import {
 } from "@/lib/brand-presets";
 import { cn } from "@/lib/cn";
 import { downloadBlob } from "@/lib/editor/export";
-import { exportPolicy } from "@/lib/plan-policy";
 import { creativeFontClasses, FONT_CSS } from "@/lib/scene/fonts";
 import { FONT_LABEL, FONT_WEIGHTS, SCENE_FORMATS, type FontId } from "@/lib/scene/model";
 import { addAssets, useLibrary } from "@/lib/studio/library";
 import { setLook } from "@/lib/studio/projects";
 import { useLibraryReady, useThumb } from "./library-hooks";
-import { IdentityPreview, type PreviewTab } from "./preset-preview";
+import { IdentityPreview, PresetLookPreview, type PreviewTab } from "./preset-preview";
 import { usePresets } from "./use-presets";
-
-const SAMPLE = "/showcase/batch/sneaker-cutout.webp";
-let sample: Promise<ImageBitmap | null> | null = null;
-function sampleCutout() {
-  sample ??= fetch(SAMPLE)
-    .then((r) => r.blob())
-    .then((b) => createImageBitmap(b))
-    .catch(() => null);
-  return sample;
-}
-
-/** The image style drawn on a sample product by the same renderer as Batch Studio downloads. */
-function LivePreview({ draft }: { draft: BrandPresetInput }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const key = JSON.stringify({ c: draft.colors, l: draft.layout });
-  useEffect(() => {
-    let alive = true;
-    let made: string | null = null;
-    const t = window.setTimeout(async () => {
-      const cutout = await sampleCutout();
-      if (!cutout || !alive) return;
-      const settings = presetToBatchSettings(draft);
-      try {
-        const blob = await renderBatchPreview({ width: cutout.width, height: cutout.height, cutout, bounds: { x: 0, y: 0, w: cutout.width, h: cutout.height }, backgroundImage: null }, settings, exportPolicy(true), 360);
-        if (!alive) return;
-        made = URL.createObjectURL(blob);
-        setUrl(made);
-      } catch {
-        // Keep the previous preview.
-      }
-    }, 120);
-    return () => {
-      alive = false;
-      window.clearTimeout(t);
-      if (made) URL.revokeObjectURL(made);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` summarises the draft
-  }, [key]);
-  return (
-    <figure className="grid content-start gap-2">
-      <div className="checkerboard flex aspect-square items-center justify-center overflow-hidden rounded-[14px] border border-line">
-        {/* eslint-disable-next-line @next/next/no-img-element -- local object URL of the rendered preview */}
-        {url ? <img src={url} alt="Sample product with this image style" className="max-h-full max-w-full" data-preset-preview /> : <Spinner />}
-      </div>
-      <figcaption className="text-center text-[12px] text-muted">How Batch Studio exports a product with this style</figcaption>
-    </figure>
-  );
-}
 
 const fieldBase = "h-10 rounded-[10px] border border-line bg-surface px-3 text-[14px] text-ink hover:border-line-strong focus:border-blue focus:outline-none focus:ring-3 focus:ring-blue/15";
 const field = `${fieldBase} w-full`;
@@ -431,7 +381,7 @@ function Editor({ initial, id, onSaved, onCancel, onDeleted }: { initial: BrandP
               <CheckboxField label="Soft shadow under the product" checked={draft.layout.shadow} onChange={(e) => layout({ shadow: e.target.checked })} />
               <p className="text-[13px] text-ink-3">{describeLayout(draft.layout, draft.colors)}.</p>
             </div>
-            <LivePreview draft={draft} />
+            <PresetLookPreview draft={draft} />
           </Tabs.Content>
 
           <Tabs.Content value="motion" className="grid gap-4 pt-5 focus:outline-none">

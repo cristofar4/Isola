@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { FilmPreview } from "@/components/motion/kit-preview";
 import { SceneThumb } from "@/components/scene/scene-canvas";
-import { BRAND_FORMATS, DEFAULT_IDENTITY, MOTION_STYLE_LABEL, type BrandPresetInput } from "@/lib/brand-presets";
+import { BRAND_FORMATS, DEFAULT_IDENTITY, MOTION_STYLE_LABEL, presetToBatchSettings, type BrandPresetInput } from "@/lib/brand-presets";
+import { renderBatchPreview } from "@/lib/batch/render";
+import { exportPolicy } from "@/lib/plan-policy";
+import { Spinner } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
 import { filmFromScene } from "@/lib/motion/scene-link";
 import { secs, filmDuration } from "@/lib/motion/time";
@@ -13,6 +16,55 @@ import { loadSampleProduct } from "@/lib/scene/resources";
 import { useLibrary } from "@/lib/studio/library";
 
 export type PreviewTab = "image" | "motion" | "formats";
+
+const SAMPLE = "/showcase/batch/sneaker-cutout.webp";
+let sample: Promise<ImageBitmap | null> | null = null;
+function sampleCutout() {
+  sample ??= fetch(SAMPLE)
+    .then((r) => r.blob())
+    .then((b) => createImageBitmap(b))
+    .catch(() => null);
+  return sample;
+}
+
+/** The image style drawn on a sample product by the same renderer as Batch Studio downloads. */
+export function PresetLookPreview({ draft, size = 360, caption = true, className }: { draft: Pick<BrandPresetInput, "colors" | "layout">; size?: number; caption?: boolean; className?: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const key = JSON.stringify({ c: draft.colors, l: draft.layout });
+  useEffect(() => {
+    let alive = true;
+    let made: string | null = null;
+    const t = window.setTimeout(async () => {
+      const cutout = await sampleCutout();
+      if (!cutout || !alive) return;
+      const settings = presetToBatchSettings(draft);
+      try {
+        const blob = await renderBatchPreview({ width: cutout.width, height: cutout.height, cutout, bounds: { x: 0, y: 0, w: cutout.width, h: cutout.height }, backgroundImage: null }, settings, exportPolicy(true), size);
+        if (!alive) return;
+        made = URL.createObjectURL(blob);
+        setUrl(made);
+      } catch {
+        // Keep the previous preview.
+      }
+    }, 120);
+    return () => {
+      alive = false;
+      window.clearTimeout(t);
+      if (made) URL.revokeObjectURL(made);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` summarises the draft
+  }, [key]);
+  return (
+    <figure className={cn("grid content-start gap-2", className)}>
+      <div className="checkerboard flex aspect-square items-center justify-center overflow-hidden rounded-[14px] border border-line">
+        {/* eslint-disable-next-line @next/next/no-img-element -- local object URL of the rendered preview */}
+        {url ? <img src={url} alt="Sample product with this image style" className="max-h-full max-w-full" data-preset-preview /> : <Spinner />}
+      </div>
+      {caption && <figcaption className="text-center text-[12px] text-muted">How Batch Studio exports a product with this style</figcaption>}
+    </figure>
+  );
+}
+
 
 /**
  * "Preview your identity": the preset on a product, as a still, as a film in

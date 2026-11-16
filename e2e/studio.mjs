@@ -200,7 +200,7 @@ await page.keyboard.press("Escape");
 await page.goto(`${BASE}/studio`, { waitUntil: "networkidle" });
 const recent = page.locator("[data-recent-exports]");
 await recent.getByText(/sneaker/i).first().waitFor({ timeout: 10_000 });
-const again = await download(page, () => recent.getByRole("button", { name: "Download again" }).click(), "editor-again.png");
+const again = await download(page, () => recent.getByRole("button", { name: /^Download again/ }).first().click(), "editor-again.png");
 check("Editor exports appear in Recent exports and download again byte for byte", readFileSync(again.file).equals(readFileSync(editorExport.file)), `${readFileSync(again.file).length} bytes`);
 await freeCtx.close();
 
@@ -287,7 +287,7 @@ await p.waitForFunction(() => document.querySelectorAll("[data-destinations-card
 check("Destination previews are drawn from the first finished image", (await destinations.locator("img").first().getAttribute("alt")).includes("as Square 1:1"));
 const bar = p.locator("[data-recent-exports]");
 check("Recent exports shows the export set", await bar.getByText("Export set · 9 files").isVisible());
-const zipAgain = await download(p, () => bar.getByRole("button", { name: "Download again" }).click(), "export-set-again.zip");
+const zipAgain = await download(p, () => bar.getByRole("button", { name: /^Download again/ }).first().click(), "export-set-again.zip");
 check("…and downloads it again unchanged", readFileSync(zipAgain.file).equals(readFileSync(zip.file)));
 await p.screenshot({ path: join(OUT, "studio-pro.png"), fullPage: true });
 

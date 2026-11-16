@@ -29,17 +29,7 @@ export function Hero() {
             objectPosition="50% 21%"
             className="aspect-[4/3] sm:aspect-[16/10]"
             priority
-            caption={
-              <p className="rounded-lg bg-white/85 px-3 py-2 text-[13px] font-semibold leading-snug text-ink backdrop-blur-sm">
-                Fine details.
-                <br />
-                Beautifully preserved.
-              </p>
-            }
           />
-          <p className="mt-2 text-xs text-muted">
-            Example output from ISOLA&apos;s Standard on-device model. Drag the divider or use the arrow keys.
-          </p>
         </div>
         <UploadPanel className="animate-fade-up [animation-delay:200ms]" />
       </div>
