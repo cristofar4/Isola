@@ -50,7 +50,7 @@ check("On this page lists the design's sections", tocLabels.join("|") === "Overv
 const access = page.locator('[data-api-access="signed-out"]');
 check(
   "Signed out, the docs invite you to create an account for an API key",
-  (await access.isVisible()) && (await access.getByRole("link", { name: "Create account" }).getAttribute("href")) === "/sign-up?next=%2Faccount%23api-keys",
+  (await access.isVisible()) && (await access.getByRole("link", { name: "Create account" }).getAttribute("href")) === "/sign-up?next=%2Fstudio%2Fsettings%23api-keys",
 );
 check("Header reads ISOLA DEVELOPERS", (await page.getByRole("link", { name: "ISOLA Developers" }).innerText()) === "DEVELOPERS");
 await page.screenshot({ path: join(OUT, "docs-intro.png") });

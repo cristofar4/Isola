@@ -23,7 +23,8 @@
     "test:quickstart": "node e2e/quick-start.mjs",
     "test:reset": "node e2e/password-reset.mjs",
     "test:billing": "node e2e/billing.mjs",
-    "test:motion": "node e2e/motion.mjs"
+    "test:motion": "node e2e/motion.mjs",
+    "test:regressions": "node e2e/regressions.mjs"
   },
   "dependencies": {
     "better-auth": "^1.7.18",

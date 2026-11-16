@@ -60,6 +60,7 @@ GitHub Releases (`ISOLA_MODEL_MIRROR` overrides the mirror).
 | `npm run test:account` | Account page: overview, section links, devices and signing them out, phones, key cleanup on deletion |
 | `npm run test:quickstart` | Accounts with no setup: create account, sign out, sign in, generated secret (start the app with no auth or email settings) |
 | `npm run test:studio` | Studio: dashboard, brand presets, ⌘K, consistency check with the Amazon fix, export sets, recent exports, phones (needs the fake Paystack settings, as for billing) |
+| `npm run test:regressions` | The live-site audit's findings on a Free account, with downloads opened: create buttons after returning, crop ratio with undo/redo, export sizes vs the file, Free video resolution and the finished-render panel, the Motion preview's room at 1363 × 936, the account in the studio, Scene/Motion Studio on /tools, corrupt media, mute, aspect change, export cancel and retry; `BIG_PHOTO=<12 MP JPEG>` adds a phone main-thread measurement; `ONLY=A,B,…` runs parts (start the app with `SMTP_URL=smtp://127.0.0.1:2525`; needs ffprobe) |
 | `npm run test:motion` | Scene Studio and Motion Studio on Pro: scenes, formats, all six motion styles, storyboard/timeline, keyframes and curves, colour scope, sound and meters, video import, missing media, Update from scene, and an export checked with ffprobe and compared with the preview (start the app as for `test:batch`; needs ffmpeg/ffprobe) |
 | `npm run test:library` | Asset library and projects with real processing: uploads, smart tags, duplicates, tags, collections, downloads, cutouts, brand colours, linked versions, quality review, history with undo/redo, linked-set export, the editor round-trip, folders, trash, downloads, phones (start the app with `SMTP_URL=smtp://127.0.0.1:2525`) |
 | `npm run test:api` | Public API with real server-side processing; start the app with `ISOLA_API_RATE_LIMIT_PER_HOUR=15` plus the `test:batch` settings |
@@ -1053,7 +1054,7 @@ empty model folder (so the automatic download is exercised) and with
   Enter opens the section), the live browser check, troubleshooting entries,
   all 20 error codes listed, feedback stored (and refused for unknown pages or
   other origins), footer links, and the mobile guide menu.
-- **Navigation (`npm run test:nav`): 41/41**: every Tools menu link points
+- **Navigation (`npm run test:nav`): 43/43**: every Tools menu link points
   where it says, hover/click/Escape/keyboard behaviour, no axe violations with
   the menu open, the editor hints and preselected tools (restore brush after
   processing; signed in, the studio's editor; crop tool when an image is
@@ -1081,7 +1082,7 @@ empty model folder (so the automatic download is exercised) and with
   doesn't stop the queue and it can be retried; results and edits survive a
   reload; on a phone the export bar stays on screen without covering the last
   image, Export all ready works and settings open in a drawer.
-- **Accounts (`npm run test:auth`): 34/34**, including the redesigned screens
+- **Accounts (`npm run test:auth`): 35/35**, including the redesigned screens
   (badge, heading, Back to home with no site menu, the before/after divider,
   picture beside the form on desktop and above the heading on phones with no
   sideways scrolling, footer links), the 12-character rule counting down and
@@ -1163,7 +1164,7 @@ empty model folder (so the automatic download is exercised) and with
   and subscription management.
 - **Google/GitHub (`node e2e/oauth.mjs`):** both buttons start a real OAuth
   redirect with the right callback URL (completing it needs real credentials).
-- **Scene and Motion Studio (`npm run test:motion`): 48/48**, on Pro: the
+- **Scene and Motion Studio (`npm run test:motion`): 55/55**, on Pro: the
   sample scene has separate title, product, shadow and backdrop layers;
   backdrops change and undo; numeric placement survives a reload; Square and
   Wide export together at 1080×1080 and 1920×1080; all six motion styles are
@@ -1199,6 +1200,27 @@ empty model folder (so the automatic download is exercised) and with
   (like Vercel): 4 MB pieces match the original bytes, an out-of-range request
   gets 416, nothing is written to the server's disk, the checksum passes and
   a guest's first removal takes 14 s including the download.
+- **Audit regressions (`npm run test:regressions`): 31/31** on a Free account,
+  with downloads opened (24 for the reported problems plus 7 Motion workflows):
+  the new-film and new-scene buttons work again after returning (the pre-fix
+  build left 4 of 4 disabled); 1:1 crops 1600 × 1200 to 1200 × 1200, undo
+  restores 1600 × 1200 with Free selected, redo brings 1:1 back, and re-entering
+  the crop tool doesn't re-crop (the pre-fix build kept 1:1 selected and
+  re-cropped to 1200 × 1200); the Free PNG is 1000 × 750 and the dialog and
+  download message say exactly that; on Free, 1080p reads "1080p → 1000 × 1000
+  on Free" and the MP4 (checked with ffprobe) is 1000 × 1000, 30 fps, 6.0 s, as
+  the finished-render panel says; the panel says "ready to download" before
+  and "Download started" after; the Motion preview is 387 × 387 at 1363 × 936
+  (200 × 200 before) with no sideways scrolling; `/account` opens Settings in
+  the studio; /tools lists Scene and Motion Studio and keeps the destination
+  through sign-in; a corrupt video is refused without touching the film;
+  muting the music leaves no sound to export; Portrait 4:5 gives 800 × 1000
+  and a 4:5 preview, and undo returns to square; a cancelled export says
+  nothing was saved and the next export works with the music in the file. On
+  an emulated phone (Pixel 7, CPU slowed 4×), placing a 12 MP photo now blocks
+  the page for at most 342–459 ms (1.0–1.3 s in total) where the pre-fix build
+  blocked for 1,174 ms (2.2 s in total), with the cutout ready in about 11 s
+  either way.
 - **Accessibility:** axe-core reports 0 violations on 72 pages and states
   (including the studio's image editor with an image, its export dialog and
   the phone tool bar, the studio's phone menu with Get Pro, Plans, Settings

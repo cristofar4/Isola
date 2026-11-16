@@ -190,6 +190,67 @@ await part("D/H/F", async () => {
   check("H. After clicking Download it says the download started, and whether Downloads kept it", /Download started/.test(await text(page.locator("[data-export-kept]"))), await text(page.locator("[data-export-kept]")));
 });
 
+/* Motion workflows: bad media, mute, aspect change, export cancel and retry ------ */
+await part("motion-extras", async () => {
+  await page.goto(`${BASE}/studio/scenes`, { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Sample scene", exact: true }).click();
+  await page.waitForURL(/\/studio\/scenes\/[^/]+$/, { timeout: 30_000 });
+  await page.getByRole("button", { name: "Animate scene" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Choose a motion style" });
+  await dialog.waitFor();
+  await dialog.locator('[data-style="slow-reveal"]').click();
+  await dialog.getByRole("button", { name: "Animate in Motion Studio" }).click();
+  await page.waitForURL("**/studio/motion/**", { timeout: 30_000 });
+  await page.locator("[data-viewer]").waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(1200);
+
+  // A broken "video" is refused with a message, and the film is untouched.
+  const clipsBefore = await page.locator("[data-clip]").count();
+  await page.getByRole("tab", { name: "Media" }).click();
+  await page.locator("#motion-files").setInputFiles({ name: "broken.mp4", mimeType: "video/mp4", buffer: Buffer.from("this is not a video file at all") });
+  const alert = page.locator('[role="alert"]').filter({ hasText: /broken\.mp4/ });
+  const refused = await alert.waitFor({ timeout: 20_000 }).then(() => true, () => false);
+  check("Motion: a corrupt video is refused with a message, and the film keeps every clip", refused && (await page.locator("[data-clip]").count()) === clipsBefore, refused ? await text(alert) : "no message");
+
+  // Add music, then mute its track: the export then says there's no sound to include.
+  await page.getByRole("tab", { name: "Audio" }).click();
+  await page.getByRole("button", { name: "Add Calm pad to the film" }).click();
+  await page.locator("[data-clip]").filter({ hasText: /Calm pad/i }).first().waitFor({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Export video" }).first().click();
+  const deliver = page.locator("[data-deliver]");
+  const sound = deliver.getByRole("checkbox");
+  const withMusic = await sound.isEnabled();
+  await page.getByRole("button", { name: "Mute Music" }).click();
+  await page.waitForTimeout(300);
+  const muted = { enabled: await sound.isEnabled(), note: await text(deliver.getByText("No audible sound clips.")) };
+  await page.getByRole("button", { name: "Unmute Music" }).click();
+  check("Motion: muting the music track leaves nothing to include in the export (and unmuting brings it back)", withMusic && !muted.enabled && /No audible sound clips/.test(muted.note) && (await sound.isEnabled()), JSON.stringify(muted));
+
+  // Change the aspect ratio: the output size and preview follow, and undo brings it back.
+  await deliver.getByLabel("Aspect ratio").selectOption("4:5");
+  await page.waitForTimeout(500);
+  const portrait = await text(page.locator("[data-output-size]"));
+  const box = await page.locator("[data-viewer]").boundingBox();
+  check("Motion: switching to Portrait 4:5 changes the file size and the preview's shape", /Your file: 800 × 1000/.test(portrait) && box && Math.abs(box.width / box.height - 0.8) < 0.05, `${portrait} · preview ${Math.round(box?.width ?? 0)}×${Math.round(box?.height ?? 0)}`);
+  await page.getByRole("button", { name: "Undo (Ctrl+Z)" }).click();
+  await page.waitForTimeout(500);
+  check("Motion: undo returns to Square 1:1", /Your file: 1000 × 1000/.test(await text(page.locator("[data-output-size]"))));
+
+  // Cancel an export, then run it again.
+  await page.getByRole("radio", { name: /MP4 · H\.264/ }).waitFor({ timeout: 20_000 });
+  await deliver.getByRole("button", { name: "Export video" }).click();
+  await page.locator("[data-export-progress]").waitFor({ timeout: 15_000 });
+  await page.getByRole("button", { name: "Cancel export" }).click();
+  const cancelled = await deliver.getByText("Export cancelled. Nothing was saved.").waitFor({ timeout: 15_000 }).then(() => true, () => false);
+  check("Motion: cancelling an export stops it and says nothing was saved", cancelled && (await page.locator("[data-export-ready]").count()) === 0);
+  await deliver.getByRole("button", { name: "Export video" }).click();
+  await page.locator("[data-export-ready]").waitFor({ timeout: 300_000 });
+  const mp4 = await download(page, () => page.locator("[data-export-ready]").getByRole("button", { name: /^Download/ }).click(), "retry-film.mp4");
+  const probe = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-show_streams", "-of", "json", mp4]).toString());
+  const audio = probe.streams.find((s) => s.codec_type === "audio");
+  check("Motion: exporting again after a cancel works, with the music in the file", !!probe.streams.find((s) => s.codec_type === "video") && !!audio && /Sound Included/.test(await text(page.locator("[data-export-ready]"))), `${probe.streams.map((s) => s.codec_name).join(" + ")}`);
+});
+
 /* Profile lives in the studio ------------------------------------------------- */
 await part("Profile", async () => {
   await page.goto(`${BASE}/account`, { waitUntil: "networkidle" });

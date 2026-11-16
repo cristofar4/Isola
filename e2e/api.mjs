@@ -95,7 +95,7 @@ const panel = page.locator('[data-api-access="signed-in"]');
 await panel.getByText("You have 1 API key.").waitFor({ timeout: 10_000 });
 check(
   "Signed in, the docs show your plan and keys instead of the sign-up invitation",
-  (await panel.getByText("Free plan").isVisible()) && (await page.locator('[data-api-access="signed-out"]').count()) === 0 && (await panel.getByRole("link", { name: "Manage API keys" }).getAttribute("href")) === "/account#api-keys",
+  (await panel.getByText("Free plan").isVisible()) && (await page.locator('[data-api-access="signed-out"]').count()) === 0 && (await panel.getByRole("link", { name: "Manage API keys" }).getAttribute("href")) === "/studio/settings#api-keys",
 );
 await page.screenshot({ path: join(OUT, "docs-signed-in.png") });
 

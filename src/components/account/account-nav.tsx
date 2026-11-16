@@ -19,7 +19,24 @@ function useCurrentSection() {
   useEffect(() => {
     const elements = ACCOUNT_SECTIONS.map((s) => document.getElementById(s.id)).filter((el): el is HTMLElement => el !== null);
     if (!elements.length) return;
+    // The section you just chose stays highlighted after the jump, even when it can't reach the top
+    // because the page ends first (inside the studio there's no site footer below the last sections).
+    let chosen: { id: string; y: number } | null = null;
+    const choose = () => {
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      if (!elements.some((el) => el.id === id)) return;
+      chosen = { id, y: window.scrollY };
+      setActive(id);
+    };
     const update = () => {
+      if (chosen) {
+        // Keep the choice until you scroll on by more than a little.
+        if (Math.abs(window.scrollY - chosen.y) < 48 || performance.now() - lastChoice < 900) {
+          chosen.y = performance.now() - lastChoice < 900 ? window.scrollY : chosen.y;
+          return;
+        }
+        chosen = null;
+      }
       // At the bottom of the page the last section wins even if it's short.
       if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) {
         setActive(elements[elements.length - 1].id);
@@ -28,12 +45,20 @@ function useCurrentSection() {
       const passed = elements.filter((el) => el.getBoundingClientRect().top < 160);
       setActive((passed[passed.length - 1] ?? elements[0]).id);
     };
-    update();
+    let lastChoice = -Infinity;
+    const onHash = () => {
+      lastChoice = performance.now();
+      choose();
+    };
+    if (window.location.hash) onHash();
+    else update();
     window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
+    window.addEventListener("hashchange", onHash);
     return () => {
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
+      window.removeEventListener("hashchange", onHash);
     };
   }, []);
   return active;
