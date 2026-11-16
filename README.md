@@ -476,17 +476,23 @@ images, is labelled "Example").
   version as it exports, version count, status), the current collection
   (thumbnails, image count, "Updated today at 10:24", recorded when the batch
   actually changes) and recent exports, as a grid or a list.
-- **Brand preset:** your default preset's colours with Canvas, Padding and
-  Shadow you can change in place; "Apply preset" opens Batch Studio with it.
+- **Brand preset:** your default preset as a live preview (the sample product
+  drawn by the export renderer with your canvas, padding, shadow and
+  background), its colours, Canvas, Padding and Shadow you can change in
+  place, "Edit identity" and "Apply preset" (opens Batch Studio with it).
 - **Keep the collection consistent:** the consistency check (below) run on the
-  saved batch, with the flagged images drawn by the export renderer.
+  saved batch, with the flagged images drawn by the export renderer and what
+  each finding means; full-width rows on phones. Before you have images it
+  shows a labelled example.
 - **One collection. Every destination.:** your first finished image rendered as
-  Square, Portrait and Wide, with how many images are ready.
-- **Recent exports:** the latest download, kept in this browser so it can be
-  downloaded again byte for byte.
-- **Private by design:** how much this browser stores for ISOLA (from the
-  browser's own estimate) and a button that asks the browser to keep those
-  files when space runs low.
+  Square, Portrait and Wide, with how many images are ready (before you have
+  images, ISOLA's sample cutout in each frame, marked "Example").
+- **Recent exports:** the latest three downloads, each kept in this browser so
+  it can be downloaded again byte for byte, and a link to all downloads.
+- **Private by design:** what stays on the device, a storage meter (from the
+  browser's own estimate, split into your files and the downloaded model
+  where the browser reports it) and a button that asks the browser to keep
+  those files when space runs low.
 
 ### Features built for product photos
 
@@ -624,8 +630,11 @@ units (position as a fraction of the frame, size as a fraction of its short
 side), so one scene renders in every format and at any size.
 
 - **Backdrops** are drawn by code (`src/lib/scene/backdrops.ts`): Ivory
-  plinth, Sage wall, Warm stone, Pale blue seamless, Sunlight on linen and
-  Marble slab, with search and Studio/Natural/Interior filters. Gradients,
+  plinth, Sage wall, Warm stone, Pale blue seamless, Sunlight on linen, Marble
+  slab, Botanical shadow (leaf shadows on a warm wall, with a pedestal),
+  Terracotta arch (a lit niche and plinth), Noir spotlight (a dark sweep with
+  a pool of light), Sunset glow (a peach-to-lilac gradient) and Stone steps
+  (stacked travertine blocks), with search and Studio/Natural/Interior filters. Gradients,
   light and seeded noise textures draw the same pixels every time, stay sharp
   at any size and carry no licence questions. The set can be recoloured
   (Ivory, Sage, Blush, Slate, brand colours or any colour) or replaced with an
@@ -690,8 +699,15 @@ Keyframe times are relative to their clip.
   viewer with the shot storyboard under it; an inspector on the right (Motion,
   Colour, Text, Sound, Export); a multitrack timeline below; and a status bar
   naming the linked scene. Panels resize (drag or arrow keys on the
-  separators) and collapse; the layout is remembered. On small screens the
-  viewer stays on top and the panels become tabs.
+  separators) and collapse; the layout is remembered.
+- **On phones** (like CapCut): the viewer on top, then a timeline whose
+  playhead stays fixed in the middle while the film scrolls under it
+  (scrolling scrubs and pauses; pinch or +/− to zoom; tap a clip to select
+  it), "Add music" and "Add text" rows, and a tool bar: Motion, Styles, Text,
+  Music, Media, Elements, Colour, Keyframe and Export; with a clip selected,
+  Edit, Split, Keyframe, Font (titles), Volume (sound), Duplicate and Delete.
+  Each tool opens a sheet. Text offers ready-made looks (Bold, Clean,
+  Elegant, Headline, Spaced, Serif caps) from ISOLA's four typefaces.
 - **Quick motion** (Motion → Quick): one-step controls that write ordinary
   shots, clips and keyframes, so everything stays editable under Keyframes.
   A preset (the built-in styles and your saved ones); the film's length
@@ -763,9 +779,17 @@ Keyframe times are relative to their clip.
   support yet.
 - **Sound:** waveforms from the decoded audio, trim and placement, volume,
   fades, mute and solo, master gain, and L/R meters read from the master
-  output's analysers. ISOLA ships no music or sound effects (add sound you
-  have the rights to); there are no beat markers because there's no beat
+  output's analysers. There are no beat markers because there's no beat
   detection.
+- **Music made by ISOLA** (`src/lib/motion/music.ts`): Calm pad, Lo-fi pulse,
+  Uplift, Minimal pluck and Luxe ambient, each with four versions. They're
+  composed and mixed in the browser from code (chords, bass, melody, drums
+  and a generated reverb, rendered with an OfflineAudioContext) at the film's
+  length, saved as WAV with the film, and placed from the start on a Music
+  track with a fade-out. There are no third-party recordings in them, so
+  there's nothing to license; you can also add your own sound. Measured here:
+  20 s of each style renders in 1–3 s, peaks between 0.38 and 0.76 (no
+  clipping), about −17 to −20 dB RMS.
 - **Update from scene:** each clip made from a scene layer remembers the
   layer. When the scene changes, a notice offers a review of what will
   update, field by field. Linked clips take the changes and keep their

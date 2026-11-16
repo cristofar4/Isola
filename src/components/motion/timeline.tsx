@@ -17,7 +17,7 @@ const HEADER = 196;
 const RULER = 34;
 const rowHeight = (t: Track) => (t.kind === "audio" ? 52 : 44);
 
-const KIND_COLOUR: Record<Clip["source"]["kind"], string> = {
+export const KIND_COLOUR: Record<Clip["source"]["kind"], string> = {
   backdrop: "bg-[#2E3D4F] border-[#4A6380]",
   image: "bg-[#3A4280] border-[#6F7FF7]",
   video: "bg-[#1F4F49] border-[#3E9C8F]",
@@ -28,7 +28,7 @@ const KIND_COLOUR: Record<Clip["source"]["kind"], string> = {
   solid: "bg-[#3A3A3A] border-[#6B6B6B]",
 };
 
-function Waveform({ film, clip, width, height }: { film: Film; clip: Clip; width: number; height: number }) {
+export function Waveform({ film, clip, width, height }: { film: Film; clip: Clip; width: number; height: number }) {
   const media = clip.source.kind === "audio" ? film.media.find((m) => m.id === (clip.source as { mediaId: string }).mediaId) : null;
   if (!media?.peaks?.length || clip.source.kind !== "audio" || width < 4) return null;
   const peaks = media.peaks;

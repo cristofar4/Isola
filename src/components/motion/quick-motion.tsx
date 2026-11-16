@@ -244,7 +244,7 @@ export function TextPanel() {
   const clip = selection.clipIds.length === 1 ? film.clips.find((c) => c.id === selection.clipIds[0]) : null;
   const titles = film.clips.filter((c) => c.source.kind === "text");
   return (
-    <div className="grid gap-3 px-3 pb-4" data-text-panel>
+    <div className="grid min-w-0 grid-cols-1 gap-3 px-3 pb-4" data-text-panel>
       {clip?.source.kind === "text" ? (
         <div className="[&>div]:border-t-0 [&>div]:pt-0">
           <TextSection film={film} clip={clip} />

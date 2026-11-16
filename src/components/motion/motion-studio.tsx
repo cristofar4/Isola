@@ -18,6 +18,7 @@ import { ColourPanel } from "./colour-panel";
 import { DeliverPanel } from "./deliver-panel";
 import { LIBRARY_TABS, LibraryPanel, UpdateDialog, type LibraryTab } from "./library-panel";
 import { togglePlay, usePlayback } from "./playback";
+import { PhoneEditor } from "./mobile-editor";
 import { MotionPanel, TextPanel } from "./quick-motion";
 import { SoundPanel } from "./sound-panel";
 import { Storyboard } from "./storyboard";
@@ -166,7 +167,7 @@ function Notice() {
   }, [notice]);
   if (!notice) return null;
   return (
-    <div role={notice.tone === "error" ? "alert" : "status"} className={cn("pointer-events-auto fixed bottom-4 left-1/2 z-[60] flex max-w-[min(92vw,560px)] -translate-x-1/2 items-center gap-2 rounded-[10px] px-3 py-2 text-[13px] shadow-2xl", notice.tone === "error" ? "bg-[#4A1F1C] text-[#FFD2CC]" : "bg-[#1E2A24] text-[#C8F2D8]")}>
+    <div role={notice.tone === "error" ? "alert" : "status"} className={cn("pointer-events-auto fixed bottom-[92px] left-1/2 z-[60] lg:bottom-4 flex max-w-[min(92vw,560px)] -translate-x-1/2 items-center gap-2 rounded-[10px] px-3 py-2 text-[13px] shadow-2xl", notice.tone === "error" ? "bg-[#4A1F1C] text-[#FFD2CC]" : "bg-[#1E2A24] text-[#C8F2D8]")}>
       <span className="flex-1">{notice.text}</span>
       <button type="button" aria-label="Dismiss" onClick={() => useEditor.setState({ notice: null })} className="rounded p-0.5 hover:bg-white/10">
         <X className="size-3.5" aria-hidden="true" />
@@ -280,7 +281,6 @@ function Editor() {
   const theme = useMotionTheme();
   const [layout, setLayout] = useState<Layout>(readLayout);
   const [tab, setTab] = useState<LibraryTab>("styles");
-  const [mobilePanel, setMobilePanel] = useState<"timeline" | "storyboard" | "library" | "inspector">("timeline");
   const [updating, setUpdating] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
@@ -321,7 +321,6 @@ function Editor() {
     // The library follows along: sound files beside Sound, titles and lights beside Text.
     if (id === "sound") setTab("audio");
     if (id === "text") setTab("elements");
-    if (narrow) setMobilePanel("inspector");
   };
 
   const library = (
@@ -462,23 +461,10 @@ function Editor() {
 
       {narrow ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="h-[42dvh] min-h-[220px] shrink-0 border-b border-m-line">
+          <div className="h-[38dvh] min-h-[220px] shrink-0 border-b border-m-line">
             <Viewer />
           </div>
-          <div role="tablist" aria-label="Panels" className="flex shrink-0 gap-1 border-b border-m-line bg-m-chrome px-2 py-1">
-            {(["timeline", "storyboard", "library", "inspector"] as const).map((p) => (
-              <button key={p} type="button" role="tab" aria-selected={mobilePanel === p} onClick={() => setMobilePanel(p)} className={cn("h-8 flex-1 rounded-[8px] text-[12px] font-semibold capitalize", mobilePanel === p ? "bg-m-accent/15 text-m-accent-text" : "text-m-muted")}>
-                {p}
-              </button>
-            ))}
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-m-chrome">
-            {mobilePanel === "timeline" && <Timeline />}
-            {mobilePanel === "storyboard" && <Storyboard />}
-            {mobilePanel === "library" && library}
-            {mobilePanel === "inspector" && inspector}
-          </div>
-          {statusBar}
+          <PhoneEditor />
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">

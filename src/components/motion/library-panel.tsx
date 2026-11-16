@@ -19,6 +19,7 @@ import { getScene, loadScenes, useScenes } from "@/lib/scene/store";
 import type { Scene } from "@/lib/scene/model";
 import { useLibrary, type Asset } from "@/lib/studio/library";
 import { FilmPreview } from "./kit-preview";
+import { MusicPicker } from "./music-picker";
 import { addAssetClip, addEffectClip, addMediaClip, addTextClip, importFiles } from "./add-media";
 import { DarkButton, Field, darkInput } from "./ui";
 
@@ -524,6 +525,9 @@ function AudioTab() {
   const sounds = film.media.filter((m) => m.hasAudio);
   return (
     <div className="grid gap-2">
+      <h3 className="text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Music made by ISOLA</h3>
+      <MusicPicker />
+      <h3 className="mt-2 border-t border-m-line pt-3 text-[12px] font-bold uppercase tracking-[0.12em] text-m-text-2">Your sound</h3>
       <input ref={input} type="file" multiple accept={MEDIA_ACCEPT} className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(e) => void importFiles(Array.from(e.target.files ?? []), setBusy).finally(() => (e.target.value = ""))} />
       <DarkButton icon={<Upload className="size-4" aria-hidden="true" />} onClick={() => input.current?.click()} disabled={!!busy}>
         Add sound
@@ -545,7 +549,7 @@ function AudioTab() {
           )}
         </div>
       ))}
-      <p className="text-[11px] leading-snug text-m-subtle">ISOLA doesn&apos;t include music. Add sound you have the rights to use. Beat markers aren&apos;t offered because ISOLA doesn&apos;t detect beats.</p>
+      <p className="text-[11px] leading-snug text-m-subtle">Add your own music or voice-over (sound you have the rights to use). Beat markers aren&apos;t offered because ISOLA doesn&apos;t detect beats.</p>
     </div>
   );
 }

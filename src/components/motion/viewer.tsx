@@ -1,5 +1,7 @@
 "use client";
 
+import { cn } from "@/lib/cn";
+
 import { Expand, Pause, Play, Repeat, SkipBack, SkipForward, StepBack, StepForward } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { commit, preview, setPlayhead, useEditor } from "@/lib/motion/editor";
@@ -211,7 +213,7 @@ export function Viewer() {
         <label className="sr-only" htmlFor="viewer-quality">
           Preview quality
         </label>
-        <select id="viewer-quality" value={quality} onChange={(e) => setQuality(Number(e.target.value) as Quality)} className={darkSelectBase} title="Preview quality (exports are always full quality)">
+        <select id="viewer-quality" value={quality} onChange={(e) => setQuality(Number(e.target.value) as Quality)} className={cn(darkSelectBase, "hidden sm:block")} title="Preview quality (exports are always full quality)">
           <option value={1}>Full quality</option>
           <option value={0.5}>Half</option>
           <option value={0.25}>Quarter</option>
@@ -223,7 +225,7 @@ export function Viewer() {
           <label className="sr-only" htmlFor="viewer-zoom">
             Zoom
           </label>
-          <select id="viewer-zoom" value={String(zoom)} onChange={(e) => setZoom(e.target.value === "fit" ? "fit" : (Number(e.target.value) as Zoom))} className={darkSelectBase}>
+          <select id="viewer-zoom" value={String(zoom)} onChange={(e) => setZoom(e.target.value === "fit" ? "fit" : (Number(e.target.value) as Zoom))} className={cn(darkSelectBase, "hidden sm:block")}>
             <option value="fit">Fit</option>
             <option value="0.5">50%</option>
             <option value="1">100%</option>
@@ -270,7 +272,7 @@ export function Viewer() {
           <span className="font-mono text-[13px] tabular-nums text-m-text" data-timecode>
             {timecode(playhead, film.fps)}
           </span>
-          <span className="font-mono text-[13px] tabular-nums text-m-subtle">/ {timecode(D, film.fps)}</span>
+          <span className="hidden font-mono text-[13px] tabular-nums text-m-subtle sm:inline">/ {timecode(D, film.fps)}</span>
           <div className="mx-auto flex items-center gap-1">
             <IconButton label="Go to start" onClick={() => setPlayhead(0)}>
               <SkipBack className="size-4" aria-hidden="true" />

@@ -5,6 +5,7 @@ import { commit, notify, useEditor } from "@/lib/motion/editor";
 import { classify, importMedia, MediaError } from "@/lib/motion/media";
 import { ASPECTS, newClip, newTrack, type Clip, type Film, type MediaItem } from "@/lib/motion/model";
 import { addClip } from "@/lib/motion/ops";
+import { MUSIC, musicFile, type MusicId } from "@/lib/motion/music";
 import { filmDuration, shotAt } from "@/lib/motion/time";
 import { DEFAULT_TEXT, sanitiseText, type TextStyle } from "@/lib/scene/model";
 
@@ -159,4 +160,45 @@ export async function importFiles(files: File[], onBusy: (label: string | null) 
     }
   }
   onBusy(null);
+}
+
+/**
+ * Music made by ISOLA: rendered in the browser for the film's length, stored
+ * with the film like an imported sound, and placed from the start on a Music
+ * track (the first one free, or a new one) with a gentle fade-out.
+ */
+export async function addMusic(id: MusicId, variation: number, onBusy: (label: string | null) => void) {
+  const before = useEditor.getState().film;
+  if (!before) return;
+  const style = MUSIC.find((m) => m.id === id)!;
+  onBusy(`Making “${style.name}”…`);
+  try {
+    const seconds = Math.min(120, Math.max(5, Math.ceil(filmDuration(before) + 0.5)));
+    const item = await importMedia(await musicFile(id, seconds, variation));
+    const film = useEditor.getState().film;
+    if (!film) return;
+    const duration = Math.min(item.duration, filmDuration(film));
+    const clip = newClip({ trackId: "", shotId: null, start: 0, duration, source: { kind: "audio", mediaId: item.id, in: 0 }, name: style.name });
+    const withAudio = { ...clip, audio: { gain: -4, fadeIn: 0.3, fadeOut: Math.min(2, duration / 4) } };
+    let next: Film = { ...film, media: [...film.media, item] };
+    let placed = false;
+    for (const t of next.tracks.filter((x) => x.kind === "audio" && !x.locked && !next.clips.some((c) => c.trackId === x.id))) {
+      const r = addClip(next, { ...withAudio, trackId: t.id });
+      if (!r.problem) {
+        next = r.film;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      const track = newTrack("audio", "Music");
+      next = addClip({ ...next, tracks: [...next.tracks, track] }, { ...withAudio, trackId: track.id }).film;
+    }
+    commit(next);
+    notify(`Added “${style.name}” for the whole film. It was made by ISOLA on this device, so there's nothing to license.`);
+  } catch (e) {
+    notify(e instanceof MediaError ? e.message : "The music couldn't be made in this browser.", "error");
+  } finally {
+    onBusy(null);
+  }
 }

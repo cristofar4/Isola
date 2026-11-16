@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MUSIC, encodeWav } from "@/lib/motion/music";
 import { emptyFilm, migrateFilm, newClip, newShot, outputSize, type Film } from "@/lib/motion/model";
 import { CAMERA_MOVES, addCameraKeyframes, addClip, addTransformKeyframes, applyCameraMove, cameraMoveKeys, describeCameraMove, scaleFilm, setAllTransitions, setLightSweep, shotSweeps, addShot, deleteClips, deleteShot, duplicateKeyframe, duplicateShot, moveClip, moveKeyframe, reorderShots, setKeyframe, setShotDuration, setTransition, splitClip, trimClip, validateFilm } from "@/lib/motion/ops";
 import { clipRange, clipValue, cubicBezier, filmDuration, shotsAt, timecode, valueAt } from "@/lib/motion/time";
@@ -408,5 +409,31 @@ describe("quick motion", () => {
       expect(kit.moods.every((m) => KIT_MOODS.includes(m))).toBe(true);
     }
     for (const mood of KIT_MOODS) expect(KITS.some((k) => k.moods.includes(mood))).toBe(true);
+  });
+});
+
+describe("music made by ISOLA", () => {
+  it("encodes 16-bit stereo WAV with a correct header, clamping out-of-range samples", async () => {
+    const left = new Float32Array([0, 0.5, -0.5, 1.5]);
+    const right = new Float32Array([0, -1, 1, -2]);
+    const fake = { numberOfChannels: 2, length: 4, sampleRate: 44100, getChannelData: (c: number) => (c === 0 ? left : right) } as unknown as AudioBuffer;
+    const blob = encodeWav(fake);
+    const view = new DataView(await blob.arrayBuffer());
+    const text = (o: number, n: number) => String.fromCharCode(...Array.from({ length: n }, (_, i) => view.getUint8(o + i)));
+    expect(blob.type).toBe("audio/wav");
+    expect([text(0, 4), text(8, 4), text(12, 4), text(36, 4)]).toEqual(["RIFF", "WAVE", "fmt ", "data"]);
+    expect(view.getUint16(22, true)).toBe(2);
+    expect(view.getUint32(24, true)).toBe(44100);
+    expect(view.getUint32(40, true)).toBe(4 * 2 * 2);
+    const samples = Array.from({ length: 8 }, (_, i) => view.getInt16(44 + i * 2, true));
+    expect(samples).toEqual([0, 0, 16383, -32768, -16384, 32767, 32767, -32768]);
+  });
+  it("offers five styles, each with a name, mood and tempo", () => {
+    expect(MUSIC.map((m) => m.id)).toEqual(["calm-pad", "lofi", "uplift", "minimal", "luxe"]);
+    for (const m of MUSIC) {
+      expect(m.name.length).toBeGreaterThan(2);
+      expect(m.bpm).toBeGreaterThanOrEqual(60);
+      expect(m.bpm).toBeLessThanOrEqual(130);
+    }
   });
 });

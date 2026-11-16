@@ -475,7 +475,27 @@ await page.setViewportSize({ width: 390, height: 844 });
 await page.goto(filmUrl, { waitUntil: "networkidle" });
 await page.locator("[data-viewer]").waitFor();
 const vb = await page.locator("[data-viewer]").boundingBox();
-check("On a phone the editor keeps a usable viewer with panel tabs", vb && vb.width > 150 && (await page.getByRole("tab", { name: "Timeline" }).isVisible()) && (await page.evaluate(() => document.documentElement.scrollWidth)) <= 390, `viewer ${Math.round(vb?.width ?? 0)}px`);
+check("On a phone the editor keeps a usable viewer, a timeline and a tool bar", vb && vb.width > 150 && (await page.locator("[data-centre-playhead]").isVisible()) && (await page.getByRole("navigation", { name: "Tools" }).isVisible()), `viewer ${Math.round(vb?.width ?? 0)}px`);
+// Like CapCut: the playhead stays in the middle and scrolling the film under it scrubs.
+const phoneTimeline = page.locator("[data-phone-timeline] [role=group][aria-label^='Timeline']");
+const lineBox = await page.locator("[data-centre-playhead]").boundingBox();
+await phoneTimeline.evaluate((el) => el.scrollTo({ left: 0 }));
+await page.waitForTimeout(250);
+const tc0 = await page.locator("[data-phone-timeline]").getByText(/^\d\d:\d\d:\d\d$/).first().innerText();
+await phoneTimeline.evaluate((el) => el.scrollTo({ left: 140 }));
+await page.waitForTimeout(300);
+const tc1 = await page.locator("[data-phone-timeline]").getByText(/^\d\d:\d\d:\d\d$/).first().innerText();
+const lineBox2 = await page.locator("[data-centre-playhead]").boundingBox();
+check("The playhead line stays in the middle while scrolling the film scrubs", Math.abs(lineBox.x + lineBox.width / 2 - 195) < 3 && lineBox2.x === lineBox.x && tc0 === "00:00:00" && tc1 !== tc0, `${tc0} → ${tc1}`);
+// Add music made by ISOLA from the phone tool bar.
+await page.getByRole("navigation", { name: "Tools" }).getByRole("button", { name: "Music", exact: true }).click();
+const musicSheet = page.getByRole("dialog", { name: "Music" });
+await musicSheet.waitFor();
+await musicSheet.getByRole("button", { name: "Add Calm pad to the film" }).click();
+await page.locator('[data-phone-timeline] [data-clip="Calm pad"]').waitFor({ timeout: 30_000 });
+const musicMedia = await page.evaluate(() => document.querySelectorAll('[data-phone-timeline] [data-clip="Calm pad"]').length);
+check("Add music makes a track for the whole film and puts it on the timeline", musicMedia === 1);
+check("…with no sideways scrolling on the phone", (await page.evaluate(() => document.documentElement.scrollWidth)) <= 390);
 
 check("No page errors", errors.length === 0, errors.join(" | "));
 await browser.close();
