@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
 import { Box, Clapperboard, Copy, Ellipsis, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -11,6 +10,7 @@ import { useLibraryReady } from "@/components/studio/library-hooks";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
+import { useCreateAndOpen } from "@/lib/use-create-and-open";
 import { FORMAT_ORDER, SCENE_FORMATS, type Scene, type SceneFormatId } from "@/lib/scene/model";
 import { createSampleScene } from "@/lib/scene/sample";
 import { createScene, duplicateScene, loadScenes, renameScene, trashScene, useScenes } from "@/lib/scene/store";
@@ -68,12 +68,12 @@ function SceneCard({ scene, onAnimate, onMessage }: { scene: Scene; onAnimate: (
 
 /** Scene Studio: product compositions on drawn backdrops, ready to export or animate. */
 export function ScenesPage() {
-  const router = useRouter();
   const libStatus = useLibraryReady();
   const status = useScenes((s) => s.status);
   const all = useScenes((s) => s.scenes);
   const scenes = useMemo(() => all.filter((s) => !s.trashedAt).sort((a, b) => b.updatedAt - a.updatedAt), [all]);
-  const [busy, setBusy] = useState<string | null>(null);
+  // The pending state clears once the new scene opens, so the buttons work again when you come back.
+  const { pending: busy, run } = useCreateAndOpen<string>();
   const [message, setMessage] = useState<string | null>(null);
   const [animating, setAnimating] = useState<Scene | null>(null);
 
@@ -81,26 +81,22 @@ export function ScenesPage() {
     void loadScenes().catch(() => undefined);
   }, []);
 
-  async function start(format: SceneFormatId) {
-    setBusy(format);
-    try {
-      const s = await createScene("Untitled scene", format);
-      router.push(`/studio/scenes/${s.id}`);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "The scene couldn't be created.");
-      setBusy(null);
-    }
+  function start(format: SceneFormatId) {
+    setMessage(null);
+    void run(
+      format,
+      async () => `/studio/scenes/${(await createScene("Untitled scene", format)).id}`,
+      (e) => setMessage(e instanceof Error ? e.message : "The scene couldn't be created."),
+    );
   }
 
-  async function sample() {
-    setBusy("sample");
-    try {
-      const s = await createSampleScene();
-      router.push(`/studio/scenes/${s.id}`);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "The sample couldn't be created.");
-      setBusy(null);
-    }
+  function sample() {
+    setMessage(null);
+    void run(
+      "sample",
+      async () => `/studio/scenes/${(await createSampleScene()).id}`,
+      (e) => setMessage(e instanceof Error ? e.message : "The sample couldn't be created."),
+    );
   }
 
   return (
@@ -110,7 +106,7 @@ export function ScenesPage() {
           <h1 className="font-display text-[34px] font-extrabold leading-tight tracking-[-0.03em] text-ink sm:text-[40px]">Scene Studio</h1>
           <p className="mt-1 max-w-[640px] text-[15px] text-ink-3">Place your cutouts on a backdrop with real shadows, export every format, or animate the scene in Motion Studio. Scenes are kept in this browser.</p>
         </div>
-        <Button variant="secondary" onClick={() => void sample()} disabled={!!busy || libStatus !== "ready"} icon={busy === "sample" ? <Spinner className="size-4" /> : <Sparkles className="size-4" aria-hidden="true" />}>
+        <Button variant="secondary" onClick={() => sample()} disabled={!!busy || libStatus !== "ready"} icon={busy === "sample" ? <Spinner className="size-4" /> : <Sparkles className="size-4" aria-hidden="true" />}>
           Sample scene
         </Button>
       </header>
@@ -119,7 +115,7 @@ export function ScenesPage() {
         {FORMAT_ORDER.map((id) => {
           const f = SCENE_FORMATS[id];
           return (
-            <button key={id} type="button" onClick={() => void start(id)} disabled={!!busy || status !== "ready"} className="flex items-center gap-3 rounded-[14px] border-2 border-dashed border-line-strong bg-surface px-4 py-3 text-left hover:border-blue/60 disabled:opacity-60">
+            <button key={id} type="button" onClick={() => start(id)} disabled={!!busy || status !== "ready"} aria-busy={busy === id || undefined} data-new-scene={id} className="flex items-center gap-3 rounded-[14px] border-2 border-dashed border-line-strong bg-surface px-4 py-3 text-left hover:border-blue/60 disabled:opacity-60">
               <span className="inline-flex items-center justify-center rounded-[6px] border-2 border-blue/50 bg-blue-50" style={{ width: (f.width / Math.max(f.width, f.height)) * 34, height: (f.height / Math.max(f.width, f.height)) * 34 }} aria-hidden="true" />
               <span>
                 <span className="flex items-center gap-1.5 text-[14px] font-semibold text-ink">

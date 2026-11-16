@@ -6,7 +6,7 @@ import { readRect, writeRect, type Rect } from "@/lib/editor/geometry";
 import { ImageLayers } from "@/lib/editor/layers";
 import type { CompositeSources } from "@/lib/editor/compose";
 import type { HistoryEntry } from "@/lib/editor/history";
-import { DEFAULT_SETTINGS, type EditSettings } from "@/lib/editor/types";
+import { aspectRatioOf, cropForRatio, cropOf, DEFAULT_SETTINGS, type AspectPreset, type EditSettings } from "@/lib/editor/types";
 import { getEngine } from "@/lib/processing/registry";
 import { EngineError, isCancellation, looksEmpty } from "@/lib/processing/types";
 import { uploadLimits } from "@/lib/config";
@@ -366,6 +366,28 @@ export function updateSettings(id: string, label: string, patch: Partial<EditSet
   const image = getImage(id);
   if (!image) return;
   commitSettings(id, label, image.settings, { ...image.settings, ...patch });
+}
+
+/**
+ * Choose the ratio the crop is held to, and crop to it, as one undoable step:
+ * undo brings back the previous rectangle and the previous ratio together.
+ * "Free" only lifts the constraint and keeps the current crop.
+ */
+export function applyCropRatio(id: string, aspect: AspectPreset, label: string) {
+  const image = getImage(id);
+  if (!image) return;
+  const { width: W, height: H, settings } = image;
+  const patch: Partial<EditSettings> = { cropAspect: aspect };
+  const ratio = aspectRatioOf(aspect, W, H);
+  if (ratio) {
+    const next = cropForRatio(cropOf(settings, W, H), ratio, W, H);
+    const full = next.x === 0 && next.y === 0 && next.w === W && next.h === H;
+    const crop = full ? null : next;
+    const same = crop === null ? settings.crop === null : settings.crop !== null && ["x", "y", "w", "h"].every((k) => settings.crop![k as keyof Rect] === crop[k as keyof Rect]);
+    if (!same) Object.assign(patch, { crop, output: null });
+  }
+  if (settings.cropAspect === aspect && !("crop" in patch)) return;
+  updateSettings(id, aspect === "free" ? "Free crop ratio" : `Crop ${label}`, patch);
 }
 
 function applyEntry(id: string, entry: HistoryEntry, direction: "undo" | "redo") {

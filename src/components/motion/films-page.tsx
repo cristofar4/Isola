@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
 import { Box, Clapperboard, Copy, Ellipsis, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -11,6 +10,7 @@ import { useLibraryReady } from "@/components/studio/library-hooks";
 import { defaultPreset, usePresets } from "@/components/studio/use-presets";
 import { Spinner } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
+import { useCreateAndOpen } from "@/lib/use-create-and-open";
 import { ASPECT_ORDER, ASPECTS, type Aspect, type Film } from "@/lib/motion/model";
 import { createFilm, duplicateFilm, loadFilms, renameFilm, trashFilm, useFilms } from "@/lib/motion/store";
 import { secs, filmDuration } from "@/lib/motion/time";
@@ -59,27 +59,28 @@ function FilmCard({ film, onMessage }: { film: Film; onMessage: (t: string) => v
 
 /** Motion Studio's home: your films, and how to start one. */
 export function FilmsPage() {
-  const router = useRouter();
   useLibraryReady();
   const status = useFilms((s) => s.status);
   const all = useFilms((s) => s.films);
   const films = useMemo(() => all.filter((f) => !f.trashedAt).sort((a, b) => b.updatedAt - a.updatedAt), [all]);
-  const [busy, setBusy] = useState<Aspect | null>(null);
+  // The pending state clears once the new film opens, so the buttons work again when you come back.
+  const { pending: busy, run } = useCreateAndOpen<Aspect>();
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
     void loadFilms().catch(() => undefined);
   }, []);
-  async function start(aspect: Aspect) {
-    setBusy(aspect);
-    try {
-      // Start from the default brand preset's video settings (container, resolution, frame rate), when there is one.
-      if (!usePresets.getState().presets) await usePresets.getState().load().catch(() => undefined);
-      const f = await createFilm("Untitled film", aspect, defaultPreset(usePresets.getState().presets)?.identity?.export);
-      router.push(`/studio/motion/${f.id}`);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "The film couldn't be created.");
-      setBusy(null);
-    }
+  function start(aspect: Aspect) {
+    setMessage(null);
+    void run(
+      aspect,
+      async () => {
+        // Start from the default brand preset's video settings (container, resolution, frame rate), when there is one.
+        if (!usePresets.getState().presets) await usePresets.getState().load().catch(() => undefined);
+        const f = await createFilm("Untitled film", aspect, defaultPreset(usePresets.getState().presets)?.identity?.export);
+        return `/studio/motion/${f.id}`;
+      },
+      (e) => setMessage(e instanceof Error ? e.message : "The film couldn't be created."),
+    );
   }
   return (
     <div className="mx-auto max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -96,7 +97,7 @@ export function FilmsPage() {
         {ASPECT_ORDER.map((a) => {
           const f = ASPECTS[a];
           return (
-            <button key={a} type="button" onClick={() => void start(a)} disabled={!!busy || status !== "ready"} className="flex items-center gap-3 rounded-[14px] border-2 border-dashed border-line-strong bg-surface px-4 py-3 text-left hover:border-blue/60 disabled:opacity-60">
+            <button key={a} type="button" onClick={() => start(a)} disabled={!!busy || status !== "ready"} aria-busy={busy === a || undefined} data-new-film={a} className="flex items-center gap-3 rounded-[14px] border-2 border-dashed border-line-strong bg-surface px-4 py-3 text-left hover:border-blue/60 disabled:opacity-60">
               <span className="inline-flex rounded-[5px] border-2 border-blue/50 bg-blue-50" style={{ width: (f.width / Math.max(f.width, f.height)) * 34, height: (f.height / Math.max(f.width, f.height)) * 34 }} aria-hidden="true" />
               <span>
                 <span className="flex items-center gap-1.5 text-[14px] font-semibold text-ink">

@@ -6,7 +6,8 @@ export type Tool = "move" | "restore" | "erase" | "crop";
 /** What the visitor came to the editor to do (from the Tools menu), shown as a hint and applied once an image is ready. */
 export type EditorIntent = "restore" | "background" | "crop";
 
-export type AspectPreset = "free" | "original" | "1:1" | "4:5" | "3:2" | "16:9" | "9:16";
+// The crop ratio is part of each image's settings (and its undo history), not editor UI state.
+export { aspectRatioOf, type AspectPreset } from "@/lib/editor/types";
 
 export type ViewCommand =
   | { type: "fit" }
@@ -21,7 +22,6 @@ interface EditorUIState {
   compare: boolean;
   comparePosition: number;
   zoom: number;
-  aspect: AspectPreset;
   command: (ViewCommand & { nonce: number }) | null;
   exportOpen: boolean;
   intent: EditorIntent | null;
@@ -36,7 +36,6 @@ interface EditorUIState {
   setCompare: (compare: boolean) => void;
   setComparePosition: (position: number) => void;
   setZoom: (zoom: number) => void;
-  setAspect: (aspect: AspectPreset) => void;
   view: (command: ViewCommand) => void;
   setExportOpen: (open: boolean) => void;
 }
@@ -52,7 +51,6 @@ export const useEditorUI = create<EditorUIState>((set) => ({
   compare: false,
   comparePosition: 0.5,
   zoom: 1,
-  aspect: "free",
   command: null,
   exportOpen: false,
   intent: null,
@@ -66,26 +64,6 @@ export const useEditorUI = create<EditorUIState>((set) => ({
   setCompare: (compare) => set((s) => ({ compare, tool: compare && s.tool === "crop" ? "move" : s.tool })),
   setComparePosition: (comparePosition) => set({ comparePosition: Math.min(1, Math.max(0, comparePosition)) }),
   setZoom: (zoom) => set({ zoom }),
-  setAspect: (aspect) => set({ aspect }),
   view: (command) => set({ command: { ...command, nonce: Date.now() + Math.random() } }),
   setExportOpen: (exportOpen) => set({ exportOpen }),
 }));
-
-export function aspectRatioOf(aspect: AspectPreset, width: number, height: number): number | null {
-  switch (aspect) {
-    case "free":
-      return null;
-    case "original":
-      return width / height;
-    case "1:1":
-      return 1;
-    case "4:5":
-      return 4 / 5;
-    case "3:2":
-      return 3 / 2;
-    case "16:9":
-      return 16 / 9;
-    case "9:16":
-      return 9 / 16;
-  }
-}

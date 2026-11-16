@@ -17,6 +17,7 @@ import { fetchRemoteCapabilities } from "@/lib/processing/remote/remote-engine";
 import { type EngineId } from "@/lib/processing/registry";
 import {
   addBackgroundImage,
+  applyCropRatio,
   commitSettings,
   previewSettings,
   processImage,
@@ -398,8 +399,8 @@ const ASPECTS: Array<{ value: AspectPreset; label: string }> = [
 ];
 
 function CropSection({ image }: { image: ProjectImage }) {
-  const aspect = useEditorUI((s) => s.aspect);
-  const setAspect = useEditorUI((s) => s.setAspect);
+  // The ratio is saved with the crop, so undo/redo always show the ratio of the crop you see.
+  const aspect = image.settings.cropAspect ?? "free";
   const setTool = useEditorUI((s) => s.setTool);
   const crop = cropOf(image.settings, image.width, image.height);
 
@@ -424,7 +425,7 @@ function CropSection({ image }: { image: ProjectImage }) {
 
   return (
     <Section title="Crop">
-      <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Aspect ratio">
+      <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Crop ratio" data-crop-ratio>
         {ASPECTS.map((a) => (
           <button
             key={a.value}
@@ -432,7 +433,7 @@ function CropSection({ image }: { image: ProjectImage }) {
             role="radio"
             aria-checked={aspect === a.value}
             onClick={() => {
-              setAspect(a.value);
+              applyCropRatio(image.id, a.value, a.label);
               setTool("crop");
             }}
             className={cn(
@@ -444,8 +445,9 @@ function CropSection({ image }: { image: ProjectImage }) {
           </button>
         ))}
       </div>
-      <p className="text-xs tabular-nums text-muted">
+      <p className="text-xs tabular-nums text-muted" data-crop-size>
         Crop: {Math.round(crop.w)} × {Math.round(crop.h)} px {image.settings.crop ? "" : "(full image)"}
+        {aspect !== "free" && <> · held to {ASPECTS.find((a) => a.value === aspect)?.label ?? aspect}</>}
       </p>
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" size="sm" onClick={fitToSubject}>
@@ -455,7 +457,7 @@ function CropSection({ image }: { image: ProjectImage }) {
           variant="ghost"
           size="sm"
           disabled={!image.settings.crop}
-          onClick={() => updateSettings(image.id, "Reset crop", { crop: null, output: null })}
+          onClick={() => updateSettings(image.id, "Reset crop", { crop: null, cropAspect: "free", output: null })}
         >
           Reset crop
         </Button>

@@ -51,7 +51,10 @@ export function EditorCanvas({ image }: { image: ProjectImage }) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState<View>({ scale: 1, tx: 0, ty: 0 });
   const viewRef = useRef(view);
-  viewRef.current = view;
+  // Handlers read the latest view; it's kept in step after each render, not during it.
+  useLayoutEffect(() => {
+    viewRef.current = view;
+  });
   const [cropDraft, setCropDraft] = useState<Rect | null>(null);
   const [panning, setPanning] = useState(false);
   const gesture = useRef<Gesture>(null);
@@ -67,11 +70,12 @@ export function EditorCanvas({ image }: { image: ProjectImage }) {
   const compare = useEditorUI((s) => s.compare);
   const comparePosition = useEditorUI((s) => s.comparePosition);
   const setComparePosition = useEditorUI((s) => s.setComparePosition);
-  const aspect = useEditorUI((s) => s.aspect);
   const command = useEditorUI((s) => s.command);
   const setZoom = useEditorUI((s) => s.setZoom);
 
   const { width: W, height: H, settings, status } = image;
+  // The ratio the crop is held to travels with the crop in the undo history.
+  const aspect = settings.cropAspect ?? "free";
   const ready = status === "ready" && Boolean(imageAssets.get(image.id)?.layers);
   const cropMode = tool === "crop" && ready;
   const fullRect: Rect = { x: 0, y: 0, w: W, h: H };
@@ -214,7 +218,9 @@ export function EditorCanvas({ image }: { image: ProjectImage }) {
   }, [size.w, size.h, image.id, content.x, content.y, content.w, content.h, cropMode, settings, status, compare, comparePosition, shownCrop]);
 
   const drawRef = useRef(draw);
-  drawRef.current = draw;
+  useLayoutEffect(() => {
+    drawRef.current = draw;
+  });
   const scheduleDraw = useCallback(() => {
     cancelAnimationFrame(raf.current);
     raf.current = requestAnimationFrame(() => drawRef.current());
@@ -430,28 +436,8 @@ export function EditorCanvas({ image }: { image: ProjectImage }) {
     updateSettings(image.id, "Crop", { crop: isFull ? null : r, output: null });
   }
 
-  // Apply aspect presets immediately while cropping.
-  useEffect(() => {
-    if (!cropMode) return;
-    const ratio = aspectRatioOf(aspect, W, H);
-    if (!ratio) return;
-    const c = cropOf(image.settings, W, H);
-    if (Math.abs(c.w / c.h - ratio) < 0.005) return;
-    let w = c.w;
-    let h = w / ratio;
-    if (h > H) {
-      h = H;
-      w = h * ratio;
-    }
-    if (w > W) {
-      w = W;
-      h = w / ratio;
-    }
-    const cx = c.x + c.w / 2;
-    const cy = c.y + c.h / 2;
-    commitCrop({ x: Math.min(W - w, Math.max(0, cx - w / 2)), y: Math.min(H - h, Math.max(0, cy - h / 2)), w, h });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aspect, cropMode]);
+  // Choosing a ratio applies it in one undoable step (see applyCropRatio); nothing here re-crops on its own,
+  // so undoing a crop and coming back to the crop tool leaves the image as undo left it.
 
   /* ---------------------------------------------------------- overlays -- */
   const destScreen = {
@@ -472,8 +458,8 @@ export function EditorCanvas({ image }: { image: ProjectImage }) {
 
   const cursor = panning
     ? "cursor-grabbing"
-    : brushTool && !spaceHeld.current
-      ? "cursor-none"
+    : brushTool
+      ? "cursor-none" // Holding Space pans, which shows the grabbing hand above.
       : tool === "move" || !ready
         ? "cursor-grab"
         : "cursor-default";

@@ -2,7 +2,6 @@
 
 import { Dialog } from "radix-ui";
 import { Clapperboard, Info, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { FilmPreview } from "@/components/motion/kit-preview";
 import { defaultPreset, usePresets } from "@/components/studio/use-presets";
@@ -10,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/progress";
 import { BRAND_TRANSITION_LABEL, MOTION_STYLE_LABEL } from "@/lib/brand-presets";
 import { cn } from "@/lib/cn";
+import { useCreateAndOpen } from "@/lib/use-create-and-open";
 import { applyKitResult, buildFromStyle, defaultParams, KITS, layerSetFromScene } from "@/lib/motion/kits";
 import { emptyFilm } from "@/lib/motion/model";
 import { ASPECT_FOR_FORMAT, filmFromScene } from "@/lib/motion/scene-link";
@@ -23,13 +23,14 @@ import type { Scene } from "@/lib/scene/model";
  * Motion Studio. Nothing happens to the scene itself.
  */
 export function AnimateDialog({ scene, open, onOpenChange }: { scene: Scene; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const router = useRouter();
   const presets = usePresets((s) => s.presets);
   const styles = useFilms((s) => s.styles);
   const [picked, setPicked] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [params, setParams] = useState<Record<string, Record<string, number>>>({});
-  const [busy, setBusy] = useState(false);
+  // Clears once the film opens (or creating fails), so the dialog works again when you come back.
+  const { pending, run } = useCreateAndOpen<"animate">();
+  const busy = pending !== null;
   const [error, setError] = useState<string | null>(null);
   const preset = defaultPreset(presets);
   const brand = useMemo(() => preset?.colors.map((c) => c.hex) ?? [], [preset]);
@@ -64,18 +65,18 @@ export function AnimateDialog({ scene, open, onOpenChange }: { scene: Scene; ope
 
   const current = previews.find((p) => p.id === chosen) ?? previews[0];
 
-  async function animate() {
+  function animate() {
     if (!current || current.problem) return;
-    setBusy(true);
     setError(null);
-    try {
-      const film = await createFilmFromScene(scene, current.id, { brand, params: current.custom, defaults: { ...current.defaults, export: exportDefaults } });
-      onOpenChange(false);
-      router.push(`/studio/motion/${film.id}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "The film couldn't be created.");
-      setBusy(false);
-    }
+    void run(
+      "animate",
+      async () => {
+        const film = await createFilmFromScene(scene, current.id, { brand, params: current.custom, defaults: { ...current.defaults, export: exportDefaults } });
+        onOpenChange(false);
+        return `/studio/motion/${film.id}`;
+      },
+      (e) => setError(e instanceof Error ? e.message : "The film couldn't be created."),
+    );
   }
 
   return (
@@ -186,7 +187,7 @@ export function AnimateDialog({ scene, open, onOpenChange }: { scene: Scene; ope
                   {error}
                 </p>
               )}
-              <Button size="lg" onClick={() => void animate()} disabled={!current || !!current.problem || busy} icon={busy ? <Spinner className="size-4" /> : <Clapperboard className="size-4" aria-hidden="true" />}>
+              <Button size="lg" onClick={() => animate()} disabled={!current || !!current.problem || busy} icon={busy ? <Spinner className="size-4" /> : <Clapperboard className="size-4" aria-hidden="true" />}>
                 {busy ? "Creating film…" : "Animate in Motion Studio"}
               </Button>
             </aside>

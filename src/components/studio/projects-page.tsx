@@ -10,6 +10,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { Spinner } from "@/components/ui/progress";
 import { presetToBatchSettings } from "@/lib/brand-presets";
 import { cn } from "@/lib/cn";
+import { useCreateAndOpen } from "@/lib/use-create-and-open";
 import { addAssets, createFolder, renameFolder, useLibrary, type Asset } from "@/lib/studio/library";
 import { DEFAULT_LOOK, reviewProject, type Project } from "@/lib/studio/project-model";
 import { createProject, duplicateProject, exportLinkedSet, moveProjects, renameProject, starProjects, trashProjects } from "@/lib/studio/projects";
@@ -159,28 +160,30 @@ function ProjectCard({ project, selected, onToggle, onMessage }: { project: Proj
 }
 
 function SourcePicker({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const router = useRouter();
   const assets = useLibrary((s) => s.assets);
   const presets = usePresets((s) => s.presets);
   const loadPresets = usePresets((s) => s.load);
-  const [busy, setBusy] = useState(false);
+  // Creating clears once the project opens (or fails), so the sheet works again when you come back.
+  const { pending, run } = useCreateAndOpen<"project">();
+  const [uploading, setUploading] = useState(false);
+  const busy = uploading || pending !== null;
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const sources = assets.filter((a) => !a.trashedAt && a.kind !== "background").sort((a, b) => b.createdAt - a.createdAt);
 
-  async function start(asset: Asset) {
-    setBusy(true);
+  function start(asset: Asset) {
     setError(null);
-    try {
-      if (!presets) await loadPresets();
-      const preset = defaultPreset(usePresets.getState().presets);
-      const id = await createProject(asset.id, { look: preset ? presetToBatchSettings(preset, DEFAULT_LOOK) : DEFAULT_LOOK });
-      onOpenChange(false);
-      router.push(`/studio/projects/${id}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "The project couldn't be created.");
-      setBusy(false);
-    }
+    return run(
+      "project",
+      async () => {
+        if (!presets) await loadPresets();
+        const preset = defaultPreset(usePresets.getState().presets);
+        const id = await createProject(asset.id, { look: preset ? presetToBatchSettings(preset, DEFAULT_LOOK) : DEFAULT_LOOK });
+        onOpenChange(false);
+        return `/studio/projects/${id}`;
+      },
+      (e) => setError(e instanceof Error ? e.message : "The project couldn't be created."),
+    );
   }
 
   return (
@@ -197,13 +200,10 @@ function SourcePicker({ open, onOpenChange }: { open: boolean; onOpenChange: (o:
           const file = e.target.files?.[0];
           e.target.value = "";
           if (!file) return;
-          setBusy(true);
-          const added = await addAssets([file]);
+          setUploading(true);
+          const added = await addAssets([file]).finally(() => setUploading(false));
           if (added.added[0]) await start(added.added[0]);
-          else {
-            setError(added.rejected[0]?.reason ?? "That file couldn't be added.");
-            setBusy(false);
-          }
+          else setError(added.rejected[0]?.reason ?? "That file couldn't be added.");
         }}
       />
       <div className="grid gap-4" data-source-picker>
