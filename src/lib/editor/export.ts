@@ -1,5 +1,6 @@
 import { exportLimits } from "@/lib/config";
 import { canvasToBlob, createCanvas, get2d } from "@/lib/image/decode";
+import { SNIFF_BYTES, sniffImage } from "@/lib/image/sniff";
 import { drawComposite, type CompositeSources } from "./compose";
 import type { BackgroundSpec, EditSettings } from "./types";
 
@@ -83,6 +84,16 @@ export async function renderExport(
   } catch {
     throw new Error("The browser couldn't encode an image this large. Try a smaller size.");
   }
+}
+
+/**
+ * The pixel size written in an exported file's own header (PNG, JPEG or
+ * WebP), so what we tell people matches the file they downloaded.
+ */
+export async function fileDimensions(blob: Blob): Promise<{ width: number; height: number } | null> {
+  const head = new Uint8Array(await blob.slice(0, SNIFF_BYTES).arrayBuffer());
+  const sniff = sniffImage(head);
+  return sniff.ok ? { width: sniff.width, height: sniff.height } : null;
 }
 
 export function downloadBlob(blob: Blob, fileName: string) {

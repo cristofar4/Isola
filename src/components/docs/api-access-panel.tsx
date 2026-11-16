@@ -44,7 +44,7 @@ export function ApiAccessPanel({ next = "/developers" }: { next?: string }) {
           <p>Create a free account to get an API key and remove backgrounds from your own code. These docs are open to everyone.</p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
-          <Link href={`/sign-up?next=${encodeURIComponent("/account#api-keys")}`} className={cn(button, "bg-blue text-white shadow-[var(--shadow-blue)] hover:bg-blue-600")}>
+          <Link href={`/sign-up?next=${encodeURIComponent("/studio/settings#api-keys")}`} className={cn(button, "bg-blue text-white shadow-[var(--shadow-blue)] hover:bg-blue-600")}>
             Create account
           </Link>
           <Link href={`/sign-in?next=${encodeURIComponent(next)}`} className={cn(button, "border border-ink bg-surface text-ink hover:bg-ink/5")}>
@@ -77,7 +77,7 @@ export function ApiAccessPanel({ next = "/developers" }: { next?: string }) {
         </p>
       </div>
       <div className="flex shrink-0 flex-wrap gap-2">
-        <Link href="/account#api-keys" className={cn(button, "bg-blue text-white shadow-[var(--shadow-blue)] hover:bg-blue-600")}>
+        <Link href="/studio/settings#api-keys" className={cn(button, "bg-blue text-white shadow-[var(--shadow-blue)] hover:bg-blue-600")}>
           {keys === 0 ? "Create a key" : "Manage API keys"}
         </Link>
         <Link href="/developers/api#playground" className={cn(button, "border border-ink bg-surface text-ink hover:bg-ink/5")}>

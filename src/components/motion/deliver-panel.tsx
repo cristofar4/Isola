@@ -9,11 +9,11 @@ import { cn } from "@/lib/cn";
 import { audibleClips } from "@/lib/motion/audio";
 import { commit, useEditor } from "@/lib/motion/editor";
 import { exportFilm, exportOptions, exportSize, safeName, ExportError, type Encoding, type ExportProgress, type ExportResult } from "@/lib/motion/export";
-import { ASPECTS, ASPECT_ORDER, FRAME_RATES, type Aspect, type ExportQuality, type ExportResolution, type FrameRate } from "@/lib/motion/model";
+import { ASPECTS, ASPECT_ORDER, FRAME_RATES, outputSize, type Aspect, type ExportQuality, type ExportResolution, type FrameRate, type Film } from "@/lib/motion/model";
 import { validateFilm } from "@/lib/motion/ops";
 import { filmAssets } from "@/lib/motion/render";
 import { filmDuration, secs } from "@/lib/motion/time";
-import { recordExport } from "@/lib/studio/export-history";
+import { recordExport, type RecordedExport } from "@/lib/studio/export-history";
 import { assetImage } from "@/lib/scene/resources";
 import { missingVideos } from "./playback";
 import { DarkButton, Field, darkInput, darkSelect } from "./ui";
@@ -32,12 +32,16 @@ export function DeliverPanel() {
   const plan = usePlan();
   const policy = exportPolicy(plan.pro);
   const settings = film.export;
+  // What the selector asks for and what the file will be (after the Free plan's size limit).
   const size = exportSize(film, settings.resolution, policy);
+  const requested = outputSize(film.aspect, settings.resolution);
+  const capped = requested.width !== size.width || requested.height !== size.height;
   const [found, setFound] = useState<{ key: string; options: Encoding[] } | null>(null);
   const optionsKey = `${size.width}x${size.height}@${film.fps}`;
   const options = found?.key === optionsKey ? found.options : null;
   const [progress, setProgress] = useState<ExportProgress | null>(null);
-  const [result, setResult] = useState<ExportResult | null>(null);
+  // The finished render, the film it was made from (to tell when it's out of date) and where Downloads kept it.
+  const [result, setResult] = useState<(ExportResult & { from: Film; kept: RecordedExport | "saving"; downloaded: boolean }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const D = filmDuration(film);
@@ -73,8 +77,9 @@ export function DeliverPanel() {
     setProgress({ phase: "preparing", done: 0, frame: 0, frames: Math.round(D * film.fps) });
     try {
       const r = await exportFilm({ film, encoding, resolution: settings.resolution, quality: settings.quality, includeAudio: settings.includeAudio && hasSound, fileName: settings.fileName || film.name, policy }, setProgress, controller.signal);
-      setResult(r);
-      void recordExport({ title: film.name, fileName: r.fileName, source: "motion", files: 1, format: r.label, blob: r.blob, preview: await posterFrame(), destinations: [`${ASPECTS[film.aspect].label} · ${r.width}×${r.height} · ${r.fps} fps`] });
+      setResult({ ...r, from: film, kept: "saving", downloaded: false });
+      const kept = await recordExport({ title: film.name, fileName: r.fileName, source: "motion", files: 1, format: r.label, blob: r.blob, preview: await posterFrame(), destinations: [`${ASPECTS[film.aspect].label} · ${r.width}×${r.height} · ${r.fps} fps`] });
+      setResult((current) => (current && current.blob === r.blob ? { ...current, kept } : current));
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") setError("Export cancelled. Nothing was saved.");
       else setError(e instanceof ExportError ? e.message : e instanceof Error ? e.message : "The export failed.");
@@ -99,9 +104,21 @@ export function DeliverPanel() {
       <div className="grid grid-cols-2 gap-2">
         <Field label="Resolution">
           <select value={settings.resolution} disabled={busy} onChange={(e) => set({ resolution: Number(e.target.value) as ExportResolution })} className={darkSelect} aria-label="Resolution">
-            <option value={720}>720p</option>
-            <option value={1080}>1080p</option>
-            <option value={2160}>4K (2160p)</option>
+            {([
+              [720, "720p"],
+              [1080, "1080p"],
+              [2160, "4K (2160p)"],
+            ] as const).map(([r, label]) => {
+              // On Free, say beside each choice what the file will really be.
+              const eff = exportSize(film, r, policy);
+              const full = outputSize(film.aspect, r);
+              const cut = eff.width !== full.width || eff.height !== full.height;
+              return (
+                <option key={r} value={r}>
+                  {cut ? `${label} → ${eff.width} × ${eff.height} on Free` : label}
+                </option>
+              );
+            })}
           </select>
         </Field>
         <Field label="Frame rate">
@@ -115,7 +132,12 @@ export function DeliverPanel() {
         </Field>
       </div>
       <p className="text-[12px] text-m-text-2" data-output-size>
-        Output: {size.width} × {size.height} · {secs(D)} · {Math.round(D * film.fps)} frames
+        Your file: <span className="font-semibold text-m-text">{size.width} × {size.height}</span> · {secs(D)} · {Math.round(D * film.fps)} frames at {film.fps} fps
+        {capped && (
+          <span className="block text-[11px]" data-output-requested>
+            Asked for {requested.width} × {requested.height}; scaled to the Free plan&apos;s limit.
+          </span>
+        )}
       </p>
       {policy.maxSide !== null && <p className="rounded-[8px] bg-m-ink/[0.04] px-2.5 py-2 text-[11px] leading-snug text-m-text-2">Free plan: up to {policy.maxSide.toLocaleString("en-US")}px on the longest side (like every Free export), no watermark. Pro exports full size.</p>}
       <Field label="Format" hint={options && !options.length ? undefined : encoding?.note ?? undefined}>
@@ -188,18 +210,46 @@ export function DeliverPanel() {
         </p>
       )}
       {result && (
-        <div className="grid gap-2 rounded-[10px] border border-m-success/40 bg-m-success/10 p-3" data-export-ready>
-          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-m-success-text">
-            <CircleCheck className="size-4" aria-hidden="true" /> Ready: {result.fileName}
+        <div className={cn("grid gap-2 rounded-[10px] border p-3", result.from === film ? "border-m-success/40 bg-m-success/10" : "border-m-warn-text/40 bg-m-warn-bg")} data-export-ready data-export-stale={result.from === film ? undefined : true}>
+          <p className={cn("flex items-center gap-1.5 text-[13px] font-semibold", result.from === film ? "text-m-success-text" : "text-m-warn-text")}>
+            {result.from === film ? <CircleCheck className="size-4 shrink-0" aria-hidden="true" /> : <CircleAlert className="size-4 shrink-0" aria-hidden="true" />}
+            {result.from === film ? "Render finished: your video is ready to download" : "This render is out of date"}
           </p>
-          <p className="text-[12px] text-m-text-2">
-            {result.label}
-            {!result.hasAudio ? " (no sound)" : ""} · {result.width} × {result.height} · {result.fps} fps · {secs(result.duration)} · {(result.blob.size / 1024 / 1024).toFixed(1)} MB
-          </p>
-          <DarkButton tone="primary" icon={<Download className="size-4" aria-hidden="true" />} onClick={() => downloadBlob(result.blob, result.fileName)}>
-            Download
+          {result.from !== film && <p className="text-[12px] text-m-warn-text">The film or its export settings changed after this render. Export again to include the changes; the download below is the earlier version.</p>}
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-[12px] text-m-text-2" data-export-facts>
+            <dt className="text-m-subtle">File</dt>
+            <dd className="truncate font-medium text-m-text">{result.fileName}</dd>
+            <dt className="text-m-subtle">Format</dt>
+            <dd>{result.label}</dd>
+            <dt className="text-m-subtle">Size</dt>
+            <dd className="tabular-nums">
+              {result.width} × {result.height} · {result.fps} fps · {secs(result.duration)}
+            </dd>
+            <dt className="text-m-subtle">Sound</dt>
+            <dd>{result.hasAudio ? "Included" : "None"}</dd>
+            <dt className="text-m-subtle">File size</dt>
+            <dd className="tabular-nums">{(result.blob.size / 1024 / 1024).toFixed(1)} MB</dd>
+          </dl>
+          <DarkButton
+            tone="primary"
+            icon={<Download className="size-4" aria-hidden="true" />}
+            onClick={() => {
+              downloadBlob(result.blob, result.fileName);
+              setResult({ ...result, downloaded: true });
+            }}
+          >
+            {result.downloaded ? "Download again" : `Download ${result.fileName.split(".").pop()?.toUpperCase() ?? ""}`}
           </DarkButton>
-          <p className="text-[11px] text-m-subtle">Also kept in Downloads in this browser while it fits.</p>
+          <p className="text-[11px] text-m-subtle" role="status" data-export-kept>
+            {result.downloaded ? "Download started. " : "Nothing has been downloaded yet: use the button to save the file. "}
+            {result.kept === "saving"
+              ? "Adding it to Downloads…"
+              : result.kept === "kept"
+                ? "It's also kept in Downloads in this browser."
+                : result.kept === "details"
+                  ? "Downloads lists it, but it's too big to keep a copy there."
+                  : "This browser's storage is full, so it isn't kept in Downloads."}
+          </p>
         </div>
       )}
       <p className="text-[11px] leading-snug text-m-subtle">Rendered on this device frame by frame with the same renderer as the viewer, then encoded by your browser. Nothing is uploaded.</p>

@@ -108,8 +108,8 @@ check("Free accounts can't process batches", true);
 // Upgrade through checkout from the pricing page.
 await page.goto(`${BASE}/pricing`, { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Upgrade to Pro" }).click();
-await page.waitForURL((u) => u.pathname === "/account", { timeout: 30_000 });
-check("Checkout returns to the account page", new URL(page.url()).searchParams.get("upgraded") === "1");
+await page.waitForURL((u) => u.pathname === "/studio/settings", { timeout: 30_000 });
+check("Checkout returns to Settings in the studio", new URL(page.url()).searchParams.get("upgraded") === "1");
 check("The account shows Pro after paying", await visible(page.getByText("Payment confirmed. Welcome to Pro.")).waitFor({ timeout: 10_000 }).then(() => true, () => false));
 const firstReference = [...paystack.txs.values()].at(-1).reference;
 const until1 = await proUntil(context, BASE);

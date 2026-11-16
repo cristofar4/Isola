@@ -14,7 +14,7 @@ export function SignedInNotice({ name, email }: { name: string; email: string })
         {name && <span className="text-muted"> ({email})</span>}.
       </p>
       <div className="flex flex-wrap gap-2">
-        <ButtonLink href="/account">Go to your account</ButtonLink>
+        <ButtonLink href="/studio/settings">Go to your settings</ButtonLink>
         <Button
           variant="secondary"
           onClick={async () => {

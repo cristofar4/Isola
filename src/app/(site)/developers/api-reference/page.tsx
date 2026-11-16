@@ -91,7 +91,7 @@ export default function ApiReferencePage() {
       <DocBody>
         <H2 id="authentication">Authentication</H2>
         <p>
-          Create keys on the <Link href="/account">Account page</Link> (up to 10 per account) and send one with every request.
+          Create keys in <Link href="/studio/settings#api-keys">Settings in your studio</Link> (up to 10 per account) and send one with every request.
           Keys start with <code>isola_sk_</code>. Only a SHA-256 hash is stored; deleting a key stops it immediately.
         </p>
         <CodeBlock title="Either header works" code={auth} lang="http" lineNumbers={false} />

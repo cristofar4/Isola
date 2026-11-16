@@ -28,7 +28,7 @@ async function submitSignIn(page) {
   const limited = page.getByRole("alert").filter({ hasText: "Too many attempts" });
   const outcome = await Promise.race([
     limited.waitFor({ timeout: 4000 }).then(() => "limited").catch(() => "ok"),
-    page.waitForURL((u) => u.pathname === "/account", { timeout: 4000 }).then(() => "ok").catch(() => "ok"),
+    page.waitForURL((u) => u.pathname === "/studio/settings", { timeout: 4000 }).then(() => "ok").catch(() => "ok"),
   ]);
   if (outcome === "limited") {
     console.log("  (rate limited as expected in production; retrying after 11 s)");
@@ -48,7 +48,7 @@ page.on("pageerror", (e) => check("No page errors", false, e.message));
 
 // Protected page redirects when signed out.
 await page.goto(`${BASE}/account`);
-await page.waitForURL(/\/sign-in\?next=%2Faccount/);
+await page.waitForURL(/\/sign-in\?next=%2Fstudio%2Fsettings/);
 check("Account page redirects signed-out visitors to sign-in", true);
 await page.screenshot({ path: join(OUT, "auth-sign-in.png") });
 
@@ -139,15 +139,15 @@ check(
 );
 await confirmTab.close();
 await page.bringToFront();
-if (new URL(page.url()).pathname !== "/account") {
+if (new URL(page.url()).pathname !== "/studio/settings") {
   await page.getByRole("button", { name: "I've confirmed my email" }).click();
 }
-await page.waitForURL(atPath("/account"));
+await page.waitForURL(atPath("/studio/settings"));
 check("The original tab carries on to where you were going", true);
 await page.getByRole("region", { name: "Profile" }).waitFor();
 check("Account shows the email as confirmed", await page.getByText(/Confirmed\. Email changes/).filter({ visible: true }).isVisible());
 check("Sign-up creates the account and opens it", (await page.getByRole("heading", { level: 1 }).innerText()) === "Ada Lovelace");
-check("Header shows the account menu", await page.getByRole("button", { name: /Account menu for Ada Lovelace/ }).isVisible());
+check("Your account opens in the studio, with your name in its menu", (await page.locator("aside [data-studio-me]").innerText()).includes("Ada Lovelace"));
 await page.screenshot({ path: join(OUT, "auth-account.png"), fullPage: true });
 
 // Duplicate sign-up is refused.
@@ -172,7 +172,9 @@ await page.getByText("Profile saved.").filter({ visible: true }).waitFor();
 await page.reload();
 check("Profile name changes persist", (await page.getByRole("heading", { level: 1 }).innerText()) === "Ada King");
 
-// Sign out from the header menu.
+// Sign out from the site header's account menu.
+await page.goto(BASE, { waitUntil: "networkidle" });
+check("Signed in, the site header shows the account menu", await page.getByRole("button", { name: /Account menu for Ada King/ }).isVisible());
 await page.getByRole("button", { name: /Account menu/ }).click();
 await page.getByRole("menuitem", { name: "Sign out" }).click();
 await page.waitForURL(`${BASE}/`);
@@ -190,7 +192,7 @@ check("Wrong password shows a clear error", true);
 await page.getByLabel("Password", { exact: true }).filter({ visible: true }).fill(password);
 await page.getByRole("checkbox", { name: "Remember me" }).check();
 await submitSignIn(page);
-await page.waitForURL(atPath("/account"));
+await page.waitForURL(atPath("/studio/settings"));
 check("Sign-in returns to the requested page", true);
 {
   const cookie = (await context.cookies()).find((c) => c.name.endsWith("session_token"));
@@ -233,7 +235,7 @@ check("Deleted accounts can no longer sign in", true);
   await fp.getByLabel("Email").fill(account.email);
   await fp.getByLabel("Password", { exact: true }).fill(account.password);
   await submitSignIn(fp);
-  await fp.waitForURL(atPath("/account"));
+  await fp.waitForURL(atPath("/studio/settings"));
   const cookie = (await forgetful.cookies()).find((c) => c.name.endsWith("session_token"));
   check("Without Remember me, the session cookie ends with the browser", cookie?.expires === -1, cookie ? `expires ${cookie.expires}` : "no session cookie");
   await forgetful.close();

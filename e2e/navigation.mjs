@@ -29,6 +29,8 @@ const EXPECTED = [
   ["Resize & crop", "/editor?tool=crop"],
   ["Batch Studio", "/batch"],
   ["Product images", "/batch?preset=catalogue"],
+  ["Scene Studio", "/studio/scenes"],
+  ["Motion Studio", "/studio/motion"],
   ["Help centre", "/support"],
   ["Developer docs", "/developers"],
 ];

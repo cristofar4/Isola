@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { formatBytes, formatNaira, planConfig } from "@/lib/config";
 import { usePlan } from "@/lib/plan";
 import { applyPolicySize, exportPolicy } from "@/lib/plan-policy";
-import { checkExportSize, downloadBlob, exportFileName, renderExport, type ExportFormat } from "@/lib/editor/export";
+import { checkExportSize, downloadBlob, exportFileName, fileDimensions, renderExport, type ExportFormat } from "@/lib/editor/export";
 import { recordExport } from "@/lib/studio/export-history";
 import { cropOf, outputSizeOf, type BackgroundSpec } from "@/lib/editor/types";
 import { compositeSources, updateSettings } from "@/lib/project/actions";
@@ -43,14 +43,19 @@ function ExportForm({ image }: { image: ProjectImage }) {
   const [quality, setQuality] = useState(92);
   const [size, setSize] = useState(() => outputSizeOf(settings, W, H));
   const [lock, setLock] = useState(true);
-  const [state, setState] = useState<{ kind: "idle" } | { kind: "rendering" } | { kind: "done"; name: string; bytes: number } | { kind: "error"; message: string }>({ kind: "idle" });
+  const [state, setState] = useState<
+    { kind: "idle" } | { kind: "rendering" } | { kind: "done"; name: string; bytes: number; width: number; height: number } | { kind: "error"; message: string }
+  >({ kind: "idle" });
   const ids = { w: useId(), h: useId() };
   const plan = usePlan();
   // Free plan: scaled down to fit the size limit (see plan-policy.ts). No plan adds a watermark.
   const policy = exportPolicy(plan.pro);
   const limited = policy.maxSide !== null;
   const cap = policy.maxSide ?? planConfig.freeMaxExportSide;
+  // What you asked for (the fields) and what the file will be (after the Free plan's size limit) can differ; both are shown.
   const out = applyPolicySize(size.width, size.height, policy);
+  const capped = out.width !== size.width || out.height !== size.height;
+  const px = (w: number, h: number) => `${w.toLocaleString("en-US")} × ${h.toLocaleString("en-US")} px`;
 
   const editorBackground = settings.background.kind !== "transparent";
   const background: BackgroundSpec = editorBackground ? settings.background : { kind: "color", color: matte };
@@ -84,8 +89,10 @@ function ExportForm({ image }: { image: ProjectImage }) {
         background,
         quality: quality / 100,
       });
+      // Report the size written in the file itself, so the message always matches the download.
+      const dims = (await fileDimensions(blob)) ?? out;
       downloadBlob(blob, fileName);
-      setState({ kind: "done", name: fileName, bytes: blob.size });
+      setState({ kind: "done", name: fileName, bytes: blob.size, width: dims.width, height: dims.height });
       void recordExport({ title: image.name, fileName, source: "editor", files: 1, format: format === "jpeg" ? "JPEG" : "PNG", blob });
     } catch (error) {
       setState({ kind: "error", message: error instanceof Error ? error.message : "Export failed." });
@@ -97,14 +104,12 @@ function ExportForm({ image }: { image: ProjectImage }) {
       open={open}
       onOpenChange={setOpen}
       title="Export image"
-      description="Rendered at full resolution, not the preview size."
+      description={limited ? "Rendered from your full-resolution original, then sized to the Free plan's limit below." : "Rendered at full resolution, not the preview size."}
       footer={
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[13px] tabular-nums text-muted" aria-live="polite">
-            <span className="font-semibold text-ink">
-              {out.width.toLocaleString("en-US")} × {out.height.toLocaleString("en-US")} px
-            </span>{" "}
-            · {FORMATS.find((f) => f.value === format)?.label}
+          <p className="text-[13px] tabular-nums text-muted" aria-live="polite" data-export-file-size>
+            File: <span className="font-semibold text-ink">{px(out.width, out.height)}</span> · {FORMATS.find((f) => f.value === format)?.label}
+            {capped && <span className="block text-[12px]">Scaled from the {px(size.width, size.height)} you asked for (Free plan limit)</span>}
           </p>
           <Button
             onClick={() => void run()}
@@ -189,7 +194,7 @@ function ExportForm({ image }: { image: ProjectImage }) {
       )}
 
       <div className="mt-5 grid gap-2">
-        <p className="text-[13px] font-semibold text-ink">Size</p>
+        <p className="text-[13px] font-semibold text-ink">{capped ? "Requested size" : "Size"}</p>
         <div className="flex items-end gap-2">
           <label className="grid flex-1 gap-1 text-xs text-muted" htmlFor={ids.w}>
             Width (px)
@@ -244,11 +249,17 @@ function ExportForm({ image }: { image: ProjectImage }) {
             </button>
           ))}
         </div>
-        <p className="text-xs text-muted">
+        <p className="text-xs text-muted" data-export-request>
           {scalePct === 100
-            ? `Same pixel size as the ${settings.crop ? "crop" : "original"} (${Math.round(crop.w)} × ${Math.round(crop.h)} px).`
-            : `${scalePct}% of the ${settings.crop ? "crop" : "original"} size.`}
+            ? `You asked for the same pixel size as the ${settings.crop ? "crop" : "original"} (${px(Math.round(crop.w), Math.round(crop.h))}).`
+            : `You asked for ${scalePct}% of the ${settings.crop ? "crop" : "original"} size.`}
         </p>
+        {capped && (
+          <p className="rounded-[10px] border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-ink-3" data-export-actual>
+            <span className="font-semibold text-ink">Your file will be {px(out.width, out.height)}.</span> The Free plan scales exports so the longest
+            side is at most {cap.toLocaleString("en-US")}px, keeping the shape you asked for.
+          </p>
+        )}
         {!check.ok && (
           <p role="alert" className="text-xs text-danger">
             {check.message}
@@ -261,9 +272,11 @@ function ExportForm({ image }: { image: ProjectImage }) {
       </p>
 
       {state.kind === "done" && (
-        <p role="status" className="mt-4 flex items-center gap-2 rounded-lg bg-success-50 px-3 py-2 text-[13px] text-success">
+        <p role="status" className="mt-4 flex items-center gap-2 rounded-lg bg-success-50 px-3 py-2 text-[13px] text-success" data-export-done>
           <CircleCheck className="size-4" aria-hidden="true" />
-          Saved {state.name} ({formatBytes(state.bytes)})
+          <span>
+            Downloaded <span className="font-semibold">{state.name}</span> · {px(state.width, state.height)} · {formatBytes(state.bytes)}
+          </span>
         </p>
       )}
       {state.kind === "error" && (

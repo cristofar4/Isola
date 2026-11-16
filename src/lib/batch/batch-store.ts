@@ -684,7 +684,7 @@ async function openSources(item: BatchItem) {
     const { mask, width, height } = await decodeMask(item.maskBlob);
     if (width !== decoded.width || height !== decoded.height) throw new Error("The saved mask doesn't match this image. Run background removal again.");
     // The editor's own layer code builds the cutout, so batch and editor exports agree.
-    const layers = new ImageLayers(decoded.pixels, decoded.width, decoded.height, mask, { shift: 0, feather: 0 });
+    const layers = await ImageLayers.build(decoded.pixels, decoded.width, decoded.height, mask, { shift: 0, feather: 0 });
     return {
       sources: (settings: BatchSettings): BatchSources => ({ width, height, cutout: layers.cutout, bounds: item.bounds, backgroundImage: backgroundFor(settings) }),
       close: () => decoded.bitmap.close(),

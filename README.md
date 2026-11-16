@@ -163,6 +163,30 @@ Optional for both: `SMTP_URL` (or `RESEND_API_KEY`) so new accounts confirm
 their email and password reset works, `PAYSTACK_SECRET_KEY` for Pro, and the
 Google/GitHub keys for social sign-in.
 
+**Turning on password reset (and email confirmation) on a deployment.** The
+reset flow is built (single-use links that expire after 60 minutes and sign the
+account out everywhere); it only needs a way to send email. Without one, the
+"Forgot password" page says so rather than pretending to send. To enable it,
+add **either**:
+
+- `RESEND_API_KEY` (a Resend API key) and `EMAIL_FROM` with an address on a
+  domain you've verified in Resend, e.g. `ISOLA <no-reply@yourdomain.com>`; **or**
+- `SMTP_URL` (e.g. `smtps://user:password@smtp.example.com:465`) or
+  `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURE`, plus
+  `EMAIL_FROM`.
+
+Also make sure `BETTER_AUTH_URL` is the site's public address (links in the
+emails use it), then redeploy. Once email works, new accounts must confirm
+their address before signing in. Keys stay in the host's environment settings;
+nothing is sent to the browser.
+
+**Accounts on a serverless host need Postgres.** On Vercel, Netlify or
+Lambda every running instance has its own disk, so a local SQLite file (for
+example `ISOLA_SQLITE_PATH` pointing into `/tmp`) gives each instance its own
+accounts: the same email and password can work on one request and be refused
+("don't match an account") on the next. The server logs a warning if it starts
+like that; set `DATABASE_URL` to a Postgres database (on Vercel: Storage → Postgres).
+
 ## How background removal works
 
 - **Engine choice.** Two permissively licensed models, both run with ONNX Runtime Web
@@ -198,7 +222,11 @@ load; a 6000×4000 image completes in ~10 s including the full-resolution mask.
 ## Accounts
 
 Sign-in uses [Better Auth](https://www.better-auth.com) (MIT), mounted at
-`/api/auth/*`, with pages at `/sign-in`, `/sign-up` and `/account`.
+`/api/auth/*`, with pages at `/sign-in` and `/sign-up`. Your account (plan,
+API keys, profile and photo, password, devices) lives in the studio at
+`/studio/settings`; the old `/account` address sends you there (keeping
+messages such as `?upgraded=1`), and the landing page's account menu offers
+"Your studio" and "Profile & settings" rather than a separate site page.
 
 - **Sign-in and sign-up screens** (`src/app/(auth)`) are focused pages with only
   the logo and "Back to home" above the form, a badge, and a picture: a
@@ -725,8 +753,21 @@ Keyframe times are relative to their clip.
   (Styles, Media, Audio, Elements: text, light and colour, scenes); a large
   viewer with the shot storyboard under it; an inspector on the right (Motion,
   Colour, Text, Sound, Export); a multitrack timeline below; and a status bar
-  naming the linked scene. Panels resize (drag or arrow keys on the
-  separators) and collapse; the layout is remembered.
+  naming the linked scene. Panels resize (drag the grip, or focus it and use
+  the arrow keys, Shift for bigger steps, Home/End for smallest/largest;
+  double-click resets) and collapse one by one, or all at once with "Focus on
+  the preview" (which brings them back as they were); sizes are remembered.
+  While you edit a film, the studio's sidebar folds to icons (Expand brings it
+  back). On a first visit, short or narrow windows start with a slimmer
+  timeline and side panels: at 1363 × 936 the square preview is about 370px
+  instead of 200px. The viewer has Fit, 50–200% and fullscreen.
+- **Export:** each resolution choice says what the file will really be on
+  Free (e.g. "1080p → 1000 × 1000 on Free"), and the panel shows "Your file"
+  next to what was asked for. A finished render says it's ready to download
+  (nothing is downloaded until you click), lists the file's format, size,
+  frame rate, length, sound and file size, then says when the download started
+  and whether Downloads kept a copy. Change the film afterwards and the render
+  is marked out of date.
 - **On phones** (like CapCut): the viewer on top, then a timeline whose
   playhead stays fixed in the middle while the film scrolls under it
   (scrolling scrubs and pauses; pinch or +/− to zoom; tap a clip to select
@@ -890,7 +931,21 @@ Every image keeps separate, non-destructive layers:
 | Original | Decoded RGBA, never modified | — |
 | Automatic mask | Engine output | Reprocessing |
 | Editable mask | 8-bit alpha at full resolution | Restore / erase brushes, reset |
-| Settings | `feather`, `shift`, background, shadow, crop, output size | Panels |
+| Settings | `feather`, `shift`, background, shadow, crop and the ratio it's held to, output size | Panels |
+
+The crop ratio (Free, Original, 1:1, 4:5, 3:2, 16:9) is stored with the crop,
+so choosing one is a single undoable step and undo/redo always show the ratio
+of the crop you see; nothing re-crops on its own when you come back to the
+crop tool.
+
+**Export sizes:** the size fields are what you ask for; on Free, the dialog
+also says what the file will be ("Your file will be 1,000 × 750 px", and the
+footer shows "File: 1,000 × 750 px"), and after downloading it reports the size
+read from the file's own header, so every number agrees with the download.
+
+**Placing a photo on a phone:** decoding (including the full-size pixel
+read-back and the thumbnail) runs in a worker, and the cutout is built a band
+at a time, so the page keeps responding while a large photo is prepared.
 
 The restore brush pulls the mask towards 255 (so original pixels return exactly);
 the erase brush pulls it towards 0. Brush strokes update only the touched region

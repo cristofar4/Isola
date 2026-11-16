@@ -11,6 +11,8 @@ export interface DecodedImage {
   pixels: Uint8ClampedArray;
   /** True when at least one pixel is not fully opaque. */
   hasAlpha: boolean;
+  /** A 240px JPEG preview, when it was made alongside the decode. */
+  thumb?: Blob;
 }
 
 export function createCanvas(width: number, height: number): OffscreenCanvas | HTMLCanvasElement {
@@ -33,7 +35,64 @@ export function get2d(
   return ctx;
 }
 
+/* ------------------------------------------------- decoding off the page -- */
+
+let decoder: Worker | null = null;
+let decoderBroken = false;
+let nextDecode = 1;
+const decodes = new Map<number, { resolve: (d: DecodedImage) => void; reject: (e: Error) => void }>();
+
+function decodeWorker(): Worker | null {
+  if (decoderBroken || typeof Worker === "undefined" || typeof OffscreenCanvas === "undefined") return null;
+  if (decoder) return decoder;
+  try {
+    decoder = new Worker(new URL("./decode.worker.ts", import.meta.url), { type: "module", name: "isola-decode" });
+  } catch {
+    decoderBroken = true;
+    return null;
+  }
+  decoder.onmessage = (event: MessageEvent<import("./decode.worker").DecodeResponse>) => {
+    const msg = event.data;
+    const pending = decodes.get(msg.id);
+    if (!pending) return;
+    decodes.delete(msg.id);
+    if (msg.ok) pending.resolve({ bitmap: msg.bitmap, width: msg.width, height: msg.height, pixels: msg.pixels, hasAlpha: msg.hasAlpha, thumb: msg.thumb });
+    else pending.reject(new Error(msg.message));
+  };
+  decoder.onerror = () => {
+    // The worker couldn't start here: decode on the page from now on, and retry what was waiting.
+    decoderBroken = true;
+    decoder?.terminate();
+    decoder = null;
+    const waiting = [...decodes.values()];
+    decodes.clear();
+    for (const p of waiting) p.reject(new Error("decode-worker-failed"));
+  };
+  return decoder;
+}
+
+/**
+ * Decode a photo to its original pixels. Where the browser allows, the work
+ * (decode, full-size pixel read-back and a thumbnail) happens in a worker, so
+ * choosing a photo doesn't freeze the page on phones.
+ */
 export async function decodeImage(file: Blob): Promise<DecodedImage> {
+  const worker = decodeWorker();
+  if (worker) {
+    try {
+      return await new Promise<DecodedImage>((resolve, reject) => {
+        const id = nextDecode++;
+        decodes.set(id, { resolve, reject });
+        worker.postMessage({ id, file, thumbSide: 240 });
+      });
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== "decode-worker-failed") throw error;
+    }
+  }
+  return decodeOnPage(file);
+}
+
+async function decodeOnPage(file: Blob): Promise<DecodedImage> {
   let bitmap: ImageBitmap;
   try {
     bitmap = await createImageBitmap(file, {

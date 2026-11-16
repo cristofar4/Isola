@@ -151,7 +151,7 @@ export function ApiPlayground() {
               </Button>
             </div>
             <p className="text-[12px] text-muted">
-              Create one on your <a href="/account" className="font-semibold text-blue-700 underline">Account page</a>. It stays in this page and is sent only to this site.
+              Create one in <a href="/studio/settings#api-keys" className="font-semibold text-blue-700 underline">Settings in your studio</a>. It stays in this page and is sent only to this site.
             </p>
           </div>
 

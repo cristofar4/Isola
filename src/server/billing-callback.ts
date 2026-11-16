@@ -21,7 +21,7 @@ export async function handleBillingCallback(request: Request, place: "site" | "s
     const auth = await getAuth();
     const session = await auth.api.getSession({ headers: request.headers });
     const result = await verifyAndGrant(reference, session?.user.id);
-    return to(`${result.returnTo ?? (place === "studio" ? "/studio/plans" : "/account")}?upgraded=1`);
+    return to(`${result.returnTo ?? (place === "studio" ? "/studio/plans" : "/studio/settings")}?upgraded=1`);
   } catch (error) {
     const reason = error instanceof BillingError && error.status === 402 ? "incomplete" : error instanceof BillingError && error.status === 403 ? "mismatch" : "failed";
     if (!(error instanceof BillingError)) console.error("[billing] callback failed:", error instanceof Error ? error.message : error);

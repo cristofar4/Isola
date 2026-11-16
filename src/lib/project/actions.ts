@@ -94,7 +94,7 @@ async function decodeInto(id: string): Promise<boolean> {
       return false;
     }
     assets.decoded = decoded;
-    const thumb = await makeThumbnail(decoded.bitmap, 240, "image/jpeg");
+    const thumb = decoded.thumb ?? (await makeThumbnail(decoded.bitmap, 240, "image/jpeg"));
     store().patchImage(id, {
       width: decoded.width,
       height: decoded.height,
@@ -210,11 +210,12 @@ export async function processImage(id: string): Promise<void> {
     }
     const settings = getImage(id)!.settings;
     if (assets.layers) assets.layers.setMask(mask);
-    else
-      assets.layers = new ImageLayers(decoded.pixels, decoded.width, decoded.height, mask, {
-        shift: settings.shift,
-        feather: settings.feather,
-      });
+    else {
+      // Built in slices so the page stays responsive while a large photo's cutout is prepared.
+      const layers = await ImageLayers.build(decoded.pixels, decoded.width, decoded.height, mask, { shift: settings.shift, feather: settings.feather });
+      if (assets.abort !== null || !imageAssets.has(id)) return; // Reprocessed or removed meanwhile.
+      assets.layers = layers;
+    }
     const thumb = await makeThumbnail(assets.layers.cutout as OffscreenCanvas, 240, "image/png");
     const old = getImage(id)?.resultThumbUrl;
     if (old) URL.revokeObjectURL(old);
@@ -296,7 +297,7 @@ export async function importWithMask(
   }
   assets.aiMask = mask;
   assets.mask = mask.slice();
-  assets.layers = new ImageLayers(decoded.pixels, decoded.width, decoded.height, assets.mask, { shift: 0, feather: 0 });
+  assets.layers = await ImageLayers.build(decoded.pixels, decoded.width, decoded.height, assets.mask, { shift: 0, feather: 0 });
   const thumb = await makeThumbnail(assets.layers.cutout as OffscreenCanvas, 240, "image/png");
   bump(id, { status: "ready", result: meta, resultThumbUrl: URL.createObjectURL(thumb) });
   return id;

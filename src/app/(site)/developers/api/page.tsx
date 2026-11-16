@@ -81,7 +81,7 @@ export default function ApiQuickstartPage() {
         <ApiAccessPanel next="/developers/api" />
         <ol>
           <li>
-            Sign in and open your <Link href="/account">Account page</Link>.
+            Sign in and open <Link href="/studio/settings#api-keys">Settings in your studio</Link>.
           </li>
           <li>
             Under <strong>API keys</strong>, name the key (for example &quot;Shop backend&quot;) and choose{" "}

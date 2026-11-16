@@ -419,7 +419,14 @@ await page.locator("[data-deliver]").getByRole("button", { name: "Export video" 
 await page.locator("[data-export-progress]").waitFor({ timeout: 10_000 }).catch(() => undefined);
 await page.locator("[data-export-ready]").waitFor({ timeout: 240_000 });
 const ready = (await page.locator("[data-export-ready]").innerText()).replace(/\s+/g, " ");
+check(
+  "A finished render says it's ready to download (not that it was downloaded), with its format, size, fps, length and sound",
+  ready.includes("Render finished: your video is ready to download") && ready.includes("Nothing has been downloaded yet") && /MP4/.test(ready) && /\d+ × \d+ · 30 fps · \d+(\.\d)?s/.test(ready) && /Sound Included/.test(ready),
+  ready.slice(0, 220),
+);
 const mp4 = await download(() => page.locator("[data-export-ready]").getByRole("button", { name: "Download" }).click(), "film.mp4");
+await page.locator("[data-export-kept]").filter({ hasText: /kept in Downloads|too big|storage is full/ }).waitFor({ timeout: 15_000 });
+check("After clicking Download: “Download started”, and whether Downloads kept a copy", /Download started\. It's also kept in Downloads in this browser\./.test(await page.locator("[data-export-kept]").innerText()), await page.locator("[data-export-kept]").innerText());
 const info = probe(mp4);
 const v = info.streams.find((s) => s.codec_type === "video");
 const a = info.streams.find((s) => s.codec_type === "audio");
@@ -449,6 +456,12 @@ const exportPx = await page.evaluate(async (b64) => {
   return Array.from(ctx.getImageData(0, 0, 16, 16).data);
 }, png.toString("base64"));
 check("The exported frame matches the preview at the same time", diff(previewPx, exportPx) < 8, `mean difference ${diff(previewPx, exportPx).toFixed(1)} (of 255) at ${tc}`);
+
+// Change the film after rendering: the earlier render is no longer presented as current.
+await page.locator("[data-deliver]").getByLabel("Quality").selectOption("standard");
+await page.locator("[data-export-stale]").waitFor({ timeout: 5000 });
+check("Changing the film after a render marks that render out of date", (await page.locator("[data-export-ready]").innerText()).includes("This render is out of date"));
+await page.locator("[data-deliver]").getByLabel("Quality").selectOption("high");
 
 // Persistence.
 await page.goto(filmUrl.replace("/studio/motion/", "/motion/"), { waitUntil: "networkidle" });

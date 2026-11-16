@@ -244,6 +244,11 @@ function createDatabase(): BetterAuthOptions["database"] {
     return new Pool({ connectionString: url, max: Number(process.env.DATABASE_POOL_MAX || 5) });
   }
   const file = sqlitePath();
+  // On serverless hosts every running instance has its own disk, so a local SQLite file (e.g. ISOLA_SQLITE_PATH in /tmp)
+  // gives each instance different accounts: the same email and password can work on one request and "not match" on the next.
+  if (process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    console.warn("[auth] Using a local SQLite database on a serverless host. Accounts won't be shared between instances; set DATABASE_URL to a Postgres database." + hostHint());
+  }
   mkdirSync(dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");

@@ -57,7 +57,7 @@ export function UpgradeButton({
   }
   if (plan.pro && plan.renews) {
     return (
-      <ButtonLink href={returnTo.startsWith("/studio") ? "/studio/settings#plan" : "/account"} size={size} variant="outline-blue" className={cn("w-full", className)}>
+      <ButtonLink href="/studio/settings#plan" size={size} variant="outline-blue" className={cn("w-full", className)}>
         You&apos;re on Pro
       </ButtonLink>
     );

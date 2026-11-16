@@ -19,10 +19,21 @@ async function ForgotPasswordContent() {
   const mode = emailMode();
   if (problem || !mode) {
     return (
-      <div role="alert" className="rounded-[10px] border border-warn/25 bg-warn-50 px-3 py-2.5 text-[13px] leading-relaxed text-warn">
-        Password reset by email isn&apos;t set up on this deployment
-        {problem ? ` (${problem})` : " (no email service is configured)"}. Contact the site operator for help with your
-        account.
+      <div role="alert" className="grid gap-2 rounded-[10px] border border-warn/25 bg-warn-50 px-3 py-2.5 text-[13px] leading-relaxed text-warn">
+        <p>
+          Password reset by email isn&apos;t set up on this deployment
+          {problem ? ` (${problem})` : " (no email service is configured)"}, so no reset email can be sent. Contact the site operator for
+          help with your account.
+        </p>
+        {!problem && (
+          <p className="text-ink-3">
+            Still signed in somewhere? You can change your password in{" "}
+            <Link href="/studio/settings#security" className="font-semibold text-blue-700 underline underline-offset-2">
+              Settings → Password &amp; sign-in
+            </Link>{" "}
+            without email.
+          </p>
+        )}
       </div>
     );
   }

@@ -16,6 +16,8 @@ const STUDIO_PATHS: Record<string, string> = {
 };
 
 function HelpLink({ href, place, children }: { href: string; place: HelpPlace; children: ReactNode }) {
+  // Your account lives in the studio, whichever help page you're reading.
+  if (href === "/account") return <Link href={STUDIO_PATHS[href]}>{children}</Link>;
   if (place === "studio") {
     const inStudio = STUDIO_PATHS[href];
     if (inStudio) return <Link href={inStudio}>{children}</Link>;
@@ -278,8 +280,8 @@ function buildTopics(place: HelpPlace): Topic[] {
       {
         id: "cancel",
         q: "How do I change my card or cancel?",
-        text: "Manage subscription on the Account page; Pro stays active until the end of the paid period.",
-        a: <p>Use <strong>Manage subscription</strong> on the Account page. Pro stays active until the end of the period you&apos;ve paid for.</p>,
+        text: "Manage subscription in Settings (in your studio); Pro stays active until the end of the paid period.",
+        a: <p>Use <strong>Manage subscription</strong> in Settings, in your studio. Pro stays active until the end of the period you&apos;ve paid for.</p>,
       },
     ],
   },
@@ -292,10 +294,10 @@ function buildTopics(place: HelpPlace): Topic[] {
       {
         id: "api-key",
         q: "How do I get an API key?",
-        text: "Account page, API keys, create key, copy it once. Use Authorization Bearer.",
+        text: "Settings in your studio, API keys, create key, copy it once. Use Authorization Bearer.",
         a: (
           <p>
-            Open the <HelpLink place={place} href="/account">Account page</HelpLink>, create a key under <strong>API keys</strong> and copy it straight
+            Open <HelpLink place={place} href="/account">Settings in your studio</HelpLink>, create a key under <strong>API keys</strong> and copy it straight
             away; it&apos;s only shown once. Send it as <code>Authorization: Bearer …</code>. The{" "}
             <HelpLink place={place} href="/developers/api">API quickstart</HelpLink> has curl, Node.js and Python examples and a live playground.
           </p>

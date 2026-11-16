@@ -1,4 +1,4 @@
-import { BookOpen, Code2, Copy, Crop, Eraser, Image as ImageIcon, Layers, ShoppingBag, type LucideIcon } from "lucide-react";
+import { BookOpen, Box, Clapperboard, Code2, Copy, Crop, Eraser, Image as ImageIcon, Layers, ShoppingBag, type LucideIcon } from "lucide-react";
 
 /**
  * Everything the Tools menu, the mobile menu and /tools link to. Each entry
@@ -11,6 +11,8 @@ export interface ToolLink {
   description: string;
   /** Longer explanation for the /tools page. */
   detail: string;
+  /** What it needs (account, plan, browser), shown on the /tools page. */
+  requires?: string;
   icon: LucideIcon;
 }
 
@@ -69,6 +71,23 @@ export const MORE_TOOLS: ToolGroup = {
       description: "Create a consistent catalogue",
       detail: "Opens Batch Studio with a catalogue preset: white square canvas, even padding, centred products, JPEG.",
       icon: ShoppingBag,
+    },
+    // These open inside the signed-in studio; signed out, sign-in comes first and brings you back.
+    {
+      href: "/studio/scenes",
+      label: "Scene Studio",
+      description: "Product scenes with a backdrop",
+      detail: "Place a cutout on a backdrop with a plinth, a soft shadow and a headline, then export Square, Portrait and Wide versions together.",
+      requires: "Free account. Free exports up to 1,000px; Pro exports full size.",
+      icon: Box,
+    },
+    {
+      href: "/studio/motion",
+      label: "Motion Studio",
+      description: "Short product films from a scene",
+      detail: "Animate a scene with a motion style, text, keyframes, colour and music made in your browser, then export a video file.",
+      requires: "Free account. Video export needs a browser that can encode video (WebCodecs); Free exports up to 1,000px.",
+      icon: Clapperboard,
     },
   ],
 };

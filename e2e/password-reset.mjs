@@ -32,7 +32,7 @@ async function submitSignIn(page) {
   const limited = page.getByRole("alert").filter({ hasText: "Too many attempts" });
   const outcome = await Promise.race([
     limited.waitFor({ timeout: 4000 }).then(() => "limited").catch(() => "ok"),
-    page.waitForURL((u) => u.pathname === "/account" || u.pathname === "/studio", { timeout: 4000 }).then(() => "ok").catch(() => "ok"),
+    page.waitForURL((u) => u.pathname === "/studio/settings" || u.pathname === "/studio", { timeout: 4000 }).then(() => "ok").catch(() => "ok"),
   ]);
   if (outcome === "limited") {
     console.log("  (rate limited as expected in production; retrying after 11 s)");

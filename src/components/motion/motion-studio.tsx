@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, Check, ChevronRight, CircleAlert, Link2, Moon, PanelBottomClose, PanelBottomOpen, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Redo2, RefreshCw, Sun, Undo2, Upload, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, CircleAlert, Link2, Maximize2, Minimize2, Moon, PanelBottomClose, PanelBottomOpen, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Redo2, RefreshCw, Sun, Undo2, Upload, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Spinner } from "@/components/ui/progress";
 import { cn } from "@/lib/cn";
@@ -13,6 +13,7 @@ import { filmDuration, secs, shotAt, toFrame } from "@/lib/motion/time";
 import { creativeFontClasses } from "@/lib/scene/fonts";
 import { loadScenes, useScenes } from "@/lib/scene/store";
 import { useLibraryReady } from "@/components/studio/library-hooks";
+import { setEditorOpen } from "@/components/studio/studio-place";
 import { importFiles } from "./add-media";
 import { ColourPanel } from "./colour-panel";
 import { DeliverPanel } from "./deliver-panel";
@@ -83,12 +84,30 @@ function useNarrow() {
   );
 }
 
+/**
+ * Panel sizes for a first visit, from the window: on a laptop-height screen
+ * a 260px timeline and two 300px side panels left the preview about 200px
+ * across, so short and narrow windows start with slimmer panels.
+ */
+function defaultLayout(): Layout {
+  if (typeof window === "undefined") return DEFAULT_LAYOUT;
+  const h = window.innerHeight;
+  const w = window.innerWidth;
+  return {
+    ...DEFAULT_LAYOUT,
+    bottom: Math.round(Math.min(DEFAULT_LAYOUT.bottom, Math.max(150, h * 0.22))),
+    left: w < 1500 ? 264 : DEFAULT_LAYOUT.left,
+    right: w < 1500 ? 296 : DEFAULT_LAYOUT.right,
+  };
+}
+
 function readLayout() {
+  const base = defaultLayout();
   try {
     const raw = JSON.parse(localStorage.getItem("isola-motion-layout") ?? "{}") as Partial<Layout>;
-    return { ...DEFAULT_LAYOUT, ...raw };
+    return { ...base, ...raw };
   } catch {
-    return DEFAULT_LAYOUT;
+    return base;
   }
 }
 interface Layout {
@@ -100,10 +119,17 @@ interface Layout {
   bottomOpen: boolean;
 }
 const DEFAULT_LAYOUT: Layout = { left: 300, right: 328, bottom: 260, leftOpen: true, rightOpen: true, bottomOpen: true };
+/** Smallest and largest size of each panel, in pixels. */
+const PANEL_LIMITS = { left: [240, 520], right: [280, 520], bottom: [140, 560] } as const;
 
-/** A drag handle between panels. */
-function Splitter({ axis, onDrag, label, value, min, max }: { axis: "x" | "y"; onDrag: (delta: number) => void; label: string; value: number; min: number; max: number }) {
+/**
+ * A drag handle between panels: a grip you can see, a tooltip saying how to
+ * use it, arrow keys (Shift for bigger steps), Home/End for the smallest and
+ * largest size, and a double-click to go back to the default.
+ */
+function Splitter({ axis, onDrag, onSet, label, value, min, max, reset }: { axis: "x" | "y"; onDrag: (delta: number) => void; onSet: (value: number) => void; label: string; value: number; min: number; max: number; reset: number }) {
   const last = useRef<number | null>(null);
+  // For the inspector and timeline, dragging towards the editor's centre makes the panel bigger.
   return (
     <div
       role="separator"
@@ -112,12 +138,19 @@ function Splitter({ axis, onDrag, label, value, min, max }: { axis: "x" | "y"; o
       aria-valuenow={Math.round(value)}
       aria-valuemin={min}
       aria-valuemax={max}
+      title={`${label}: drag, or focus and use the arrow keys. Double-click to reset.`}
       tabIndex={0}
+      data-splitter={label}
       onKeyDown={(e) => {
         const step = e.shiftKey ? 40 : 12;
         if (axis === "x" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) onDrag(e.key === "ArrowRight" ? step : -step);
-        if (axis === "y" && (e.key === "ArrowUp" || e.key === "ArrowDown")) onDrag(e.key === "ArrowDown" ? step : -step);
+        else if (axis === "y" && (e.key === "ArrowUp" || e.key === "ArrowDown")) onDrag(e.key === "ArrowDown" ? step : -step);
+        else if (e.key === "Home") onSet(min);
+        else if (e.key === "End") onSet(max);
+        else return;
+        e.preventDefault();
       }}
+      onDoubleClick={() => onSet(reset)}
       onPointerDown={(e: ReactPointerEvent) => {
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         last.current = axis === "x" ? e.clientX : e.clientY;
@@ -129,8 +162,19 @@ function Splitter({ axis, onDrag, label, value, min, max }: { axis: "x" | "y"; o
         last.current = v;
       }}
       onPointerUp={() => (last.current = null)}
-      className={cn("shrink-0 bg-m-ink/[0.04] transition-colors hover:bg-m-accent-2/40 focus:bg-m-accent-2/50 focus:outline-none", axis === "x" ? "w-1 cursor-col-resize" : "h-1 cursor-row-resize")}
-    />
+      className={cn(
+        "group relative z-10 shrink-0 bg-m-ink/[0.06] transition-colors hover:bg-m-accent-2/40 focus-visible:bg-m-accent-2/60 focus-visible:outline-none",
+        axis === "x" ? "-mx-[3px] w-[7px] cursor-col-resize border-x-[3px] border-transparent bg-clip-padding" : "-my-[3px] h-[7px] cursor-row-resize border-y-[3px] border-transparent bg-clip-padding",
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-m-text-2/50 opacity-60 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100",
+          axis === "x" ? "h-8 w-[3px]" : "h-[3px] w-8",
+        )}
+      />
+    </div>
   );
 }
 
@@ -280,6 +324,9 @@ function Editor() {
   const narrow = useNarrow();
   const theme = useMotionTheme();
   const [layout, setLayout] = useState<Layout>(readLayout);
+  // Focus on the preview: hides the library, inspector and timeline together, and brings them back as they were.
+  const [focus, setFocus] = useState(false);
+  const show = { left: layout.leftOpen && !focus, right: layout.rightOpen && !focus, bottom: layout.bottomOpen && !focus };
   const [tab, setTab] = useState<LibraryTab>("styles");
   const [updating, setUpdating] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -287,6 +334,12 @@ function Editor() {
   const scenes = useScenes((s) => s.scenes);
   usePlayback();
   useShortcuts();
+  // On desktop the studio's sidebar folds to icons while you edit, so the preview gets the room (Expand brings it back).
+  useEffect(() => {
+    if (narrow) return;
+    setEditorOpen(true);
+    return () => setEditorOpen(false);
+  }, [narrow]);
 
   useEffect(() => {
     void loadScenes().catch(() => undefined);
@@ -310,13 +363,17 @@ function Editor() {
   const sceneChanged = sceneChangedSince(film, source);
   const resize = useCallback((key: "left" | "right" | "bottom", delta: number) => {
     setLayout((l) => {
-      const limits = { left: [240, 520], right: [280, 520], bottom: [140, 560] } as const;
-      const [lo, hi] = limits[key];
+      const [lo, hi] = PANEL_LIMITS[key];
       return { ...l, [key]: Math.min(hi, Math.max(lo, l[key] + delta)) };
     });
   }, []);
+  const setSize = useCallback((key: "left" | "right" | "bottom", value: number) => {
+    const [lo, hi] = PANEL_LIMITS[key];
+    setLayout((l) => ({ ...l, [key]: Math.min(hi, Math.max(lo, value)) }));
+  }, []);
   const openInspector = (id: Workspace) => {
     setWorkspace(id);
+    setFocus(false);
     setLayout((l) => ({ ...l, rightOpen: true }));
     // The library follows along: sound files beside Sound, titles and lights beside Text.
     if (id === "sound") setTab("audio");
@@ -469,12 +526,12 @@ function Editor() {
       ) : (
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1">
-            {layout.leftOpen && (
+            {show.left && (
               <>
                 <div className="flex min-h-0 shrink-0 flex-col border-r border-m-line" style={{ width: layout.left }}>
                   {library}
                 </div>
-                <Splitter axis="x" label="Resize library" value={layout.left} min={240} max={520} onDrag={(d) => resize("left", d)} />
+                <Splitter axis="x" label="Resize library" value={layout.left} min={PANEL_LIMITS.left[0]} max={PANEL_LIMITS.left[1]} reset={defaultLayout().left} onDrag={(d) => resize("left", d)} onSet={(v) => setSize("left", v)} />
               </>
             )}
             <div className="flex min-w-0 flex-1 flex-col">
@@ -485,29 +542,32 @@ function Editor() {
                 <Storyboard />
               </div>
             </div>
-            {layout.rightOpen && (
+            {show.right && (
               <>
-                <Splitter axis="x" label="Resize inspector" value={layout.right} min={280} max={520} onDrag={(d) => resize("right", -d)} />
+                <Splitter axis="x" label="Resize inspector" value={layout.right} min={PANEL_LIMITS.right[0]} max={PANEL_LIMITS.right[1]} reset={defaultLayout().right} onDrag={(d) => resize("right", -d)} onSet={(v) => setSize("right", v)} />
                 <div className="flex min-h-0 shrink-0 flex-col border-l border-m-line" style={{ width: layout.right }}>
                   {inspector}
                 </div>
               </>
             )}
           </div>
-          {layout.bottomOpen && <Splitter axis="y" label="Resize timeline" value={layout.bottom} min={140} max={560} onDrag={(d) => resize("bottom", -d)} />}
+          {show.bottom && <Splitter axis="y" label="Resize timeline" value={layout.bottom} min={PANEL_LIMITS.bottom[0]} max={PANEL_LIMITS.bottom[1]} reset={defaultLayout().bottom} onDrag={(d) => resize("bottom", -d)} onSet={(v) => setSize("bottom", v)} />}
           <div className="flex shrink-0 items-center gap-1 border-t border-m-line bg-m-chrome px-2 py-0.5">
-            <IconButton label={layout.leftOpen ? "Hide library" : "Show library"} onClick={() => setLayout((l) => ({ ...l, leftOpen: !l.leftOpen }))}>
-              {layout.leftOpen ? <PanelLeftClose className="size-4" aria-hidden="true" /> : <PanelLeftOpen className="size-4" aria-hidden="true" />}
+            <IconButton label={show.left ? "Hide library" : "Show library"} onClick={() => (setFocus(false), setLayout((l) => ({ ...l, leftOpen: !show.left })))}>
+              {show.left ? <PanelLeftClose className="size-4" aria-hidden="true" /> : <PanelLeftOpen className="size-4" aria-hidden="true" />}
             </IconButton>
-            <IconButton label={layout.bottomOpen ? "Hide timeline" : "Show timeline"} onClick={() => setLayout((l) => ({ ...l, bottomOpen: !l.bottomOpen }))}>
-              {layout.bottomOpen ? <PanelBottomClose className="size-4" aria-hidden="true" /> : <PanelBottomOpen className="size-4" aria-hidden="true" />}
+            <IconButton label={show.bottom ? "Hide timeline" : "Show timeline"} onClick={() => (setFocus(false), setLayout((l) => ({ ...l, bottomOpen: !show.bottom })))}>
+              {show.bottom ? <PanelBottomClose className="size-4" aria-hidden="true" /> : <PanelBottomOpen className="size-4" aria-hidden="true" />}
             </IconButton>
-            <IconButton label={layout.rightOpen ? "Hide inspector" : "Show inspector"} onClick={() => setLayout((l) => ({ ...l, rightOpen: !l.rightOpen }))}>
-              {layout.rightOpen ? <PanelRightClose className="size-4" aria-hidden="true" /> : <PanelRightOpen className="size-4" aria-hidden="true" />}
+            <IconButton label={show.right ? "Hide inspector" : "Show inspector"} onClick={() => (setFocus(false), setLayout((l) => ({ ...l, rightOpen: !show.right })))}>
+              {show.right ? <PanelRightClose className="size-4" aria-hidden="true" /> : <PanelRightOpen className="size-4" aria-hidden="true" />}
+            </IconButton>
+            <IconButton label={focus ? "Show all panels" : "Focus on the preview"} onClick={() => setFocus((f) => !f)}>
+              {focus ? <Minimize2 className="size-4" aria-hidden="true" /> : <Maximize2 className="size-4" aria-hidden="true" />}
             </IconButton>
             <span className="ml-1 text-[12px] font-semibold text-m-text-2">Timeline</span>
           </div>
-          {layout.bottomOpen && (
+          {show.bottom && (
             <div className="shrink-0 bg-m-chrome" style={{ height: layout.bottom }}>
               <Timeline />
             </div>

@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
-import { LayoutDashboard, LogOut, UserRound, Wand2 } from "lucide-react";
+import { LayoutDashboard, LogOut, Settings, Wand2 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { authClient } from "@/lib/auth-client";
-import { initialsOf } from "@/lib/initials";
 import { signInHref } from "@/lib/session-gate";
 
 /** Signing in from a workspace page brings you back to it (the batch itself is kept in the browser). */
@@ -15,15 +15,9 @@ function useSignInHref() {
   return pathname === "/batch" || pathname === "/editor" ? signInHref(pathname) : "/sign-in";
 }
 
-export function Avatar({ name, email, size = "md" }: { name: string; email: string; size?: "sm" | "md" }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-blue font-semibold text-white ${size === "md" ? "size-9 text-[13px]" : "size-7 text-[11px]"}`}
-    >
-      {initialsOf(name, email)}
-    </span>
-  );
+/** Your profile picture (photo or initials), the same one the studio shows. */
+export function Avatar({ name, email, image, size = "md" }: { name: string; email: string; image?: string | null; size?: "sm" | "md" }) {
+  return <UserAvatar name={name} email={email} image={image} className={size === "md" ? "size-9 text-[13px]" : "size-7 text-[11px]"} />;
 }
 
 /** Desktop header actions: sign-in links when signed out, account menu when signed in. */
@@ -55,6 +49,7 @@ export function UserMenu() {
   }
 
   const { name, email } = session.user;
+  const image = (session.user as { image?: string | null }).image ?? null;
   return (
     <>
       <ButtonLink href="/studio" size="md" variant="secondary" icon={<LayoutDashboard className="size-4" aria-hidden="true" />}>
@@ -65,7 +60,7 @@ export function UserMenu() {
           className="rounded-full outline-offset-2 transition-shadow hover:shadow-[0_0_0_3px_var(--color-blue-100)] data-[state=open]:shadow-[0_0_0_3px_var(--color-blue-100)]"
           aria-label={`Account menu for ${name || email}`}
         >
-          <Avatar name={name} email={email} />
+          <Avatar name={name} email={email} image={image} />
         </DropdownMenu.Trigger>
                   <DropdownMenu.Content
             align="end"
@@ -83,12 +78,12 @@ export function UserMenu() {
               </Link>
             </DropdownMenu.Item>
             <DropdownMenu.Item asChild>
-              <Link href="/account" className="flex items-center gap-2 rounded-lg px-2.5 py-2 outline-none data-[highlighted]:bg-paper">
-                <UserRound className="size-4 text-muted" aria-hidden="true" /> Account
+              <Link href="/studio/settings" className="flex items-center gap-2 rounded-lg px-2.5 py-2 outline-none data-[highlighted]:bg-paper">
+                <Settings className="size-4 text-muted" aria-hidden="true" /> Profile & settings
               </Link>
             </DropdownMenu.Item>
             <DropdownMenu.Item asChild>
-              <Link href="/editor" className="flex items-center gap-2 rounded-lg px-2.5 py-2 outline-none data-[highlighted]:bg-paper">
+              <Link href="/studio/editor" className="flex items-center gap-2 rounded-lg px-2.5 py-2 outline-none data-[highlighted]:bg-paper">
                 <Wand2 className="size-4 text-muted" aria-hidden="true" /> Editor
               </Link>
             </DropdownMenu.Item>
@@ -134,7 +129,7 @@ export function MobileAccount({ onNavigate }: { onNavigate: () => void }) {
   return (
     <div className="grid grid-cols-1 gap-3">
       <div className="flex min-w-0 items-center gap-3">
-        <Avatar name={session.user.name} email={session.user.email} />
+        <Avatar name={session.user.name} email={session.user.email} image={(session.user as { image?: string | null }).image ?? null} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold text-ink">{session.user.name}</p>
           <p className="truncate text-[13px] text-muted">{session.user.email}</p>
@@ -153,8 +148,8 @@ export function MobileAccount({ onNavigate }: { onNavigate: () => void }) {
         </button>
       </div>
       <div className="grid grid-cols-2 gap-2.5">
-        <ButtonLink href="/account" variant="secondary" size="lg" className="min-w-0 px-3" onClick={onNavigate} icon={<UserRound className="size-4" aria-hidden="true" />}>
-          Account
+        <ButtonLink href="/studio/settings" variant="secondary" size="lg" className="min-w-0 px-3" onClick={onNavigate} icon={<Settings className="size-4" aria-hidden="true" />}>
+          Settings
         </ButtonLink>
         <ButtonLink href="/studio" size="lg" className="min-w-0 px-3" onClick={onNavigate} icon={<LayoutDashboard className="size-4" aria-hidden="true" />}>
           Your studio

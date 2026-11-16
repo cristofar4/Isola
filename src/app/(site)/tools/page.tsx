@@ -7,7 +7,7 @@ import { TOOL_GROUPS } from "@/lib/tools";
 
 export const metadata: Metadata = {
   title: "All tools",
-  description: "Remove backgrounds, refine edges, change backgrounds, crop and resize, and process whole batches with ISOLA.",
+  description: "Remove backgrounds, refine edges, change backgrounds, crop and resize, process whole batches, and make product scenes and short films with ISOLA.",
 };
 
 export default function ToolsPage() {
@@ -56,6 +56,11 @@ export default function ToolsPage() {
                   </span>
                   <span className="mt-4 text-[17px] font-semibold text-ink">{tool.label}</span>
                   <span className="mt-1 flex-1 text-[14px] leading-relaxed text-muted">{tool.detail}</span>
+                  {tool.requires && (
+                    <span className="mt-3 rounded-[10px] bg-paper-2 px-2.5 py-1.5 text-[12px] leading-snug text-ink-3" data-tool-requires>
+                      {tool.requires}
+                    </span>
+                  )}
                   <span className="mt-4 inline-flex items-center gap-1 text-[14px] font-semibold text-blue-700">
                     Open <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true" />
                   </span>

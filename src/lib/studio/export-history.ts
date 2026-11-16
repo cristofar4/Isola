@@ -122,10 +122,17 @@ function changed() {
  * page is left straight away; the thumbnail and the size budget follow.
  * `preview` is an image used for the thumbnail (often the first file).
  */
-export async function recordExport(input: Omit<ExportRecord, "id" | "createdAt" | "thumb" | "bytes"> & { preview?: Blob | null }): Promise<void> {
+/**
+ * Where an export ended up in Downloads: "kept" (the file can be downloaded
+ * again), "details" (listed, but too big to keep the file), or "unavailable"
+ * (this browser's storage is full or blocked).
+ */
+export type RecordedExport = "kept" | "details" | "unavailable";
+
+export async function recordExport(input: Omit<ExportRecord, "id" | "createdAt" | "thumb" | "bytes"> & { preview?: Blob | null }): Promise<RecordedExport> {
   try {
     const db = await open();
-    if (!db) return;
+    if (!db) return "unavailable";
     const { preview, ...rest } = input;
     const record: ExportRecord = { ...rest, id: crypto.randomUUID(), createdAt: Date.now(), bytes: input.blob?.size ?? 0, thumb: null };
     const first = db.transaction(STORE, "readwrite");
@@ -147,8 +154,10 @@ export async function recordExport(input: Omit<ExportRecord, "id" | "createdAt" 
     });
     await finished(tx);
     changed();
+    return record.blob ? "kept" : "details";
   } catch {
     // Full or unavailable storage only means this export isn't listed later.
+    return "unavailable";
   }
 }
 

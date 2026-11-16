@@ -42,12 +42,40 @@ export class ImageLayers {
     readonly height: number,
     private mask: Uint8Array,
     refinement: Refinement,
+    /** Leave the first build to the caller (see ImageLayers.build). */
+    deferBuild = false,
   ) {
     this.cutout = createCanvas(width, height);
     this.ctx = get2d(this.cutout);
     this.refined = new Uint8Array(width * height);
     this.refinement = { ...refinement };
-    this.rebuild();
+    if (!deferBuild) this.rebuild();
+  }
+
+  /**
+   * Build the layers a band at a time, letting the page paint and respond
+   * between bands. A 12 MP photo's cutout built in one go held a phone's
+   * page still for a noticeable moment right as its result arrived.
+   */
+  static async build(pixels: Uint8ClampedArray, width: number, height: number, mask: Uint8Array, refinement: Refinement): Promise<ImageLayers> {
+    const layers = new ImageLayers(pixels, width, height, mask, refinement, true);
+    let last = performance.now();
+    for (let y = 0; y < height; y += BAND_ROWS) {
+      layers.buildBand({ x: 0, y, w: width, h: Math.min(BAND_ROWS, height - y) });
+      // Yield roughly once a frame.
+      if (performance.now() - last > 12) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        last = performance.now();
+      }
+    }
+    layers.revision++;
+    return layers;
+  }
+
+  private buildBand(band: Rect) {
+    const data = refineRegion(this.mask, this.width, this.height, band, this.refinement);
+    this.refined.set(data, band.y * this.width);
+    this.paint(band);
   }
 
   get currentRefinement(): Refinement {
@@ -69,12 +97,7 @@ export class ImageLayers {
   /** Recompute everything. Processes in bands to bound temporary memory. */
   rebuild() {
     const { width, height } = this;
-    for (let y = 0; y < height; y += BAND_ROWS) {
-      const band: Rect = { x: 0, y, w: width, h: Math.min(BAND_ROWS, height - y) };
-      const data = refineRegion(this.mask, width, height, band, this.refinement);
-      this.refined.set(data, y * width);
-      this.paint(band);
-    }
+    for (let y = 0; y < height; y += BAND_ROWS) this.buildBand({ x: 0, y, w: width, h: Math.min(BAND_ROWS, height - y) });
     this.revision++;
   }
 
