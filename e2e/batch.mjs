@@ -194,7 +194,7 @@ await page.getByLabel("Password", { exact: true }).fill(account.password);
 await page.getByRole("button", { name: "Sign in", exact: true }).click();
 await page.waitForURL((u) => u.pathname === "/studio/batch", { timeout: 30_000 });
 await page.locator("#batch-files").waitFor({ state: "attached", timeout: 20_000 });
-check("After signing in, /batch opens the workspace inside the studio", (await page.getByRole("heading", { level: 1 }).innerText()) === "Batch Studio" && (await page.getByRole("complementary", { name: "Studio sidebar" }).getByRole("link", { name: "Batch Studio" }).getAttribute("aria-current")) === "page");
+check("After signing in, /batch opens the workspace inside the studio", (await page.getByRole("heading", { level: 1 }).innerText()) === "Batch Studio" && (await page.getByRole("complementary", { name: "Studio sidebar" }).getByRole("link", { name: "Batch Studio", exact: true }).getAttribute("aria-current")) === "page");
 await page.locator("#batch-files").setInputFiles(PRODUCT);
 await visible(page.getByText("Pro required")).first().waitFor({ timeout: 20_000 });
 check("On a free account, images wait for Pro with a clear reason", await visible(page.getByText("Batch Studio is part of Pro")).isVisible());

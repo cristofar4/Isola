@@ -1016,7 +1016,7 @@ empty model folder (so the automatic download is exercised) and with
   and real alpha (transparent source areas stay transparent); the selected ZIP
   holds only selected finished images and lists the failed one as left out;
   Export all ready includes every finished image regardless of selection;
-  editor brush work comes back to the batch and re-opening reuses the same
+  editor brush work (in the studio's editor, with Back to Batch Studio) comes back to the batch and re-opening reuses the same
   editor image; unapplied settings don't affect downloads; applied settings
   change only the selection (square canvas, soft grey JPEG, padding and bottom
   alignment measured in the file); the card preview matches the export within
