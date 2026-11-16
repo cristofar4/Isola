@@ -1142,8 +1142,10 @@ empty model folder (so the automatic download is exercised) and with
   (like Vercel): 4 MB pieces match the original bytes, an out-of-range request
   gets 416, nothing is written to the server's disk, the checksum passes and
   a guest's first removal takes 14 s including the download.
-- **Accessibility:** axe-core reports 0 violations on 67 pages and states
-  (including all seven developer docs pages, /tools, the studio dashboard, its
+- **Accessibility:** axe-core reports 0 violations on 72 pages and states
+  (including the studio's image editor with an image, its export dialog and
+  the phone tool bar, the studio's phone menu with Get Pro, Plans, Settings
+  and Help, all seven developer docs pages, /tools, the studio dashboard, its
   ⌘K palette and phone menu, the brand preset editor, the asset library empty
   and with details and a selection, a project board with its Review and
   History tabs, the new-project sheet, Trash and Downloads, Batch Studio in
