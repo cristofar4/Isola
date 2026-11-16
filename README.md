@@ -1200,8 +1200,8 @@ empty model folder (so the automatic download is exercised) and with
   (like Vercel): 4 MB pieces match the original bytes, an out-of-range request
   gets 416, nothing is written to the server's disk, the checksum passes and
   a guest's first removal takes 14 s including the download.
-- **Audit regressions (`npm run test:regressions`): 31/31** on a Free account,
-  with downloads opened (24 for the reported problems plus 7 Motion workflows):
+- **Audit regressions (`npm run test:regressions`): 30/30** in one run on a
+  Free account, with downloads opened (the reported problems plus Motion workflows):
   the new-film and new-scene buttons work again after returning (the pre-fix
   build left 4 of 4 disabled); 1:1 crops 1600 × 1200 to 1200 × 1200, undo
   restores 1600 × 1200 with Free selected, redo brings 1:1 back, and re-entering
@@ -1218,7 +1218,7 @@ empty model folder (so the automatic download is exercised) and with
   and a 4:5 preview, and undo returns to square; a cancelled export says
   nothing was saved and the next export works with the music in the file. On
   an emulated phone (Pixel 7, CPU slowed 4×), placing a 12 MP photo now blocks
-  the page for at most 342–459 ms (1.0–1.3 s in total) where the pre-fix build
+  the page for at most 342–459 ms (1.0–1.3 s in total, three runs) where the pre-fix build
   blocked for 1,174 ms (2.2 s in total), with the cutout ready in about 11 s
   either way.
 - **Accessibility:** axe-core reports 0 violations on 72 pages and states
