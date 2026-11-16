@@ -269,6 +269,7 @@ await page.locator('[data-shot="Detail"] button').first().click();
 await page.keyboard.press("Control+z");
 await page.waitForTimeout(250);
 check("Film length stretches the whole film in proportion, and undoes", /12\.0s/.test(stretched) && (await statusLine()).includes(`${Number(lengthBefore).toFixed(1)}s`), `${lengthBefore}s → ${stretched.match(/[\d.]+s/)?.[0]} → undo`);
+const transitionsBefore = await quick.locator("#quick-transition").inputValue();
 await quick.locator("#quick-transition").selectOption("dissolve");
 await page.waitForTimeout(200);
 const dissolved = (await quick.locator("#quick-transition").inputValue()) === "dissolve" && (await quick.getByRole("textbox", { name: "Transition length" }).count()) === 1;
@@ -276,7 +277,7 @@ const dissolved = (await quick.locator("#quick-transition").inputValue()) === "d
 await page.keyboard.press("Control+z");
 await page.waitForTimeout(200);
 const afterUndo = await quick.locator("#quick-transition").inputValue();
-check("One transition for every cut, and undo restores the cuts (even from the dropdown)", dissolved && afterUndo === "cut", `dissolve applied: ${dissolved} · after undo: ${afterUndo} · focus: ${await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName)}`);
+check("One transition for every cut, and undo restores the previous ones (even from the dropdown)", dissolved && afterUndo === transitionsBefore && transitionsBefore !== "dissolve", `before: ${transitionsBefore} · dissolve applied: ${dissolved} · after undo: ${afterUndo} · focus: ${await page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName)}`);
 
 // Timeline tools: keyframe and trim at the playhead.
 await page.locator('[data-shot="Detail"] button').first().click();

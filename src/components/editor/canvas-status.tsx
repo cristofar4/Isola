@@ -47,7 +47,11 @@ export function CanvasStatus({ image }: { image: ProjectImage }) {
               )}
             </div>
             {downloading && (
-              <p className="mt-2 text-xs text-muted">One-time download. The model is cached in this browser for next time.</p>
+              <p className="mt-2 text-xs leading-relaxed text-muted">
+                One-time download of ISOLA&apos;s background remover, so it can work right here on this device and your photo
+                isn&apos;t uploaded. It&apos;s kept in this browser, so next time it starts straight away. On mobile data, Wi-Fi is
+                quicker.
+              </p>
             )}
           </div>
           <Button size="sm" variant="secondary" onClick={() => cancelProcessing(image.id)} icon={<X className="size-3.5" aria-hidden="true" />}>

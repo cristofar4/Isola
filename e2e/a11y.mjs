@@ -49,7 +49,7 @@ await page.context().clearCookies();
 const mailbox = await startMailbox();
 const account = await createConfirmedAccount(browser, BASE, mailbox, { name: "Audit User" });
 await signInContext(page.context(), BASE, account);
-await page.reload({ waitUntil: "networkidle" });
+await page.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Try the sneaker example" }).click();
 await page.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Export image" && !b.disabled), null, { timeout: 120000 });
 await audit("/editor (image ready)");

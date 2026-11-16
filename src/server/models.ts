@@ -90,6 +90,11 @@ export function downloadModel(model: ModelSpec): Promise<string> {
   return task;
 }
 
+/** Where the mirror keeps a model (supports Range requests). */
+export function modelMirrorUrl(model: ModelSpec) {
+  return MIRROR + model.file;
+}
+
 export function autoDownloadEnabled() {
   return process.env.ISOLA_MODEL_AUTO_DOWNLOAD !== "false";
 }

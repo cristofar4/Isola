@@ -81,6 +81,90 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** Pieces of 4 MB: small enough for serverless hosts, and a dropped connection only costs one piece. */
+const PIECE = 4 * 1024 * 1024;
+/** Pieces downloading at once. */
+const LANES = 4;
+
+/** One request for the model (or a piece of it), with the server's reasons turned into clear failures. */
+async function request(url: string, model: ModelSpec, range: string): Promise<Response> {
+  let response: Response;
+  try {
+    // Same-origin requests carry the session (or guest trial) cookie the model route checks.
+    response = await fetch(url, { credentials: "same-origin", headers: { Range: range } });
+  } catch (error) {
+    throw new WorkerFailure("model-download-failed", "The model couldn't be downloaded. Check your connection.", String(error));
+  }
+  if (response.ok && response.body) return response;
+  let serverMessage = "";
+  try {
+    serverMessage = ((await response.json()) as { message?: string }).message ?? "";
+  } catch {
+    /* not JSON */
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new WorkerFailure("auth-required", serverMessage || "Sign in to remove backgrounds.");
+  }
+  if (response.status === 404) {
+    throw new WorkerFailure(
+      "model-missing",
+      "The background removal model isn't installed on this deployment.",
+      `GET ${url} returned 404. Run "npm run models:fetch" or set NEXT_PUBLIC_ISOLA_MODEL_BASE_URL.`,
+    );
+  }
+  throw new WorkerFailure("model-download-failed", serverMessage || "The model couldn't be downloaded.", `GET ${url} (${range}) returned ${response.status}. (${model.file})`);
+}
+
+/** Read a response into `buffer` at `offset`. Returns the bytes read; a piece must be exactly `length`. */
+async function readInto(response: Response, buffer: Uint8Array, offset: number, length: number, progress: (delta: number) => void, whole = false): Promise<number> {
+  const reader = response.body!.getReader();
+  let got = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (got + value.byteLength > length) {
+        if (!whole) throw new Error(`piece at ${offset} is longer than ${length} bytes`);
+        await reader.cancel();
+        return got + value.byteLength; // Larger than the expected file.
+      }
+      buffer.set(value, offset + got);
+      got += value.byteLength;
+      progress(value.byteLength);
+    }
+  } catch (error) {
+    progress(-got);
+    throw error;
+  }
+  if (!whole && got !== length) {
+    progress(-got);
+    throw new Error(`piece at ${offset}: ${got} of ${length} bytes`);
+  }
+  return got;
+}
+
+/** One piece, retried a few times on a flaky connection before giving up. */
+async function piece(url: string, model: ModelSpec, buffer: Uint8Array, offset: number, length: number, progress: (delta: number) => void) {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, 600 * 2 ** (attempt - 1)));
+    try {
+      const response = await request(url, model, `bytes=${offset}-${offset + length - 1}`);
+      if (response.status !== 206) {
+        await response.body?.cancel();
+        throw new Error(`expected a piece, got HTTP ${response.status}`);
+      }
+      await readInto(response, buffer, offset, length, progress);
+      return;
+    } catch (error) {
+      // Signed out or the model is gone: retrying won't help.
+      if (error instanceof WorkerFailure && error.code !== "model-download-failed") throw error;
+      lastError = error;
+    }
+  }
+  throw new WorkerFailure("model-download-failed", "The download was interrupted. Check your connection and try again.", String(lastError));
+}
+
 async function fetchModel(url: string, model: ModelSpec): Promise<Uint8Array> {
   let cache: Cache | null = null;
   try {
@@ -98,65 +182,39 @@ async function fetchModel(url: string, model: ModelSpec): Promise<Uint8Array> {
     cache = null; // Cache Storage unavailable (private mode, insecure context): download every time.
   }
 
-  let response: Response;
-  try {
-    // Same-origin requests carry the session cookie the model route checks.
-    response = await fetch(url, { credentials: "same-origin" });
-  } catch (error) {
-    throw new WorkerFailure("model-download-failed", "The model couldn't be downloaded. Check your connection.", String(error));
-  }
-  if (!response.ok || !response.body) {
-    let serverMessage = "";
-    try {
-      serverMessage = ((await response.json()) as { message?: string }).message ?? "";
-    } catch {
-      /* not JSON */
-    }
-    if (response.status === 401 || response.status === 403) {
-      throw new WorkerFailure("auth-required", serverMessage || "Sign in to remove backgrounds.");
-    }
-    if (response.status === 404) {
-      throw new WorkerFailure(
-        "model-missing",
-        "The background removal model isn't installed on this deployment.",
-        `GET ${url} returned 404. Run "npm run models:fetch" or set NEXT_PUBLIC_ISOLA_MODEL_BASE_URL.`,
-      );
-    }
-    throw new WorkerFailure(
-      "model-download-failed",
-      serverMessage || "The model couldn't be downloaded.",
-      `GET ${url} returned ${response.status}.`,
-    );
-  }
-
   const total = model.bytes;
-  const reader = response.body.getReader();
   const buffer = new Uint8Array(total);
-  let overflow: Uint8Array[] | null = null;
   let loaded = 0;
   let lastPost = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (loaded + value.byteLength <= total && !overflow) {
-      buffer.set(value, loaded);
-    } else {
-      overflow ??= [buffer.subarray(0, loaded)];
-      overflow.push(value);
-    }
-    loaded += value.byteLength;
+  const progress = (delta: number) => {
+    loaded += delta;
     const now = performance.now();
     if (now - lastPost > 120) {
       lastPost = now;
       post({ type: "download-progress", loaded: Math.min(loaded, total), total });
     }
-  }
-  if (loaded !== total || overflow) {
-    throw new WorkerFailure(
-      "model-integrity",
-      "The downloaded model doesn't match the expected file.",
-      `Expected ${total} bytes, received ${loaded}.`,
-    );
+  };
+
+  // The first piece also tells us whether the server sends pieces (Range) or only the whole file.
+  const first = await request(url, model, `bytes=0-${Math.min(PIECE, total) - 1}`);
+  if (first.status === 206) {
+    await readInto(first, buffer, 0, Math.min(PIECE, total), progress);
+    const starts: number[] = [];
+    for (let at = PIECE; at < total; at += PIECE) starts.push(at);
+    let next = 0;
+    const lane = async () => {
+      while (next < starts.length) {
+        const at = starts[next++];
+        await piece(url, model, buffer, at, Math.min(PIECE, total - at), progress);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(LANES, starts.length) }, lane));
+  } else {
+    // A server or CDN without Range support: the whole file in one response.
+    const got = await readInto(first, buffer, 0, total, progress, true);
+    if (got !== total) {
+      throw new WorkerFailure("model-integrity", "The downloaded model doesn't match the expected file.", `Expected ${total} bytes, received ${got}.`);
+    }
   }
   post({ type: "download-progress", loaded, total });
   // Verifying 170+ MB takes a moment; report it as engine start-up, not as a stalled download.
