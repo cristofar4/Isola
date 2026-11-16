@@ -206,6 +206,35 @@ const manageRes = await context.request.get(`${BASE}/api/billing/manage`, { maxR
 check("Manage subscription opens Paystack's page", (manageRes.headers().location ?? "").includes("/manage/SUB_e2e"));
 await page.screenshot({ path: join(OUT, "account-pro.png"), fullPage: true });
 
+// Get Pro from inside the studio: checkout comes back to the studio, and the Pro badge shows by your name.
+{
+  const payer = await createConfirmedAccount(browser, BASE, mailbox, { name: "Studio Payer" });
+  const studio = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  await signInContext(studio, BASE, payer);
+  const sp = await studio.newPage();
+  await sp.goto(`${BASE}/studio`, { waitUntil: "networkidle" });
+  check("Free accounts see Get Pro in the studio menu, without a Pro badge", (await sp.locator("aside [data-get-pro]").isVisible()) && (await sp.locator("aside [data-pro-badge]").count()) === 0);
+  await sp.locator("aside [data-get-pro]").click();
+  await sp.waitForURL(`${BASE}/studio/plans`);
+  await sp.getByRole("article", { name: "Pro plan" }).getByRole("button", { name: "Get Pro" }).click();
+  await sp.waitForURL((u) => u.pathname === "/studio/plans" && u.searchParams.get("upgraded") === "1", { timeout: 30_000 });
+  const tx = [...paystack.txs.values()].at(-1);
+  check("Checkout from the studio returns to the studio's plans", tx.callback_url.endsWith("/billing/callback/studio"), tx.callback_url);
+  await sp.locator("[data-upgraded]").waitFor({ timeout: 10_000 });
+  await sp.locator("aside [data-pro-badge]").waitFor({ timeout: 10_000 });
+  check(
+    "After paying: Welcome to Pro, the Pro badge by your name, and Get Pro gone",
+    (await sp.getByRole("heading", { level: 1 }).innerText()) === "You're on Pro" && (await sp.locator("aside [data-get-pro]").count()) === 0,
+  );
+  await sp.screenshot({ path: join(OUT, "studio-plans-pro.png") });
+  // A payment that goes wrong also lands back in the studio.
+  const lost = await studio.request.get(`${BASE}/billing/callback/studio`, { maxRedirects: 0 });
+  check("A failed studio payment returns to the studio, not the public pricing page", (lost.headers().location ?? "").endsWith("/studio/plans?payment=missing"), lost.headers().location);
+  const manageStudio = await studio.request.get(`${BASE}/api/billing/manage?from=studio`, { maxRedirects: 0 });
+  check("Managing billing from the studio comes back to the studio", (manageStudio.headers().location ?? "").includes("/studio/settings?manage=none"), manageStudio.headers().location);
+  await studio.close();
+}
+
 await browser.close();
 await paystack.close();
 await mailbox.close();

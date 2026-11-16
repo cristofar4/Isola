@@ -8,7 +8,8 @@ const mailbox = await startMailbox();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 await signInContext(context, BASE, await createConfirmedAccount(browser, BASE, mailbox));
 const page = await context.newPage();
-await page.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
+// Signed in, the editor is the one inside the studio.
+await page.goto(`${BASE}/studio/editor`, { waitUntil: "networkidle" });
 await page.getByRole("button", { name: "Try the sneaker example" }).click();
 await page.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Export image" && !b.disabled), null, { timeout: 120000 });
 const server = page.getByRole("radio", { name: "Server" });

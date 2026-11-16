@@ -49,13 +49,30 @@ await page.context().clearCookies();
 const mailbox = await startMailbox();
 const account = await createConfirmedAccount(browser, BASE, mailbox, { name: "Audit User" });
 await signInContext(page.context(), BASE, account);
+// Signed in, /editor moves to the editor inside the studio.
 await page.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
+await page.waitForURL("**/studio/editor");
 await page.getByRole("button", { name: "Try the sneaker example" }).click();
 await page.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Export image" && !b.disabled), null, { timeout: 120000 });
-await audit("/editor (image ready)");
+await audit("/studio/editor (image ready)");
 await page.getByRole("button", { name: "Export image" }).click();
 await page.waitForTimeout(500);
-await audit("/editor (export dialog)");
+await audit("/studio/editor (export dialog)");
+await page.keyboard.press("Escape");
+await page.setViewportSize({ width: 390, height: 844 });
+await page.waitForTimeout(400);
+await audit("/studio/editor (phone tool bar)");
+await page.getByRole("button", { name: "Open studio menu" }).click();
+await page.getByRole("dialog", { name: "Studio menu" }).waitFor();
+await page.waitForTimeout(400);
+await audit("/studio (phone menu with Get Pro)");
+await page.keyboard.press("Escape");
+await page.setViewportSize({ width: 1280, height: 900 });
+for (const path of ["/studio/plans", "/studio/settings", "/studio/help"]) {
+  await page.goto(`${BASE}${path}`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(400);
+  await audit(path);
+}
 await page.goto(`${BASE}/account`, { waitUntil: "networkidle" });
 await page.locator("[data-device]").first().waitFor();
 await audit("/account (signed in)");

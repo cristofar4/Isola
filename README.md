@@ -459,10 +459,37 @@ menu button, search (⌘K, Ctrl+K or "/") and a Create menu (new project,
 upload assets, new scene, new film, editor, batch, export set, brand preset).
 The menu button folds the desktop sidebar to an icon rail (remembered in this
 browser) and opens it as a drawer on phones. The sidebar has its own search
-box too. Batch Studio, Scene Studio and Motion Studio (including the film
-editor) all open inside this frame. Signing in without a `next` page lands here;
-"Get started" on the site goes to Create account, and signed in, the header
-offers "Your studio".
+box too. The image editor (`/studio/editor`), Batch Studio, Scene Studio and
+Motion Studio (including the film editor) all open inside this frame. Signing
+in without a `next` page lands here; "Get started" on the site goes to Create
+account, and signed in, the header offers "Your studio".
+
+**Nothing leads back to the public site.** Every link in the studio stays
+under `/studio` (an end-to-end check visits every studio page and fails on any
+other same-site link):
+
+- **Image editor** at `/studio/editor`, with a Back button in its bar that
+  returns to the studio page you came from (or the image's project or batch).
+  The desktop sidebar folds to icons there to give the canvas room (Expand
+  brings it back; the choice is remembered). Signed in, `/editor` moves you
+  there and keeps the images you have open; it's the editor for guests.
+- **Plans** at `/studio/plans` (Get Pro): Free and Pro side by side, monthly or
+  yearly. Checkout started in the studio returns to the studio, through
+  `/billing/callback/studio`, even when a payment fails.
+- **Settings** at `/studio/settings` (plan, API keys, profile and photo,
+  password, devices) and **Help** at `/studio/help`, whose answers link to the
+  studio's own pages. Managing a subscription from Settings comes back there.
+- **Developers** opens the docs in a new tab, beside the studio.
+
+**The menu's footer** stays in view at the bottom of the sidebar (and of the
+phone drawer): on Free, a **Get Pro** row (like the upgrade row at the bottom
+of a chat app's menu) that opens Plans; then you, with your **profile picture
+beside your name** (a photo you add in Settings → Profile, or one from Google
+or GitHub sign-in, otherwise your initials). Once you've paid, a **Pro** badge
+sits above your name, a ring goes round your picture and Get Pro goes away.
+Profile photos are cropped square and resized to 160px in the browser and
+stored on the account as a small JPEG (a few KB); the server refuses anything
+but a small JPEG, PNG or WebP data URL or an https photo.
 
 Everything on it is real data; empty states say so instead of showing made-up
 work (the one illustration, in the consistency card before you have finished
@@ -875,7 +902,9 @@ canvas; the checkerboard is drawn by the preview only.
 
 ```
 src/
-  app/                    routes: / (landing), /editor, /batch, /developers, /pricing, /studio,
+  app/                    routes: / (landing), /editor (guests), /batch, /developers, /pricing,
+                          /studio (+ /studio/editor, /plans, /settings, /help, /batch,
+                          /scenes, /motion, /projects, /assets, /presets, /downloads, /trash),
                           (auth)/ sign-in, sign-up, forgot/reset password, verify-email,
                           /account, /privacy, /terms, /support,
                           /api/auth/*, /api/engines, /api/remove-background
@@ -920,7 +949,7 @@ Run against a production build in this repository's sandbox, starting from an
 empty model folder (so the automatic download is exercised) and with
 `SMTP_URL=smtp://127.0.0.1:2525` so emails land in the tests' local mailbox:
 
-- **Unit tests:** 114/114 passing (including 32 for Motion Studio: easing and
+- **Unit tests:** 118/118 passing (including the profile photo check, the music generator, 32 for Motion Studio: easing and
   bezier curves, the film clock and centred transitions, every editing rule,
   all six motion styles, saved styles, Update from scene, migrations, and the
   quick controls: camera moves recognised again from their keyframes, pans
@@ -930,7 +959,7 @@ empty model folder (so the automatic download is exercised) and with
   masks (crops, specks vs a pair of shoes, Amazon fill and its fix,
   Instagram's aspect range, scale outliers, enlargement after the plan limit),
   export-set sizes and brand preset validation.
-- **End-to-end (`npm run test:e2e`): 40/40 checks passing**, including: the
+- **End-to-end (`npm run test:e2e`): 43/43 checks passing**, including: the
   model is refused to signed-out requests without a trial; three free tries
   without an account (the landing page offers them, an example photo doesn't
   use one, each of your own photos does, "Want to make more?" after the third
@@ -938,13 +967,16 @@ empty model folder (so the automatic download is exercised) and with
   prompt returns; the landing page then leads to Create account, which says
   why; the server counted exactly 3, refuses a fourth claim, and gives the
   model to a genuine trial but not to a forged cookie); a guest without tries
-  waits and is processed after signing in; real on-device removal;
+  waits and, after signing in, is processed in the studio's editor without
+  re-uploading; real on-device removal;
   exported PNGs are RGBA with fully transparent background pixels and original
   dimensions; erase clears the mask; restore returns the exact original RGB;
   undo/redo; comparison divider keyboard control; colour backgrounds in PNG and
   JPEG; shadows; crop and resize dimensions; invalid and oversized files rejected
   before decoding; transparent input; a 24 MP image; retry after a missing-model
-  failure; mobile toolbar and bottom sheet.
+  failure; on a phone, the tool bar with every tool named (all seven fit),
+  Back to the studio, Backdrop opening the Background section, and the
+  Adjustments sheet.
 - **Public API (`npm run test:api`): 30/30**: keys created in the Account page
   are shown once and never again; missing, unknown and deleted keys get 401;
   Free keys return 1000px PNGs with no watermark and can't request masks; Pro keys
@@ -964,10 +996,11 @@ empty model folder (so the automatic download is exercised) and with
   Enter opens the section), the live browser check, troubleshooting entries,
   all 20 error codes listed, feedback stored (and refused for unknown pages or
   other origins), footer links, and the mobile guide menu.
-- **Navigation (`npm run test:nav`): 40/40**: every Tools menu link points
+- **Navigation (`npm run test:nav`): 41/41**: every Tools menu link points
   where it says, hover/click/Escape/keyboard behaviour, no axe violations with
   the menu open, the editor hints and preselected tools (restore brush after
-  processing, crop tool when an image is already open), the catalogue preset
+  processing; signed in, the studio's editor; crop tool when an image is
+  already open, chosen from the studio's search), the catalogue preset
   in Batch Studio, the All tools page, and the grouped mobile menu.
 - **Batch Studio (`npm run test:batch`): 56/56**: the signed-out
   introduction (four-step walkthrough that can be stepped, wraps, autoplays and
@@ -1000,7 +1033,10 @@ empty model folder (so the automatic download is exercised) and with
   confirming, blocked sign-in with a fresh link, bad links, the original tab
   carrying on, duplicate sign-up revealing nothing while emailing the owner,
   profile, sign out, password change and account deletion.
-- **Account page (`npm run test:account`): 22/22**, including the header,
+- **Account page (`npm run test:account`): 26/26**, including a profile photo
+  (resized in the browser to a small JPEG, shown beside your name in the
+  studio menu, removable; the server refuses scripts, other types and oversized
+  data), the header,
   the overview counts matching the server, section links scrolling and
   highlighting, devices named from their browser with this device first,
   no session tokens in the device list, signing one device out (its session
@@ -1008,9 +1044,14 @@ empty model folder (so the automatic download is exercised) and with
   requests and other people's devices, the password fields lining up, no
   sideways scrolling on phones with the section chips pinned under the
   header, and account deletion leaving no API keys in the database.
-- **Studio (`npm run test:studio`): 41/41**, with real processing: signed-out
+- **Studio (`npm run test:studio`): 50/50**, with real processing: signed-out
   visitors are sent to sign in and "Get started" goes to Create account; an
-  empty studio shows honest empty states; a brand preset is created and edited
+  empty studio shows honest empty states; the quick tools open the studio's
+  editor; the menu ends with Get Pro and your picture beside your name; Help
+  and Settings stay in the studio and Developers opens in a new tab; **no
+  studio page (all 13 of them) links back to the public site**; Get Pro opens
+  the plans in the studio frame; signed in, `/editor` opens the studio's
+  editor with Back to the page you came from, and Back goes there; a brand preset is created and edited
   in place and saved to the account; invalid presets, other sites and other
   accounts are refused; the presets page creates a new default with a live
   preview; ⌘K finds and applies a preset; an editor export appears in Recent
@@ -1021,8 +1062,8 @@ empty model folder (so the automatic download is exercised) and with
   of nine files in three folders, each the exact size, marketplace files JPEG
   on pure white; the dashboard shows the real queue, collection, consistency
   result, destination previews and the export set, which downloads again
-  unchanged; ⌘K opens a batch image in the editor; phones have no sideways
-  scrolling and a working menu.
+  unchanged; ⌘K opens a batch image in the studio's editor with Back to Batch
+  Studio; phones have no sideways scrolling and a working menu.
 - **Asset library and projects (`npm run test:library`): 34/34**, with real
   processing on a Free account: five uploads are analysed and a resized copy
   is recognised as a duplicate and trashed in one click; photos are filed as
@@ -1051,7 +1092,10 @@ empty model folder (so the automatic download is exercised) and with
   the studio, sign out and sign in work, a wrong password is refused, and the
   generated secret is saved with owner-only permissions. Also checked by hand
   under `npm run dev`.
-- **Plans and payments (`npm run test:billing`): 32/32**, including the price
+- **Plans and payments (`npm run test:billing`): 37/37**, including Get Pro
+  from inside the studio (checkout returns to the studio's plans, "You're on
+  Pro", the Pro badge by your name and Get Pro gone; a failed payment and
+  subscription management also come back to the studio), the price
   and amount sent to checkout, the yearly toggle, free exports capped at
   1,000px with no watermark, Batch Studio blocked on Free, upgrade through
   checkout, Pro exports at full resolution, refusing
@@ -1167,8 +1211,10 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 - Export to transparent PNG, PNG with background, or JPEG at the chosen
   resolution, with dimensions shown before download.
 - Batch Studio (Pro): see [Batch Studio](#batch-studio) below.
-- Responsive layouts (bottom toolbar and sheets on phones), keyboard shortcuts,
-  focus management, reduced-motion support.
+- Responsive layouts (on phones the editor has a tool bar under the picture with
+  every tool named: Move, Restore, Erase, Crop, Backdrop, Adjust and Images,
+  the last three opening as sheets), keyboard shortcuts, focus management,
+  reduced-motion support.
 
 **Not yet built / needs integration**
 
@@ -1195,7 +1241,17 @@ sandbox; the route's validation, rate limiting and error paths were tested).
 - **Model hosting:** the editor downloads the ~179–224 MB model in 4 MB
   pieces (Range requests), four at a time, retrying a piece that drops instead
   of starting over, then checks the whole file's SHA-256 and keeps it in the
-  browser. The built-in `/api/models/` route serves pieces from a local copy
+  browser. Each piece is kept as it arrives, so a download cut short (a
+  dropped connection, a closed tab, a reload) carries on from where it
+  stopped; the pieces are removed once the whole model is stored. The engine
+  starts getting ready as soon as the editor opens or a photo is being chosen
+  (only for accounts and guests with free tries left), so the download and
+  start-up overlap with picking the photo; on WebGPU the GPU's first-run
+  set-up happens then too. Measured here on a phone-sized window with the
+  model served locally: 9.2 s from photo to cutout when the photo is placed
+  the moment the editor opens, 6.8 s when the editor has been open for a few
+  seconds. On a real phone connection the saving is larger, because the
+  download is the slow part. The built-in `/api/models/` route serves pieces from a local copy
   on a long-running Node host (a VPS, Docker, Render, Railway, Fly.io…; it
   downloads the file once on first use, ~450 MB of disk for both models). On a
   serverless host (Vercel, Netlify), where a function can't keep or stream a

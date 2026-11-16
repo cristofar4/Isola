@@ -324,6 +324,9 @@ async function handleLoad(request: Extract<WorkerRequest, { type: "load" }>) {
     try {
       session = await createSession(runtime, bytes, "webgpu");
       backend = "webgpu";
+      // The GPU compiles its shaders on the first run, which can take seconds on a phone.
+      // Do that now, while the engine is getting ready, so the first photo doesn't wait for it.
+      await infer(new Float32Array(3 * model.inputSize * model.inputSize), model).catch(() => undefined);
       post({ type: "loaded", backend, threads });
       return;
     } catch (error) {

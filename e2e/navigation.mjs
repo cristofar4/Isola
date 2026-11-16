@@ -137,16 +137,20 @@ await page.getByRole("button", { name: "Apply to 1 image" }).first().waitFor();
 check("The preset stays a draft until applied, with a one-click apply", await panel.getByText(/Not applied yet/).isVisible());
 
 await page.goto(`${BASE}/editor?tool=restore`, { waitUntil: "networkidle" });
+await page.waitForURL("**/studio/editor?tool=restore");
 await page.getByRole("button", { name: "Try the sneaker example" }).click();
 await page.waitForFunction(() => [...document.querySelectorAll('[aria-label="Restore brush"]')].some((b) => !b.disabled && b.offsetParent), null, { timeout: 180_000 });
 await page.waitForTimeout(300);
 check("After processing, the restore brush is selected", (await visible(page.getByRole("button", { name: "Restore brush" })).first().getAttribute("aria-pressed")) === "true");
-// With an image already open, leave the editor in-app, then pick Resize & crop from the menu.
-await page.getByRole("link", { name: "ISOLA home" }).click();
-await page.waitForURL((u) => u.pathname === "/");
-await trigger.click();
-await visible(nav.getByRole("link", { name: /^Resize & crop/ })).click();
-await page.waitForURL("**/editor?tool=crop");
+// Signed in, the editor is inside the studio. With an image open, step back into the studio, then pick Resize & crop from search.
+check("Signed in, the Tools menu's editor links open the studio's editor", new URL(page.url()).pathname === "/studio/editor");
+await page.locator("[data-editor-back]").click();
+await page.waitForURL((u) => u.pathname.startsWith("/studio") && u.pathname !== "/studio/editor");
+await page.keyboard.press("Control+k");
+await page.keyboard.type("Resize & crop");
+await page.getByRole("option", { name: /Resize & crop/ }).first().waitFor();
+await page.keyboard.press("Enter");
+await page.waitForURL("**/studio/editor?tool=crop");
 await page.waitForTimeout(800);
 check("Choosing Resize & crop with an image open selects the crop tool", (await visible(page.getByRole("button", { name: "Crop" })).first().getAttribute("aria-pressed")) === "true");
 

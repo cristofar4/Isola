@@ -188,7 +188,7 @@ check("Transparent source areas stay transparent", res.status === 200 && m.sampl
 // Same model, same maths: compare with the in-browser engine's export of the same photo.
 {
   const p = await proCtx.newPage();
-  await p.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
+  await p.goto(`${BASE}/studio/editor`, { waitUntil: "networkidle" });
   await p.locator("input[type=file][multiple]").first().setInputFiles(PRODUCT);
   await p.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Export image" && !b.disabled), null, { timeout: 180_000 });
   await p.getByRole("button", { name: "Export image" }).click();

@@ -107,7 +107,8 @@ export function StudioPlans({
 
         <article
           aria-label="Pro plan"
-          className="relative flex flex-col overflow-hidden rounded-[20px] border-2 border-blue bg-surface p-6 shadow-[var(--shadow-float)] sm:p-7"
+          // On phones Pro comes first (it's what Get Pro is for); side by side, Free then Pro.
+          className="relative order-first flex flex-col overflow-hidden rounded-[20px] border-2 border-blue bg-surface p-6 shadow-[var(--shadow-float)] sm:p-7 md:order-none"
           data-pro-card
         >
           <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-[radial-gradient(circle,rgb(79_115_255/0.18),transparent_70%)]" />
@@ -141,7 +142,7 @@ export function StudioPlans({
           Manage your plan in Settings
         </Link>
       </div>
-      <p className="mt-3 text-center text-[12px] text-subtle">
+      <p className="mt-3 text-center text-[12px] text-muted">
         Pro is {formatNaira(planConfig.proPriceNgn)} a month or {formatNaira(planConfig.proYearlyPriceNgn)} a year, with the same features either way.
       </p>
     </div>

@@ -244,10 +244,11 @@ if (await page.getByRole("alert").filter({ hasText: "Too many attempts" }).waitF
   await page.waitForTimeout(11_000);
   await page.getByRole("button", { name: "Sign in" }).click();
 }
-await page.waitForURL((u) => u.pathname === "/editor");
+// Signed in, the editor is the one inside the studio: /editor moves there, keeping the open images.
+await page.waitForURL((u) => u.pathname === "/studio/editor", { timeout: 60_000 });
 const started = Date.now();
 await waitReady(page);
-check("After signing in, the same upload is processed without re-uploading", true);
+check("After signing in, the same upload is processed in the studio's editor without re-uploading", (await page.locator('[data-editor="studio"]').count()) === 1);
 check("Background removed on device", true, `${((Date.now() - started) / 1000).toFixed(1)}s incl. model load`);
 await page.screenshot({ path: join(OUT, "editor-desktop.png") });
 
@@ -389,12 +390,23 @@ await context.close();
   await signInContext(mobile, BASE, account);
   const m = await mobile.newPage();
   await m.goto(`${BASE}/editor`, { waitUntil: "networkidle" });
+  await m.waitForURL((u) => u.pathname === "/studio/editor", { timeout: 30_000 });
+  await m.locator('[data-editor="studio"]').waitFor();
   await m.getByRole("button", { name: "Try the portrait example" }).click();
   await m.waitForFunction(() => document.body.innerText.includes("Ready") || !!document.querySelector('[aria-label="Erase brush"]:not([disabled])'), null, { timeout: 180_000 });
   await m.waitForFunction(() => [...document.querySelectorAll('[aria-label="Erase brush"]')].some((b) => !b.disabled && b.offsetParent), null, { timeout: 180_000 });
   const toolbar = m.getByRole("toolbar", { name: "Tools" }).filter({ visible: true });
   check("Mobile shows a bottom toolbar instead of side panels", (await toolbar.count()) === 1 && !(await m.getByRole("complementary", { name: "Properties" }).isVisible()));
+  const toolNames = (await toolbar.innerText()).replace(/\s+/g, " ").trim();
+  check("Every phone tool is named under its icon, and all of them fit", toolNames === "Move Restore Erase Crop Backdrop Adjust Images" && (await toolbar.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)), toolNames);
+  check("…with Back to the studio in the editor's bar", (await m.locator("[data-editor-back]").isVisible()) && (await m.locator("[data-editor-back]").getAttribute("href")).startsWith("/studio"));
   await m.screenshot({ path: join(OUT, "editor-mobile.png") });
+  await m.getByRole("button", { name: "Backdrop: change the background" }).click();
+  const backdrop = m.getByRole("dialog", { name: "Adjustments" });
+  await backdrop.waitFor();
+  check("Backdrop opens the sheet at the Background section", await backdrop.getByText("Background", { exact: true }).isVisible());
+  await m.keyboard.press("Escape");
+  await backdrop.waitFor({ state: "hidden" });
   await m.getByRole("button", { name: "Adjustments" }).click();
   const sheet = m.getByRole("dialog", { name: "Adjustments" });
   await sheet.waitFor();

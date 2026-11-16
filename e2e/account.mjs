@@ -51,7 +51,7 @@ check("The heading is your name, with your plan beside it", (await page.getByRol
 check("Your email shows as confirmed", await page.getByLabel("Email confirmed").first().isVisible());
 check(
   "Quick links to the editor and Batch Studio",
-  (await page.getByRole("link", { name: "Open the editor" }).last().getAttribute("href")) === "/editor" && (await page.locator("main").getByRole("link", { name: "Batch Studio" }).getAttribute("href")) === "/studio/batch",
+  (await page.getByRole("link", { name: "Open the editor" }).last().getAttribute("href")) === "/studio/editor" && (await page.locator("main").getByRole("link", { name: "Batch Studio" }).getAttribute("href")) === "/studio/batch",
 );
 // Confirming the email signed in one more browser, so count what the server reports.
 const deviceCount = (await (await context.request.get(`${BASE}/api/account/devices`)).json()).devices.length;
@@ -71,6 +71,29 @@ await nav.getByRole("link", { name: "Devices" }).click();
 await page.waitForTimeout(700);
 check("Choosing a section scrolls there and highlights it", new URL(page.url()).hash === "#devices" && (await nav.locator('[aria-current="location"]').innerText()).trim() === "Devices");
 await page.screenshot({ path: join(OUT, "account-devices.png") });
+
+/* Profile photo ------------------------------------------------------------ */
+{
+  const profile = page.locator("[data-profile-photo]");
+  const chooser = page.waitForEvent("filechooser");
+  await profile.getByRole("button", { name: "Add photo" }).click();
+  await (await chooser).setFiles(join(process.cwd(), "public", "samples", "portrait-curly.jpg"));
+  await page.getByText("Profile photo saved.").waitFor({ timeout: 15_000 });
+  const stored = (await (await context.request.get(`${BASE}/api/auth/get-session`)).json()).user.image ?? "";
+  check("A profile photo is resized in the browser and saved to the account", /^data:image\/jpeg;base64,/.test(stored) && stored.length < 48 * 1024, `${stored.length} characters`);
+  // It shows beside your name in the studio menu.
+  await page.goto(`${BASE}/studio/settings`, { waitUntil: "networkidle" });
+  check("…and shows beside your name in the studio menu", (await page.locator("aside [data-studio-me] [data-avatar]").getAttribute("data-avatar")) === "photo");
+  // The server only takes small JPEG/PNG/WebP photos (or a sign-in provider's https photo).
+  const junk = await context.request.post(`${BASE}/api/auth/update-user`, { headers: { origin: BASE }, data: { image: "javascript:alert(1)" } });
+  const huge = await context.request.post(`${BASE}/api/auth/update-user`, { headers: { origin: BASE }, data: { image: `data:image/png;base64,${"A".repeat(60_000)}` } });
+  const still = (await (await context.request.get(`${BASE}/api/auth/get-session`)).json()).user.image;
+  check("The server refuses anything else as a profile photo", junk.status() === 400 && huge.status() === 400 && still === stored, `${junk.status()} ${huge.status()}`);
+  await page.locator("[data-profile-photo]").getByRole("button", { name: "Remove photo" }).click();
+  await page.getByText("Profile photo removed.").waitFor({ timeout: 15_000 });
+  check("Remove photo goes back to your initials", (await page.locator("aside [data-studio-me] [data-avatar]").getAttribute("data-avatar")) === "initials" || (await page.reload({ waitUntil: "networkidle" }), (await page.locator("aside [data-studio-me] [data-avatar]").getAttribute("data-avatar")) === "initials"));
+  await page.goto(`${BASE}/account`, { waitUntil: "networkidle" });
+}
 
 /* Devices ----------------------------------------------------------------- */
 const devices = page.getByRole("list", { name: "Signed-in devices" });

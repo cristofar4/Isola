@@ -352,9 +352,10 @@ await p.keyboard.press("Control+k");
 await p.keyboard.type("serum");
 await p.getByRole("option", { name: /serum-bottle\.jpg/ }).waitFor();
 await p.keyboard.press("Enter");
-await p.waitForURL((u) => u.pathname === "/editor", { timeout: 60_000 });
+await p.waitForURL((u) => u.pathname === "/studio/editor", { timeout: 60_000 });
 await p.waitForFunction(() => [...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Export image" && !b.disabled), null, { timeout: 60_000 });
-check("⌘K opens a batch image straight in the editor", await visible(p.getByText("serum-bottle.jpg")).first().isVisible());
+check("⌘K opens a batch image straight in the editor, inside the studio", await visible(p.getByText("serum-bottle.jpg")).first().isVisible());
+check("…with Back to Batch Studio right there", (await p.locator("[data-editor-back]").getAttribute("href")) === "/studio/batch");
 
 /* 4. Phones ------------------------------------------------------------------ */
 {
