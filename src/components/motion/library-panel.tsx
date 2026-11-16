@@ -491,15 +491,15 @@ function ElementsTab() {
   return (
     <div className="grid gap-4">
       <section className="grid gap-2" aria-label="Text">
-        <h3 className={heading}>Text</h3>
+        <h2 className={heading}>Text</h2>
         <AddText />
       </section>
       <section className="grid gap-2 border-t border-m-line pt-3" aria-label="Light and colour">
-        <h3 className={heading}>Light and colour</h3>
+        <h2 className={heading}>Light and colour</h2>
         <EffectsTab />
       </section>
       <section className="grid gap-2 border-t border-m-line pt-3" aria-label="Scenes">
-        <h3 className={heading}>Scenes</h3>
+        <h2 className={heading}>Scenes</h2>
         <ScenesTab />
       </section>
     </div>

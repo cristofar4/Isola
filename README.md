@@ -896,15 +896,25 @@ Run against a production build in this repository's sandbox, starting from an
 empty model folder (so the automatic download is exercised) and with
 `SMTP_URL=smtp://127.0.0.1:2525` so emails land in the tests' local mailbox:
 
-- **Unit tests:** 94/94 passing (including 25 for Motion Studio: easing and
+- **Unit tests:** 114/114 passing (including 32 for Motion Studio: easing and
   bezier curves, the film clock and centred transitions, every editing rule,
-  all six motion styles, saved styles, Update from scene and migrations), including the consistency rules on synthetic
+  all six motion styles, saved styles, Update from scene, migrations, and the
+  quick controls: camera moves recognised again from their keyframes, pans
+  that never show the set's edges, the lighting sweep, Add keyframe, film
+  length and style moods; and 13 for Batch Studio's size matching, preflight
+  and undo), including the consistency rules on synthetic
   masks (crops, specks vs a pair of shoes, Amazon fill and its fix,
   Instagram's aspect range, scale outliers, enlargement after the plan limit),
   export-set sizes and brand preset validation.
-- **End-to-end (`npm run test:e2e`): 31/31 checks passing**, including: the
-  model is refused to signed-out requests; a signed-out upload waits with a
-  sign-in prompt and is processed after signing in; real on-device removal;
+- **End-to-end (`npm run test:e2e`): 40/40 checks passing**, including: the
+  model is refused to signed-out requests without a trial; three free tries
+  without an account (the landing page offers them, an example photo doesn't
+  use one, each of your own photos does, "Want to make more?" after the third
+  with what you made, which still downloads; a fourth photo waits and the
+  prompt returns; the landing page then leads to Create account, which says
+  why; the server counted exactly 3, refuses a fourth claim, and gives the
+  model to a genuine trial but not to a forged cookie); a guest without tries
+  waits and is processed after signing in; real on-device removal;
   exported PNGs are RGBA with fully transparent background pixels and original
   dimensions; erase clears the mask; restore returns the exact original RGB;
   undo/redo; comparison divider keyboard control; colour backgrounds in PNG and
@@ -930,12 +940,12 @@ empty model folder (so the automatic download is exercised) and with
   Enter opens the section), the live browser check, troubleshooting entries,
   all 20 error codes listed, feedback stored (and refused for unknown pages or
   other origins), footer links, and the mobile guide menu.
-- **Navigation (`npm run test:nav`): 33/33**: every Tools menu link points
+- **Navigation (`npm run test:nav`): 37/37**: every Tools menu link points
   where it says, hover/click/Escape/keyboard behaviour, no axe violations with
   the menu open, the editor hints and preselected tools (restore brush after
   processing, crop tool when an image is already open), the catalogue preset
   in Batch Studio, the All tools page, and the grouped mobile menu.
-- **Batch Studio (`npm run test:batch`): 47/47**: the signed-out
+- **Batch Studio (`npm run test:batch`): 56/56**: the signed-out
   introduction (four-step walkthrough that can be stepped, wraps, autoplays and
   pauses; the sample ZIP holds three square PNGs with the applied background
   and padding measured in the file; signing in from it opens the workspace),
@@ -974,7 +984,7 @@ empty model folder (so the automatic download is exercised) and with
   requests and other people's devices, the password fields lining up, no
   sideways scrolling on phones with the section chips pinned under the
   header, and account deletion leaving no API keys in the database.
-- **Studio (`npm run test:studio`): 36/36**, with real processing: signed-out
+- **Studio (`npm run test:studio`): 41/41**, with real processing: signed-out
   visitors are sent to sign in and "Get started" goes to Create account; an
   empty studio shows honest empty states; a brand preset is created and edited
   in place and saved to the account; invalid presets, other sites and other
@@ -1028,7 +1038,7 @@ empty model folder (so the automatic download is exercised) and with
   and subscription management.
 - **Google/GitHub (`node e2e/oauth.mjs`):** both buttons start a real OAuth
   redirect with the right callback URL (completing it needs real credentials).
-- **Scene and Motion Studio (`npm run test:motion`): 35/35**, on Pro: the
+- **Scene and Motion Studio (`npm run test:motion`): 48/48**, on Pro: the
   sample scene has separate title, product, shadow and backdrop layers;
   backdrops change and undo; numeric placement survives a reload; Square and
   Wide export together at 1080×1080 and 1920×1080; all six motion styles are
@@ -1045,16 +1055,35 @@ empty model folder (so the automatic download is exercised) and with
   (H.264, 1920×1080, 30 fps, Opus sound, the film's length) and a frame from
   the file matches the preview (mean difference 6 of 255); the film reloads;
   it's listed and in Downloads; no sideways scrolling on phones.
-- **Batch Studio in the studio:** the batch (47/47), navigation (33/33),
-  studio (36/36) and account (22/22) suites pass with signed-in Batch Studio
-  at `/studio/batch`.
-- **Accessibility:** axe-core reports 0 violations on 51 pages and states
+- **Redesigns:** navigation (37/37) adds the site header's search (finds
+  tools, pages and docs; Enter opens; ⌘K anywhere; a button on phones);
+  batch (56/56) adds the workflow steps, filters, saved preset, size
+  matching, preflight, undo and original files in the ZIP; studio (41/41) adds
+  the sidebar search and the brand preset editor's identity (tidy colour grid,
+  renderer-drawn previews, motion defaults stored with the account); motion
+  (48/48) adds the editor inside the studio in the light workspace with a dark
+  option, the linked-scene status bar, style search and moods, quick camera
+  moves (Push in at 70% is real zoom keyframes, shown again as Push in), the
+  lighting sweep, film length, one transition for every cut (undo works from
+  the dropdown), Add keyframe and Trim at the playhead, the Text tab, and the
+  old `/motion/<id>` address redirecting.
+- **No watermark:** billing (32/32) and the API (30/30) check that Free
+  exports and Free API cutouts are 1,000px with no watermark
+  (`X-Isola-Watermark: false`), and docs (35/35) that the help centre says so.
+- **Model in pieces:** checked by hand against a server with no model file
+  (like Vercel): 4 MB pieces match the original bytes, an out-of-range request
+  gets 416, nothing is written to the server's disk, the checksum passes and
+  a guest's first removal takes 14 s including the download.
+- **Accessibility:** axe-core reports 0 violations on 66 pages and states
   (including all seven developer docs pages, /tools, the studio dashboard, its
   ⌘K palette and phone menu, the brand preset editor, the asset library empty
   and with details and a selection, a project board with its Review and
   History tabs, the new-project sheet, Trash and Downloads, Batch Studio in
-  the studio, Scene Studio's list, editor tabs and style picker, and every
-  Motion Studio workspace),
+  the studio, Scene Studio's list, editor tabs and style picker, every Motion
+  Studio inspector tab, Motion mode and library tab in light and dark, the
+  brand preset editor's tabs, the site search, and the guest screens: tries
+  used on the landing page, "Want to make more?", an image waiting for an
+  account and sign-up after free tries),
   including the editor with an image, the export dialog, the account page, the
   auth screens, and Batch Studio with images, the Export tab and the mobile
   settings drawer.
